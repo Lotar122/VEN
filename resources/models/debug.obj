@@ -1,0 +1,15 @@
+# Example OBJ file with invalid face
+
+# Vertices
+v 1.0 1.0 1.0
+
+# Texture coordinates
+vt 0.0 0.0
+
+# Normals
+vn 0.0 0.0 1.0
+vn 0.1 0.0 0.0
+vn 0.2 0.0 0.0
+
+# Faces
+f 1/1/1 1/1/2 1/1/3
