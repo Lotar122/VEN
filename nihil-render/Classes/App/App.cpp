@@ -2,18 +2,22 @@
 
 using namespace nihil;
 
-App::App(AppCreationArgs args)
+App::App(AppCreationArgs* args)
 {
-	glfwInit();
+	if (!glfwInit()) {
+		std::cerr << "Failed to initialize GLFW" << std::endl;
+		throw std::exception("Failed to initialize GLFW");
+	}
+	std::cout << "still here" << std::endl;
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	scene = new graphics::Scene();
 
-	this->engine = args.engine;
-	this->width = args.width;
-	this->height = args.height;
-	this->name = args.name;
+	this->engine = args->engine;
+	this->width = args->width;
+	this->height = args->height;
+	this->name = args->name;
 
 	get = new Proxy(
 		&width,
@@ -56,6 +60,7 @@ App::~App()
 	glfwTerminate();
 
 	delete scene;
+	delete get;
 }
 void App::handle()
 {

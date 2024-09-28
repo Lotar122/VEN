@@ -4,14 +4,13 @@
 #include "Classes/Model/Model.hpp"
 
 namespace nihil::graphics {
-	void Renderer::Draw(std::vector<nstd::Component>& modelArr)
+	void Renderer::Draw(Camera& camera)
 	{
+		if (lastFrameTime == std::chrono::steady_clock::time_point()) lastFrameTime = std::chrono::high_resolution_clock::now();
+		auto frameStartTime = std::chrono::high_resolution_clock::now();
+		auto elapsedTime = frameStartTime - lastFrameTime;
 		engine->logicalDevice.waitForFences(1, &swapchainBundle.frames[frameNumber].inFlightFence, VK_TRUE, UINT64_MAX);
 		uint32_t imageIndex{ 0 };
-
-		//vertexBuffer->Data[1] += nstd::USC::NDC_u(0.1, app->screenRatio, nstd::WidthHeightEnum::Height);
-
-		//vertexBuffer->refresh(vertexBuffer->Data);
 
 		try {
 			vk::ResultValue acquire = engine->logicalDevice.acquireNextImageKHR(swapchainBundle.swapchain, UINT64_MAX, swapchainBundle.frames[frameNumber].imageAvailable, nullptr);
@@ -26,8 +25,7 @@ namespace nihil::graphics {
 
 		commandBuffer.reset();
 
-		//recordDrawCommands(commandBuffer, imageIndex, modelArr);
-		executeCommandQueue(&engine->commandQueue, commandBuffer, imageIndex);
+		executeCommandQueue(&engine->commandQueue, commandBuffer, imageIndex, camera);
 
 		vk::SubmitInfo submitinfo = {};
 		vk::Semaphore waitSemaphores[] = { swapchainBundle.frames[frameNumber].imageAvailable };
@@ -46,8 +44,7 @@ namespace nihil::graphics {
 			graphicsQueue.submit(submitinfo, swapchainBundle.frames[frameNumber].inFlightFence);
 		}
 		catch (vk::SystemError err) {
-			std::cerr << "Failed to draw command buffer" << std::endl;
-			std::abort();
+			throw std::exception(err.what());
 		}
 		vk::PresentInfoKHR presentInfo = {};
 		presentInfo.waitSemaphoreCount = 1;
@@ -71,102 +68,50 @@ namespace nihil::graphics {
 		}
 
 		frameNumber = (frameNumber + 1) % maxFramesInFlight;
+
+		// Measure frame end time and calculate the time to sleep
+		auto frameEndTime = std::chrono::high_resolution_clock::now();
+		auto frameTime = frameEndTime - frameStartTime;
+
+		if (frameTime < engine->frameDuration) {
+			//std::this_thread::sleep_for(engine->frameDuration - frameTime);
+			std::cout << engine->frameDuration - frameTime << std::endl;
+		}
+
+		lastFrameTime = frameStartTime;
 	}
 	uint64_t count;
-	void Renderer::recordDrawCommands(vk::CommandBuffer& commandBuffer, uint32_t imageIndex, std::vector<nstd::Component>& modelArr)
+	void Renderer::executeCommandQueue(std::vector<DrawCommand>* commandQueue, vk::CommandBuffer& commandBuffer, uint32_t imageIndex, Camera& camera)
 	{
 		vk::CommandBufferBeginInfo beginInfo = {};
 		try {
 			commandBuffer.begin(beginInfo);
 		}
 		catch (vk::SystemError err) {
-			std::cerr << "Error whilst trying to start recording draw calls" << std::endl;
-			std::abort();
+			throw std::exception(err.what());
 		}
-
-		vk::RenderPassBeginInfo passInfo = {};
-		passInfo.renderPass = renderPass;
-		passInfo.framebuffer = swapchainBundle.frames[imageIndex].frameBuffer;
-		passInfo.renderArea.offset.x = 0;
-		passInfo.renderArea.offset.y = 0;
-		passInfo.renderArea.extent = swapchainBundle.extent;
-		vk::ClearValue clearValues[2];
-		clearValues[0].color = { 0.0f,0.0f,0.0f,1.0f };
-		clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0.0f);
-		passInfo.clearValueCount = 2;
-		passInfo.pClearValues = clearValues;
-
-		commandBuffer.beginRenderPass(passInfo, vk::SubpassContents::eInline);
-		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
-
-		if (*engine->app->get->width != viewport.width || *engine->app->get->height != viewport.height)
-		{
-			viewport = vk::Viewport(
-				0.0f, 0.0f,
-				static_cast<float>(*engine->app->get->width), static_cast<float>(*engine->app->get->height),
-				0.0f, 1.0f
-			);
-
-			scissor = vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(*engine->app->get->width, *engine->app->get->height));
-		}
-
-		commandBuffer.setViewport(0, 1, &viewport);
-		commandBuffer.setScissor(0, 1, &scissor);
-
-		//perform drawing for all models (change to the rendering objects later)
-		for (const nstd::Component& comp : modelArr)
-		{
-			Model* model = (Model*)comp.data.any;
-			//drawInstanced(model, commandBuffer, model->instanceBuffer);
-		}
-
-		/*Model* model = (Model*)modelArr[0].data.any;
-		vk::DeviceSize off[] =
-		{
-			0
-		};
-		commandBuffer.bindVertexBuffers(0, model->vBuffer->buffer.buffer, off);
-		commandBuffer.draw(3, 1, 1, 1);*/
-		commandBuffer.endRenderPass();
-		try {
-			commandBuffer.end();
-		}
-		catch (vk::SystemError err) {
-			std::cerr << "Error whilst ending the render pass" << std::endl;
-			std::abort();
-		}
-	}
-	void Renderer::executeCommandQueue(std::vector<DrawCommand>* commandQueue, vk::CommandBuffer& commandBuffer, uint32_t imageIndex)
-	{
-		vk::CommandBufferBeginInfo beginInfo = {};
-		try {
-			commandBuffer.begin(beginInfo);
-		}
-		catch (vk::SystemError err) {
-			std::cerr << "Error whilst trying to start recording draw calls" << std::endl;
-			std::abort();
-		}
-
-		vk::RenderPassBeginInfo passInfo = {};
-		passInfo.renderPass = renderPass;
-		passInfo.framebuffer = swapchainBundle.frames[imageIndex].frameBuffer;
-		passInfo.renderArea.offset.x = 0;
-		passInfo.renderArea.offset.y = 0;
-		passInfo.renderArea.extent = swapchainBundle.extent;
-		vk::ClearValue clearValues[2];
-		clearValues[0].color = { 0.0f,0.0f,0.0f,1.0f };
-		clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0.0f);
-		passInfo.clearValueCount = 2;
-		passInfo.pClearValues = clearValues;
-
-		commandBuffer.beginRenderPass(passInfo, vk::SubpassContents::eInline);
 
 		for (DrawCommand& command : *commandQueue)
 		{
+			vk::RenderPassBeginInfo passInfo = {};
+			passInfo.renderPass = engine->getPipeline(command.targetPipeline)->renderPass;
+			passInfo.framebuffer = swapchainBundle.frames[imageIndex].frameBuffer;
+			passInfo.renderArea.offset.x = 0;
+			passInfo.renderArea.offset.y = 0;
+			passInfo.renderArea.extent = swapchainBundle.extent;
+			vk::ClearValue clearValues[2];
+			clearValues[0].color = { 0.0f,0.0f,0.0f,1.0f };
+			clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0.0f);
+			passInfo.clearValueCount = 2;
+			passInfo.pClearValues = clearValues;
+
+			commandBuffer.beginRenderPass(passInfo, vk::SubpassContents::eInline);
+
 			if (command.commandType == CommandType::DrawInstanced)
 			{
 				InstancedDrawData data = *((InstancedDrawData*)command.data);
-				commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *(engine->getPipeline(command.targetPipeline)));
+				vk::Pipeline pipeline = engine->getPipeline(command.targetPipeline)->pipeline;
+				commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
 				if (*engine->app->get->width != viewport.width || *engine->app->get->height != viewport.height)
 				{
@@ -182,12 +127,13 @@ namespace nihil::graphics {
 				commandBuffer.setViewport(0, 1, &viewport);
 				commandBuffer.setScissor(0, 1, &scissor);
 
-				drawInstanced(data.model, commandBuffer, data.instanceBuffer);
+				drawInstanced(data.model, commandBuffer, data.instanceBuffer, engine->getPipeline(command.targetPipeline), &camera);
 			}
 			if (command.commandType == CommandType::DrawBuffer)
 			{
 				BufferDrawData data = *((BufferDrawData*)command.data);
-				commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *(engine->getPipeline(command.targetPipeline)));
+				vk::Pipeline pipeline = engine->getPipeline(command.targetPipeline)->pipeline;
+				commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
 				if (*engine->app->get->width != viewport.width || *engine->app->get->height != viewport.height)
 				{
@@ -203,12 +149,13 @@ namespace nihil::graphics {
 				commandBuffer.setViewport(0, 1, &viewport);
 				commandBuffer.setScissor(0, 1, &scissor);
 
-				drawBuffer(data.vertexBuffer, data.indexBuffer, commandBuffer);
+				drawBuffer(data.vertexBuffer, data.indexBuffer, commandBuffer, engine->getPipeline(command.targetPipeline), &camera);
 			}
 			if (command.commandType == CommandType::DrawModel)
 			{
 				ModelDrawData data = *((ModelDrawData*)command.data);
-				commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *(engine->getPipeline(command.targetPipeline)));
+				vk::Pipeline pipeline = engine->getPipeline(command.targetPipeline)->pipeline;
+				commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
 				if (*engine->app->get->width != viewport.width || *engine->app->get->height != viewport.height)
 				{
@@ -224,7 +171,7 @@ namespace nihil::graphics {
 				commandBuffer.setViewport(0, 1, &viewport);
 				commandBuffer.setScissor(0, 1, &scissor);
 
-				drawModel(data.model, commandBuffer);
+				drawModel(data.model, commandBuffer, engine->getPipeline(command.targetPipeline), &camera);
 			}
 		}
 
@@ -233,8 +180,7 @@ namespace nihil::graphics {
 			commandBuffer.end();
 		}
 		catch (vk::SystemError err) {
-			std::cerr << "Error whilst ending the render pass" << std::endl;
-			std::abort();
+			throw std::exception(err.what());
 		}
 
 		engine->commandQueue.clear();
@@ -244,6 +190,8 @@ namespace nihil::graphics {
 		Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* _vertexBuffer, 
 		Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* _indexBuffer, 
 		vk::CommandBuffer& _commandBuffer, 
+		PipelineBundle* pBundle,
+		Camera* camera,
 		Model* model
 	)
 	{
@@ -261,7 +209,7 @@ namespace nihil::graphics {
 
 		ObjectData data = {};
 
-		data.proj = glm::perspectiveRH(glm::radians(90.0f), (float)*engine->app->get->width / (float)*engine->app->get->height, 0.1f, 100.0f);
+		data.proj = camera->getMatrix();
 		data.pre = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 		data.pre = glm::rotate(data.pre, glm::radians(0.1f * count), glm::vec3(0.0f, 1.0f, 0.0f));
 		data.pre = glm::rotate(data.pre, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -278,6 +226,7 @@ namespace nihil::graphics {
 			data.pre = data.pre;
 		}
 
+		vk::PipelineLayout layout = pBundle->layout;
 		_commandBuffer.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(ObjectData), &data);
 
 		_commandBuffer.drawIndexed(static_cast<uint32_t>(_indexBuffer->Data.size()), 1, 0, 0, 0);
@@ -286,7 +235,9 @@ namespace nihil::graphics {
 	void Renderer::drawInstanced(
 		Model* model, 
 		vk::CommandBuffer& _commandBuffer, 
-		Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer
+		Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer,
+		PipelineBundle* pBundle,
+		Camera* camera
 	)
 	{
 		std::array<vk::Buffer, 2> vertexBuffers = {
@@ -305,25 +256,32 @@ namespace nihil::graphics {
 
 		ObjectData data = {};
 
-		std::cout << *engine->app->get->width << " " << *engine->app->get->height << (float)*engine->app->get->width / (float)*engine->app->get->height << std::endl;
+		std::cout << swapchainBundle.extent.width << " " << swapchainBundle.extent.height << " " << (float)swapchainBundle.extent.width / (float)swapchainBundle.extent.height << std::endl;
 
-		data.proj = glm::perspectiveRH(glm::radians(90.0f), (float)*engine->app->get->width / (float)*engine->app->get->height, 0.1f, 100.0f);
-		data.pre = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-		data.pre = glm::rotate(data.pre, glm::radians(0.1f * count), glm::vec3(1.0f, 1.0f, 0.0f));
-		data.pre = glm::rotate(data.pre, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		data.proj = camera->getMatrix();
+		data.proj[1][1] *= -1.0f;
+		data.view = glm::lookAtRH(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+		data.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -1.0f));
+		data.model = glm::rotate(data.model, glm::radians(0.1f * count), glm::vec3(1.0f, 1.0f, 0.0f));
+		data.model = glm::rotate(data.model, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
 		//remove later, only to make things smaller
-		data.pre = glm::scale(data.pre, glm::vec3(0.05f, 0.05f, 0.05f));
+		data.model = glm::scale(data.model, glm::vec3(0.05f, 0.05f, 0.05f));
 
 		data.pre = data.pre * model->deafultTransform;
 
+		vk::PipelineLayout layout = pBundle->layout;
 		_commandBuffer.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(ObjectData), &data);
 
-		_commandBuffer.drawIndexed(static_cast<uint32_t>(model->iBuffer->Data.size()), std::floor(instanceBuffer->Data.size() / 4), 0, 0, 0);
+		std::cout << std::floor(instanceBuffer->Data.size() / 16) << " floored shit " << instanceBuffer->Data.size() << std::endl;
+
+		_commandBuffer.drawIndexed(static_cast<uint32_t>(model->iBuffer->Data.size()), std::floor(instanceBuffer->Data.size() / 16), 0, 0, 0);
 	}
 	void Renderer::drawModel(
 		Model* model,
-		vk::CommandBuffer& _commandBuffer
+		vk::CommandBuffer& _commandBuffer,
+		PipelineBundle* pBundle,
+		Camera* camera
 	)
 	{
 		vk::Buffer vertexBuffers[] = {
@@ -340,7 +298,7 @@ namespace nihil::graphics {
 
 		ObjectData data = {};
 
-		data.proj = glm::perspectiveRH(glm::radians(90.0f), (float)*engine->app->get->width / (float)*engine->app->get->height, 0.1f, 100.0f);
+		data.proj = camera->getMatrix();
 		data.pre = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 		data.pre = glm::rotate(data.pre, glm::radians(0.1f * count), glm::vec3(0.0f, 1.0f, 0.0f));
 		data.pre = glm::rotate(data.pre, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -357,6 +315,7 @@ namespace nihil::graphics {
 			data.pre = data.pre;
 		}
 
+		vk::PipelineLayout layout = pBundle->layout;
 		_commandBuffer.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(ObjectData), &data);
 
 		_commandBuffer.drawIndexed(static_cast<uint32_t>(model->iBuffer->Data.size()), 1, 0, 0, 0);

@@ -1,5 +1,5 @@
 #include "nihil-render/nihil.hpp"
-#include "nihil-render/nihil-standard/nstd.hpp"
+#include "nihil-render/nstd/nstd.hpp"
 
 #include "Classes/Nihil/Nihil.hpp"
 
@@ -24,21 +24,21 @@ int main()
 
 	nihil::graphics::Engine* engine = new nihil::graphics::Engine(true);
 
-	nihil::AppCreationArgs appArgs = {};
-	appArgs.appVersion = appVersion;
-	appArgs.vulkanVersion = vulkanVersion;
-	appArgs.engine = engine;
+	nihil::AppCreationArgs* appArgs = new nihil::AppCreationArgs();
+	appArgs->appVersion = appVersion;
+	appArgs->vulkanVersion = vulkanVersion;
+	appArgs->engine = engine;
 
-	appArgs.name = "vis ex nihil";
-	appArgs.width = 1280;
-	appArgs.height = 720;
+	appArgs->name = "vis ex nihil";
+	appArgs->width = 1280;
+	appArgs->height = 720;
 
 	nihil::App* app = new nihil::App(appArgs);
 
 	nihil::graphics::Model* modelCarP = NULL;
 	nihil::graphics::Model* modelCubeP = NULL;
 
-	std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP](nihil::App* app, nihil::graphics::Engine* engine) {
+	//std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP](nihil::App* app, nihil::graphics::Engine* engine) {
 		engine->Setup();
 
 		std::vector<nihil::graphics::VertexAttribute> vAttrib(8);
@@ -62,7 +62,7 @@ int main()
 		vAttrib[3].format = vk::Format::eR32G32B32Sfloat;
 		vAttrib[3].offset = 8 * sizeof(float);
 
-
+		//matrix 4x4 (instancedata)
 		vAttrib[4].binding = 1;
 		vAttrib[4].location = 5;
 		vAttrib[4].format = vk::Format::eR32G32B32A32Sfloat;
@@ -101,9 +101,9 @@ int main()
 		engine->renderer->CreateShaderModule("./resources/Shaders/shaderF.spv", *engine->get->logicalDevice, &fragmentShader);
 
 		nihil::graphics::PipelineInfo pipelineInfo = engine->CreatePipelineConfiguration(vAttrib, bindingInfo, vertexShader, fragmentShader);
-		vk::Pipeline pipeline = engine->CreatePipeline(pipelineInfo);
+		nihil::graphics::PipelineBundle pipelineBundle = engine->CreatePipeline(pipelineInfo);
 
-		engine->registerPipeline(pipeline);
+		engine->registerPipeline(pipelineBundle);
 
 		glm::mat4 trans = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 		std::vector<float> instanceData(0);
@@ -134,13 +134,11 @@ int main()
 		nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> instanceBuffer(engine, instanceData);
 		nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> instanceBuffer2(engine, instanceData2);
 
-		nihil::graphics::Model* modelCar = new nihil::graphics::Model(engine, "./resources/models/cube.obj");
+		nihil::graphics::Model* modelCar = new nihil::graphics::Model(engine, "./resources/models/sphere.obj");
 		nihil::graphics::Model* modelCube = new nihil::graphics::Model(engine, "./resources/models/lambo.obj");
 
 		modelCarP = modelCar;
 		modelCubeP = modelCube;
-
-		std::cout << modelCarP->name.size() << " lenght of name roginal" << std::endl;
 
 		modelCar->setDeafultPipeline(0);
 		modelCar->setInstancedPipeline(0);
@@ -151,11 +149,17 @@ int main()
 		std::vector<nihil::nstd::Component> compArr;
 
 		//pipeline assignment
-		engine->renderer->pipeline = pipeline;
+		//engine->renderer->pipeline = pipeline;
+
+		nihil::engine::Object obj1;
+		obj1.setPosition(glm::vec3(2.0f, 0.0f, 1.0f));
+		obj1.model = modelCarP;
 
 		nihil::engine::Object obj2;
-		//obj2.setPosition(glm::vec3(0.0f, 0.0f, 1.0f));
+		obj2.setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
 		obj2.model = modelCarP;
+
+		nihil::graphics::Camera camera = {};
 
 
 		nihil::Nihil nihilO(engine);
@@ -163,35 +167,43 @@ int main()
 		uint64_t deleteDebug = 0;
 		while (!*(app->get->shouldClose))
 		{
+			//camera.setOrthographicProjection(-1, 1, -1, 1, engine);
+			camera.setPerspectiveProjection(glm::radians(90.0f), (float)engine->swapchain->extent.width / (float)engine->swapchain->extent.height, 0.1f, 100.0f);
+
+			if (camera.getMatrix() == glm::perspectiveRH(glm::radians(90.0f), (float)engine->swapchain->extent.width / (float)engine->swapchain->extent.height, 0.1f, 100.0f))
+			{
+				std::cout << "were lucky" << std::endl;
+			}
+
 			nihilO.queueDrawObject(&obj2);
 
-			nihilO.executeDraws();
+			nihilO.queueDrawObject(&obj1);
+
+			nihilO.executeDraws(camera);
 		}
-	}, app, engine);
+	//}, app, engine);
 
 	while (!*(app->get->shouldClose))
 	{
 		app->handle();
 	}
 
-	render.join();
+	//render.join();
 
 	delete modelCarP;
 	delete modelCubeP;
 	delete engine;
 	delete app;
 
-	std::cout << "noerror" << std::endl;
-
 	//i will work on memory leaks in the future. for now i will leave as is, same goes for vulkan resource managment.
 	_CrtMemCheckpoint(&sNew); //take a snapshot 
 	if (_CrtMemDifference(&sDiff, &sOld, &sNew)) // if there is a difference
 	{
-		OutputDebugString(L"-----------_CrtMemDumpStatistics ---------");
+		OutputDebugString("-----------_CrtMemDumpStatistics ---------");
 		_CrtMemDumpStatistics(&sDiff);
-		OutputDebugString(L"-----------_CrtMemDumpAllObjectsSince ---------");
+		OutputDebugString("-----------_CrtMemDumpAllObjectsSince ---------");
 		_CrtMemDumpAllObjectsSince(&sOld);
-		OutputDebugString(L"-----------_CrtDumpMemoryLeaks ---------");
+		OutputDebugString("-----------_CrtDumpMemoryLeaks ---------");
 		_CrtDumpMemoryLeaks();
 	}
 

@@ -33,6 +33,8 @@
 
 #include "Classes/Commands/Command.hpp"
 
+#include "Classes/Camera/Camera.hpp"
+
 namespace nihil::graphics {
 
     enum class ResourceType {
@@ -74,7 +76,7 @@ namespace nihil::graphics {
 		App* app = NULL;
 		bool shouldClose = false;
 		bool debug = false;
-        Renderer* renderer;
+        Renderer* renderer = NULL;
 
 		Engine(bool _debug);
 		Engine();
@@ -89,7 +91,7 @@ namespace nihil::graphics {
 
 		nstd::OBJ objobject;
 
-		void Draw(std::vector<nstd::Component>& modelArr);
+		void Draw(Camera& camera);
 
 		inline uint32_t GetFormatLenght(vk::Format format)
 		{
@@ -248,14 +250,15 @@ namespace nihil::graphics {
 		}
 
         PipelineInfo CreatePipelineConfiguration(std::vector<VertexAttribute> attributes, std::vector<VertexBindingInformation> bindingInfo, vk::ShaderModule* vertexShader, vk::ShaderModule* fragmentShader);
-        vk::Pipeline CreatePipeline(PipelineInfo pipelineInfoN);
+        PipelineBundle CreatePipeline(PipelineInfo pipelineInfoN);
 
-        uint32_t registerPipeline(vk::Pipeline pipeline);
-        vk::Pipeline* getPipeline(uint32_t index);
+        uint32_t registerPipeline(PipelineBundle pipeline);
+        PipelineBundle* getPipeline(uint32_t index);
 
         void registerObjectForDeletion(BufferBase* buffer);
         void registerObjectForDeletion(vk::Image image);
         void registerObjectForDeletion(vk::ImageView imageView);
+        void registerObjectForDeletion(vk::DeviceMemory memory);
         void registerObjectForDeletion(vk::ShaderModule shaderModule);
         void registerObjectForDeletion(vk::PipelineLayout pipelineLayout);
         void registerObjectForDeletion(vk::RenderPass renderPass);
@@ -274,16 +277,29 @@ namespace nihil::graphics {
             Model* model,
             uint32_t pipeline
         );
+
+        vk::RenderPass renderPass;
+
+        int targetFPS = 120;
+        std::chrono::microseconds frameDuration = std::chrono::microseconds(1000000 / targetFPS);
+
+        SwapChainBundle* swapchain;
+
+        inline float getAspectRatio() const {
+            return (float)swapchain->extent.width / (float)swapchain->extent.height;
+        }
 	private:
         std::vector<BufferBase*> bufferStorage;
         std::vector<vk::Image> imageStorage;
         std::vector<vk::ImageView> imageViewStorage;
+        std::vector<vk::DeviceMemory> memoryStorage;
         std::vector<vk::ShaderModule> shaderModuleStorage;
         std::vector<vk::PipelineLayout> pipelineLayoutStorage;
         std::vector<vk::RenderPass> renderPassStorage;
-        std::vector<vk::Pipeline> pipelineStorage;
+        std::vector<PipelineBundle> pipelineStorage;
 
         nstd::PtrManagerClass commandDataManager;
+        nstd::PtrManagerClass shaderManager;
 		/*
 		* @brief Creates a Vulkan Instance
 		*
@@ -319,6 +335,8 @@ namespace nihil::graphics {
 		* @return None
 		*/
 		void CreateVulkanQueues();
+
+        void CreateRenderPass(SwapChainBundle* swapchainBundle);
 
 		vk::Instance instance;
 		vk::PhysicalDevice device;

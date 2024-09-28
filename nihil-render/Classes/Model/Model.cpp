@@ -1,6 +1,6 @@
 #include "Model.hpp"
 #include "Classes/Engine/Engine.hpp"
-#include "nihil-standard/nstd.hpp"
+#include "nstd/nstd.hpp"
 
 namespace nihil::graphics {
 	Model::Model(Engine* _engine, glm::mat4 _deafultTransform)
@@ -31,6 +31,12 @@ namespace nihil::graphics {
 
 		vBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
 		iBuffer = new Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
+	}
+
+	Model::~Model()
+	{
+		delete vBuffer;
+		delete iBuffer;
 	}
 
 	//, Buffer<InstanceData, vk::BufferUsageFlagBits::eVertexBuffer>* _instanceBuffer

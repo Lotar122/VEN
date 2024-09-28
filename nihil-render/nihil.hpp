@@ -1,8 +1,8 @@
 #pragma once
 
-#include "thirdparty/include/vulkan/vulkan.hpp"
+#include <vulkan/vulkan.hpp>
 #define GLFW_INCLUDE_VULKAN
-#include "thirdparty/include/GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
 
 #include "Classes/App/App.hpp"
 #include "Classes/Buffer/Buffer.hpp"
@@ -18,8 +18,8 @@
 #include "Classes/Scene/Scene.hpp"
 #include "Classes/SPIRV/SPIRV.hpp"
 
-#include "thirdparty/include/glm/glm.hpp"
-#include "nihil-standard/nstd.hpp"
+#include "glm/glm.hpp"
+#include "nstd/nstd.hpp"
 
 #include "implicit_cast.hpp"
 #include "TerminalColors.hpp"

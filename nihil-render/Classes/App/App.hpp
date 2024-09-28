@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 #include "Classes/Scene/Scene.hpp"
 #include "Classes/Engine/Engine.Structs.InData.hpp"
-#include "nihil-standard/nstd.hpp"
+#include "nstd/nstd.hpp"
 
 #include <iostream>
 
@@ -81,7 +81,7 @@ namespace nihil {
 	public:
 		nstd::ScreenRatio screenRatio;
 		Proxy* get;
-		App(AppCreationArgs args);
+		App(AppCreationArgs* args);
 		~App();
 
 		void handle();

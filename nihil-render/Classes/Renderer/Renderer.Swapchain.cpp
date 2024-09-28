@@ -22,7 +22,7 @@ namespace nihil::graphics {
 				break;
 			}
 		}
-		if (!set1) { if (support.formats.size() > 0) { surfaceFormat = support.formats[0]; } else { std::abort(); } }
+		if (!set1) { if (support.formats.size() > 0) { surfaceFormat = support.formats[0]; } else { throw std::exception("Couldn't find a supported surface format."); } }
 
 		bool set2 = false;
 		for (const vk::PresentModeKHR& pForm : support.presentModes)
@@ -97,11 +97,12 @@ namespace nihil::graphics {
 			swapchainBundle.swapchain = engine->logicalDevice.createSwapchainKHR(createInfo);
 		}
 		catch (vk::SystemError err) {
-			std::abort();
+			throw std::exception(err.what());
 		}
 
 		swapchainBundle.format = createInfo.imageFormat;
 		swapchainBundle.extent = createInfo.imageExtent;
+		engine->CreateRenderPass(&swapchainBundle);
 	}
 
 	void Renderer::RecreateSwapchain()
@@ -150,8 +151,7 @@ namespace nihil::graphics {
 			commandPool = engine->logicalDevice.createCommandPool(commandPoolInfo);
 		}
 		catch (vk::SystemError err) {
-			std::cerr << "Error whilst creating the command pool" << std::endl;
-			std::abort();
+			throw std::exception(err.what());
 		}
 	}
 
@@ -168,16 +168,14 @@ namespace nihil::graphics {
 				frame.imageAvailable = engine->logicalDevice.createSemaphore(semaphoreCreateInfo);
 			}
 			catch (vk::SystemError err) {
-				std::cerr << "Error whilst creating a semaphore" << std::endl;
-				std::abort();
+				throw std::exception(err.what());
 			}
 
 			try {
 				frame.renderFinished = engine->logicalDevice.createSemaphore(semaphoreCreateInfo);
 			}
 			catch (vk::SystemError err) {
-				std::cerr << "Error whilst creating a semaphore" << std::endl;
-				std::abort();
+				throw std::exception(err.what());
 			}
 
 			//create a fence
@@ -188,8 +186,7 @@ namespace nihil::graphics {
 				frame.inFlightFence = engine->logicalDevice.createFence(fenceCreateInfo);
 			}
 			catch (vk::SystemError err) {
-				std::cerr << "Error whilst creating a fence" << std::endl;
-				std::abort();
+				std::exception(err.what());
 			}
 		}
 	}
@@ -208,8 +205,7 @@ namespace nihil::graphics {
 				swapchainBundle.frames[i].commandBuffer = engine->logicalDevice.allocateCommandBuffers(commandBufferAllocInfo)[0];
 			}
 			catch (vk::SystemError err) {
-				std::cerr << "Error whilst allocating command buffers" << std::endl;
-				std::abort();
+				throw std::exception(err.what());
 			}
 		}
 	}
@@ -226,8 +222,7 @@ namespace nihil::graphics {
 			commandBuffer = engine->logicalDevice.allocateCommandBuffers(commandBufferAllocInfo)[0];
 		}
 		catch (vk::SystemError err) {
-			std::cerr << "Error whilst allocating the main command buffer" << std::endl;
-			std::abort();
+			throw std::exception(err.what());
 		}
 	}
 
@@ -242,7 +237,7 @@ namespace nihil::graphics {
 			};
 			vk::FramebufferCreateInfo framebufferInfo = {};
 			framebufferInfo.flags = vk::FramebufferCreateFlags();
-			framebufferInfo.renderPass = renderPass;
+			framebufferInfo.renderPass = engine->renderPass;
 			framebufferInfo.attachmentCount = attachments.size();
 			framebufferInfo.width = swapchainBundle.extent.width;
 			framebufferInfo.height = swapchainBundle.extent.height;
@@ -252,9 +247,8 @@ namespace nihil::graphics {
 			try {
 				swapchainBundle.frames[i].frameBuffer = engine->logicalDevice.createFramebuffer(framebufferInfo);
 			}
-			catch (vk::SystemError) {
-				std::cerr << "Error whilst creating a framebuffer" << std::endl;
-				std::abort();
+			catch (vk::SystemError err) {
+				throw std::exception(err.what());
 			}
 		}
 	}
@@ -283,6 +277,7 @@ namespace nihil::graphics {
 			);
 
 			frame.depthBuffer = engine->logicalDevice.createImage(depthImageCreateInfo);
+			//engine->registerObjectForDeletion(frame.depthBuffer);
 
 			// Allocate memory for the depth image
 			vk::MemoryRequirements memRequirements = engine->logicalDevice.getImageMemoryRequirements(frame.depthBuffer);
@@ -307,6 +302,7 @@ namespace nihil::graphics {
 			);
 
 			frame.depthBufferView = engine->logicalDevice.createImageView(depthImageViewCreateInfo);
+			//engine->registerObjectForDeletion(frame.depthBufferView);
 		}
 	}
 

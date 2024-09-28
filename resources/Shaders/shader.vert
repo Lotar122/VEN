@@ -24,6 +24,8 @@ layout(location = 8) in vec4 instance4x4;
 layout(push_constant) uniform constants {
     mat4 pre;
     mat4 proj;
+    mat4 view;
+    mat4 model;
 } ObjectData;
 
 bool quad = false;
@@ -38,7 +40,7 @@ void main()
     );
 
     //instanceMatrix behaves as model matrix
-	gl_Position = ObjectData.proj * ObjectData.pre * vec4(vertexPosition, 1.0);
+	gl_Position = ObjectData.proj * ObjectData.view * ObjectData.model * instanceMatrix * vec4(vertexPosition, 1.0);
 	colorInt = vec4(colorInput, 1.0);
 
     if(quad)

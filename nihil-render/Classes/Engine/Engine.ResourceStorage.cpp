@@ -25,4 +25,8 @@ namespace nihil::graphics {
     {
         renderPassStorage.push_back(renderPass);
     }
+    void Engine::registerObjectForDeletion(vk::DeviceMemory memory)
+    {
+        memoryStorage.push_back(memory);
+    }
 }

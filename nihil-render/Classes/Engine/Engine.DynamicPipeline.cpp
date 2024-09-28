@@ -93,16 +93,15 @@ namespace nihil::graphics
 		return out;
 	}
 
-	vk::Pipeline Engine::CreatePipeline(PipelineInfo pipelineInfoN)
+	PipelineBundle Engine::CreatePipeline(PipelineInfo pipelineInfoN)
 	{
 		vk::GraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.flags = vk::PipelineCreateFlags();
 		std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
 		vk::PipelineLayout layout;
 		vk::Pipeline pipeline;
-		vk::RenderPass renderPass;
 
-		PipelineAndRenderPass out;
+		PipelineBundle out;
 
 		/*
 		* create bindings for a mat4 by making 4 vec4, make sure to add offsets
@@ -248,89 +247,15 @@ namespace nihil::graphics
 		try {
 			layout = this->logicalDevice.createPipelineLayout(layoutInfo);
 		}
-		catch (vk::SystemError) {
+		catch (vk::SystemError err) {
 			std::cout << RED << "[###]" << RESET << std::endl;
 			this->error = true;
 			this->finishPipelineSetup();
-			std::abort();
+			throw std::exception(err.what());
 		}
 		std::cout << GREEN << "[###]" << RESET << std::endl;
 
-		if (this->debug) std::cout << YELLOW << "[Setup]" << MAGENTA << "->" << YELLOW << "[Pipeline]" << RESET << "Creating a renderpass ";
 		
-		std::vector<vk::AttachmentDescription> renderPassAttachments;
-		
-		//Create render pass (move to a seperate function in future)
-		//in class declaration: vk::RenderPass renderPass;
-		vk::AttachmentDescription colorAttachment = {};
-		colorAttachment.flags = vk::AttachmentDescriptionFlags();
-		colorAttachment.format = renderer->swapchainBundle.format;
-		colorAttachment.samples = vk::SampleCountFlagBits::e1;
-		colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
-		colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
-		colorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-		colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-		colorAttachment.initialLayout = vk::ImageLayout::eUndefined;
-		colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
-
-		renderPassAttachments.push_back(colorAttachment);
-
-		renderer->swapchainBundle.depthFormat = vk::Format::eD32Sfloat;
-
-		vk::AttachmentDescription depthAttachment = {};
-		depthAttachment.format = renderer->swapchainBundle.depthFormat;
-		depthAttachment.samples = vk::SampleCountFlagBits::e1;
-		depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
-		depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
-		depthAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-		depthAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-		depthAttachment.initialLayout = vk::ImageLayout::eUndefined;
-		depthAttachment.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-
-		renderPassAttachments.push_back(depthAttachment);
-
-		vk::AttachmentReference colorAttachmentRef = {};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
-
-		vk::AttachmentReference depthAttachmentRef = {};
-		depthAttachmentRef.attachment = 1;
-		depthAttachmentRef.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-
-		vk::SubpassDescription subpass = {};
-		subpass.flags = vk::SubpassDescriptionFlags();
-		subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-		vk::SubpassDependency dependency(
-			VK_SUBPASS_EXTERNAL, 0,
-			vk::PipelineStageFlagBits::eEarlyFragmentTests,
-			vk::PipelineStageFlagBits::eLateFragmentTests,
-			vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-			vk::AccessFlagBits::eDepthStencilAttachmentRead
-		);
-
-		vk::RenderPassCreateInfo renderpassInfo = {};
-		renderpassInfo.flags = vk::RenderPassCreateFlags();
-		renderpassInfo.attachmentCount = renderPassAttachments.size();
-		renderpassInfo.pAttachments = renderPassAttachments.data();
-		renderpassInfo.subpassCount = 1;
-		renderpassInfo.pSubpasses = &subpass;
-		renderpassInfo.dependencyCount = 1;
-		renderpassInfo.pDependencies = &dependency;
-
-		try {
-			renderPass = this->logicalDevice.createRenderPass(renderpassInfo);
-		}
-		catch (vk::SystemError) {
-			std::cerr << RED << "[###]" << RESET << std::endl;
-			this->error = true;
-			this->finishPipelineSetup();
-			std::abort();
-		}
-		std::cout << GREEN << "[###]" << RESET << std::endl;
 
 		//finish pipeline creation
 		pipelineInfo.layout = layout;
@@ -343,34 +268,34 @@ namespace nihil::graphics
 		catch (vk::SystemError err) {
 			this->error = true;
 			this->finishPipelineSetup();
-			std::abort();
+			throw std::exception(err.what());
 		}
 		this->finishPipelineSetup();
 
 		out.renderPass = renderPass;
 		out.pipeline = pipeline;
+		out.layout = layout;
 
 		registerObjectForDeletion(layout);
 		registerObjectForDeletion(renderPass);
 		registerObjectForDeletion(*pipelineInfoN.fragmentShader);
 		registerObjectForDeletion(*pipelineInfoN.vertexShader);
 
-		return pipeline;
+		return out;
 	}
 
-	uint32_t Engine::registerPipeline(vk::Pipeline pipeline)
+	uint32_t Engine::registerPipeline(PipelineBundle pipeline)
 	{
 		uint32_t index = pipelineStorage.size();
 		pipelineStorage.push_back(pipeline);
 		if (pipeline != pipelineStorage[index])
 		{
-			std::cerr << "An unexpected error occured" << std::endl;
-			std::abort();
+			throw std::exception("An unexpected error occured during registering the pipeline");
 		}
 		return index;
 	}
 
-	vk::Pipeline* Engine::getPipeline(uint32_t index)
+	PipelineBundle* Engine::getPipeline(uint32_t index)
 	{
 		return &(pipelineStorage[index]);
 	}

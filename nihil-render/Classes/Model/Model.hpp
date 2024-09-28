@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nihil-standard/nstd.hpp"
+#include "nstd/nstd.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vulkan/vulkan.hpp>
@@ -32,6 +32,8 @@ namespace nihil::graphics {
 		Model(Engine* _engine, glm::mat4 _deafultTransform = glm::mat4(1.0f));
 
 		Model(Engine* _engine, const std::string path, glm::mat4 _deafultTransform = glm::mat4(1.0f));
+
+		~Model();
 
 		void Load(const std::string path);
 

@@ -35,7 +35,7 @@ namespace nihil::graphics {
 		engine->finishPrimarySetup();
 
 		//customize shaders in future with the component system
-		PipelineSetup();
+		//PipelineSetup();
 
 		createCommandPools();
 		createFrameCommandBuffers();
@@ -51,15 +51,9 @@ namespace nihil::graphics {
 	Renderer::~Renderer() 
 	{
 		copyLogicalDevice.waitIdle();
-		copyLogicalDevice.destroyShaderModule(*vertexShader);
-		copyLogicalDevice.destroyShaderModule(*fragmentShader);
 		copyLogicalDevice.destroyCommandPool(commandPool);
 
-		copyLogicalDevice.destroyPipeline(pipeline);
-		copyLogicalDevice.destroyPipelineLayout(layout);
-		copyLogicalDevice.destroyRenderPass(renderPass);
-
-		destroySwapchain();
+		//destroySwapchain();
 
 		//REMEMBER
 		//undestroyed resources, unfinished setups, ETC.

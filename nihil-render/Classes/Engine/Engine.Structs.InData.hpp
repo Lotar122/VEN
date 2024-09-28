@@ -43,9 +43,19 @@ namespace nihil::graphics {
 		vk::ShaderModule* vertexShader;
 		vk::ShaderModule* fragmentShader;
 	};
-	struct PipelineAndRenderPass {
+	struct PipelineBundle {
 		vk::Pipeline pipeline;
 		vk::RenderPass renderPass;
+		vk::PipelineLayout layout;
+
+		bool operator==(const PipelineBundle& other) const 
+		{
+			return this->pipeline == other.pipeline && this->layout == other.layout && this->renderPass == other.renderPass;
+		}
+		bool operator!=(const PipelineBundle& other) const
+		{
+			return !(this->pipeline == other.pipeline && this->layout == other.layout && this->renderPass == other.renderPass);
+		}
 	};
 
 	struct VulkanInstanceCreateInfo {

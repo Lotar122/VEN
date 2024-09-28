@@ -3,6 +3,10 @@
 #define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
 
+//this allows for push constants which are 256B
+//without it the engine will deafult to 128B push constants, which dont really work. but are needed for weaker gpus
+#define BIG_PUSH_CONSTANTS
+
 #ifdef BIG_PUSH_CONSTANTS
 namespace nihil::graphics {
 	//pack the data

@@ -3,15 +3,14 @@
 #include "Classes/Object/Object.hpp"
 #include "Classes/WorkCommand/WorkCommand.hpp"
 #include "nihil-render/nihil.hpp"
+#include "Classes/Camera/Camera.hpp"
 
 #include <unordered_map>
 #include <set>
 #include <algorithm>
+#include <mutex>
 
-void deleteQueueDrawCommandData(void* x)
-{
-	delete (nihil::engine::QueueDrawCommandData*)x;
-}
+void deleteQueueDrawCommandData(void* x);
 
 namespace nihil {
 	class Nihil 
@@ -46,6 +45,6 @@ namespace nihil {
 			duo[0] = static_cast<uint32_t>(_duo & 0xFFFFFFFF);         // Extract lower 32 bits
 			duo[1] = static_cast<uint32_t>((_duo >> 32) & 0xFFFFFFFF); // Extract upper 32 bits
 		}
-		void executeDraws();
+		void executeDraws(graphics::Camera& camera);
 	};
 }

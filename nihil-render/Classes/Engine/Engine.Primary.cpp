@@ -42,7 +42,7 @@ void Engine::CreateVulkanInstance(VulkanInstanceCreateInfo createInfo) {
 		instance = vk::createInstance(VKCreateInfo);
 	}
 	catch (vk::SystemError err) {
-		std::abort();
+		throw std::exception(err.what());
 	}
 }
 
@@ -59,7 +59,7 @@ void Engine::PickPhysicalDevice()
 		}
 	}
 	if (!foundDevice) {
-		std::abort();
+		throw std::exception("Couldn't find a suitable device");
 	}
 }
 
@@ -129,7 +129,7 @@ void Engine::CreateVulkanLogicalDevice()
 		logicalDevice = device.createDevice(deviceInfo);
 	}
 	catch (vk::SystemError err) {
-		std::abort();
+		throw std::exception(err.what());
 	}
 
 	graphicsQueue = logicalDevice.getQueue(famind.graphics.value(), 0);

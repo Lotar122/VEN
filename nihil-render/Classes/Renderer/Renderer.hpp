@@ -2,10 +2,12 @@
 
 #include <iostream>
 #include "Classes/Engine/Engine.Structs.InData.hpp"
-#include "nihil-standard/nstd.hpp"
+#include "nstd/nstd.hpp"
 #include "Classes/Buffer/Buffer.hpp"
 #include "Classes/InstanceData/InstanceData.hpp"
 #include "Classes/Commands/Command.hpp"
+
+#include "Classes/Camera/Camera.hpp"
 
 namespace nihil::graphics {
 	class Engine;
@@ -22,11 +24,29 @@ namespace nihil::graphics {
 		void CreateShaderModule(std::string filepath, vk::Device device, vk::ShaderModule** ppShaderModule);
 
 		//Draw
-		void Draw(std::vector<nstd::Component>& modelArr);
+		void Draw(Camera& camera);
 
-		void drawInstanced(Model* model, vk::CommandBuffer& _commandBuffer, Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer);
-		void drawModel(Model* model, vk::CommandBuffer& _commandBuffer);
-		void drawBuffer(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* vertexBuffer, Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* indexBuffer, vk::CommandBuffer& _commandBuffer, Model* model = NULL);
+		void drawInstanced(
+			Model* model,
+			vk::CommandBuffer& _commandBuffer,
+			Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer,
+			PipelineBundle* pBundle,
+			Camera* camera
+		);
+		void drawModel(
+			Model* model,
+			vk::CommandBuffer& _commandBuffer,
+			PipelineBundle* pBundle,
+			Camera* camera
+		);
+		void drawBuffer(
+			Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* _vertexBuffer,
+			Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* _indexBuffer,
+			vk::CommandBuffer& _commandBuffer,
+			PipelineBundle* pBundle,
+			Camera* camera,
+			Model* model = NULL
+		);
 
 		nstd::OBJ* objobject;
 	private:
@@ -51,10 +71,6 @@ namespace nihil::graphics {
 		* @return None
 		*/
 		void CreateImageViews();
-		//sets up the basic pipeline
-		void PipelineSetup();
-		//records draw commands
-		void recordDrawCommands(vk::CommandBuffer& commandBuffer, uint32_t imageIndex, std::vector<nstd::Component>& modelArr);
 		//destroy the swapchain
 		void destroySwapchain();
 		//create the flow-control
@@ -72,7 +88,7 @@ namespace nihil::graphics {
 		//reacreate swapchain
 		void RecreateSwapchain();
 
-		void executeCommandQueue(std::vector<DrawCommand>* commandQueue, vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+		void executeCommandQueue(std::vector<DrawCommand>* commandQueue, vk::CommandBuffer& commandBuffer, uint32_t imageIndex, Camera& camera);
 
 		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
@@ -92,15 +108,8 @@ namespace nihil::graphics {
 		SwapChainBundle swapchainBundle{};
 
 		uint32_t imageCount;
-
-		vk::ShaderModule* vertexShader = NULL;
-		vk::ShaderModule* fragmentShader = NULL;
-
-		vk::PipelineLayout layout;
-	public:
-		vk::Pipeline pipeline;
-		vk::RenderPass renderPass;
 	private:
+		std::chrono::steady_clock::time_point lastFrameTime{};
 
 		vk::CommandPool commandPool;
 		vk::CommandBuffer commandBuffer;
@@ -114,7 +123,7 @@ namespace nihil::graphics {
 
 		SwapchainConfiguration swapchainConfiguration;
 
-		//can only be used for resource deletion in the constructor!!!
+		//can only be used for resource deletion in the destructor!!!
 		vk::Device copyLogicalDevice;
 	};
 }
