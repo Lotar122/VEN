@@ -40,7 +40,7 @@ void main()
     );
 
     //instanceMatrix behaves as model matrix
-	gl_Position = ObjectData.proj * ObjectData.view * ObjectData.model * instanceMatrix * vec4(vertexPosition, 1.0);
+	gl_Position = ObjectData.proj * ObjectData.view * instanceMatrix * vec4(vertexPosition, 1.0);
 	colorInt = vec4(colorInput, 1.0);
 
     if(quad)

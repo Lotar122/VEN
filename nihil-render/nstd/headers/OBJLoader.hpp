@@ -887,10 +887,15 @@ namespace nihil {
                 //apply USC
                 for (int i = 0; i < verticesRender.size(); i += 11)
                 {
-                    //verticesRender[i] = USC::NDC_u(verticesRender[i] * 1000, screenRatio, WidthHeightEnum::Width);
-                    //verticesRender[i + 1] = USC::NDC_u(verticesRender[i + 1] * 1000, screenRatio, WidthHeightEnum::Height);
-                    //verticesRender[i + 2] = USC::NDC_u(verticesRender[i + 2] * 1000, screenRatio, WidthHeightEnum::Depth);
+                    verticesRender[i] = USC::NDC_u(verticesRender[i] * 1000, screenRatio, WidthHeightEnum::Width);
+                    verticesRender[i + 1] = USC::NDC_u(verticesRender[i + 1] * 1000, screenRatio, WidthHeightEnum::Height);
+                    verticesRender[i + 2] = USC::NDC_u(verticesRender[i + 2] * 1000, screenRatio, WidthHeightEnum::Depth);
                 }
+            }
+
+            void loadObjFile()
+            {
+
             }
 
             void Load(std::string path, LoadBinObj whatToLoad, ScreenRatio screenRatio)

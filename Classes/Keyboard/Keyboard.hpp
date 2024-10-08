@@ -78,20 +78,76 @@ namespace nihil
 		Keyboard(App* app);
 	};
 
-	void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		Keyboard* keyboard = static_cast<Keyboard*>(glfwGetWindowUserPointer(window));
 		if (action == GLFW_PRESS) {
 			switch (key) {
 			case GLFW_KEY_Q:
 				keyboard->setKeyState(Key::q, true);
+				break;
+			case GLFW_KEY_LEFT:
+				keyboard->setKeyState(Key::ArrowLeft, true);
+				break;
+			case GLFW_KEY_RIGHT:
+				keyboard->setKeyState(Key::ArrowRight, true);
+				break;
+			case GLFW_KEY_DOWN:
+				keyboard->setKeyState(Key::ArrowDown, true);
+				break;
+			case GLFW_KEY_UP:
+				keyboard->setKeyState(Key::ArrowUp, true);
+				break;
+			case GLFW_KEY_W:
+				keyboard->setKeyState(Key::w, true);
+				break;
+			case GLFW_KEY_S:
+				keyboard->setKeyState(Key::s, true);
+				break;
+			case GLFW_KEY_A:
+				keyboard->setKeyState(Key::a, true);
+				break;
+			case GLFW_KEY_D:
+				keyboard->setKeyState(Key::d, true);
+				break;
 			default:
 
 				break;
 			}
 		}
 		else if (action == GLFW_RELEASE) {
-			std::cout << "Key released: " << key << std::endl;
+			switch (key) {
+			case GLFW_KEY_Q:
+				keyboard->setKeyState(Key::q, false);
+				break;
+			case GLFW_KEY_LEFT:
+				keyboard->setKeyState(Key::ArrowLeft, false);
+				break;
+			case GLFW_KEY_RIGHT:
+				keyboard->setKeyState(Key::ArrowRight, false);
+				break;
+			case GLFW_KEY_DOWN:
+				keyboard->setKeyState(Key::ArrowDown, false);
+				break;
+			case GLFW_KEY_UP:
+				keyboard->setKeyState(Key::ArrowUp, false);
+				break;
+			case GLFW_KEY_W:
+				keyboard->setKeyState(Key::w, false);
+				break;
+			case GLFW_KEY_S:
+				keyboard->setKeyState(Key::s, false);
+				break;
+			case GLFW_KEY_A:
+				keyboard->setKeyState(Key::a, false);
+				break;
+			case GLFW_KEY_D:
+				keyboard->setKeyState(Key::d, false);
+				break;
+			default:
+
+				break;
+			}
 		}
 		else if (action == GLFW_REPEAT) {
 			std::cout << "Key repeated: " << key << std::endl;

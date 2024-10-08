@@ -1,15 +1,18 @@
 #include "Engine.hpp"
 
-void deleteInstancedDrawData(void* x)
+static void deleteInstancedDrawData(void* x)
 {
+	std::cout << "instanced draw deleting" << std::endl;
 	delete (nihil::graphics::InstancedDrawData*)x;
 }
-void deleteBufferDrawData(void* x)
+static void deleteBufferDrawData(void* x)
 {
+	std::cout << "buffer draw deleting" << std::endl;
 	delete (nihil::graphics::BufferDrawData*)x;
 }
-void deleteModelDrawData(void* x)
+static void deleteModelDrawData(void* x)
 {
+	std::cout << "model draw deleting" << std::endl;
 	delete (nihil::graphics::ModelDrawData*)x;
 }
 
@@ -21,10 +24,9 @@ namespace nihil::graphics
 		uint32_t pipeline
 	)
 	{
-		nstd::PtrManagerDeleteFunction deleteFN = deleteInstancedDrawData;
-		commandDataManager.registerType(typeid(InstancedDrawData*), deleteFN);
-
-		InstancedDrawData* data = new InstancedDrawData();
+		InstancedDrawData* data = commandDataManager.allocate<InstancedDrawData>();
+		*data = InstancedDrawData();
+		std::cout << "DataP: " << data << std::endl;
 		data->model = model;
 		data->instanceBuffer = instanceBuffer;
 
@@ -34,8 +36,6 @@ namespace nihil::graphics
 		drawCommand.targetPipeline = pipeline;
 
 		commandQueue.push_back(drawCommand);
-
-		commandDataManager.addPointer(typeid(InstancedDrawData*), (void*)data);
 	}
 
 	void Engine::queueBufferDraw(
@@ -44,10 +44,8 @@ namespace nihil::graphics
 		uint32_t pipeline
 	)
 	{
-		nstd::PtrManagerDeleteFunction deleteFN = deleteBufferDrawData;
-		commandDataManager.registerType(typeid(BufferDrawData*), deleteFN);
-
-		BufferDrawData* data = new BufferDrawData();
+		BufferDrawData* data = commandDataManager.allocate<BufferDrawData>();
+		*data = BufferDrawData();
 		data->indexBuffer = indexBuffer;
 		data->vertexBuffer = vertexBuffer;
 
@@ -57,8 +55,6 @@ namespace nihil::graphics
 		drawCommand.targetPipeline = pipeline;
 
 		commandQueue.push_back(drawCommand);
-
-		commandDataManager.addPointer(typeid(BufferDrawData*), (void*)data);
 	}
 
 	void Engine::queueModelDraw(
@@ -66,10 +62,8 @@ namespace nihil::graphics
 		uint32_t pipeline
 	)
 	{
-		nstd::PtrManagerDeleteFunction deleteFN = deleteModelDrawData;
-		commandDataManager.registerType(typeid(ModelDrawData*), deleteFN);
-
-		ModelDrawData* data = new ModelDrawData();
+		ModelDrawData* data = commandDataManager.allocate<ModelDrawData>();
+		*data = ModelDrawData();
 		data->model = model;
 
 		DrawCommand drawCommand = {};
@@ -78,7 +72,5 @@ namespace nihil::graphics
 		drawCommand.targetPipeline = pipeline;
 
 		commandQueue.push_back(drawCommand);
-
-		commandDataManager.addPointer(typeid(ModelDrawData*), (void*)data);
 	}
 }

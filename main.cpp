@@ -8,6 +8,40 @@
 #include <stdlib.h>  
 #include <crtdbg.h>   //for malloc and free
 
+#include <windows.h>
+#include <psapi.h>
+
+void logMemoryUsage(const std::string& filename, uint64_t& elapsedTime, const bool* shouldClose) {
+	// Open the file in truncation mode to empty it and write new data
+	std::ofstream logFile(filename, std::ios::out | std::ios::trunc);
+	if (!logFile.is_open()) {
+		std::cerr << "Error opening file for logging." << std::endl;
+		return;
+	}
+
+	// Write CSV header
+	logFile << "Time (seconds),Memory Usage (MB)\n";
+
+	while (!*(shouldClose)) {
+		PROCESS_MEMORY_COUNTERS pmc;
+		if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+			SIZE_T memoryUsage = pmc.WorkingSetSize; // Get memory usage in bytes
+			double memoryInMB = memoryUsage / (1024.0 * 1024.0); // Convert to MB
+
+			// Log elapsed time and memory usage to CSV
+			logFile << elapsedTime << "," << static_cast<int>(memoryInMB) << "\n";
+
+			logFile.flush(); // Flush to ensure data is written
+
+			elapsedTime++; // Increment elapsed time
+			std::cout << elapsedTime << std::endl;
+		}
+		std::this_thread::sleep_for(std::chrono::seconds(10)); // Log every 10 seconds
+	}
+
+	logFile.close();
+}
+
 int main()
 {
 	_CrtMemState sOld;
@@ -38,8 +72,8 @@ int main()
 	nihil::graphics::Model* modelCarP = NULL;
 	nihil::graphics::Model* modelCubeP = NULL;
 
-	//std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP](nihil::App* app, nihil::graphics::Engine* engine) {
-		engine->Setup();
+	std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP](nihil::App* app, nihil::graphics::Engine* engine) {
+		engine->Setup(true);
 
 		std::vector<nihil::graphics::VertexAttribute> vAttrib(8);
 		vAttrib[0].binding = 0;
@@ -101,9 +135,35 @@ int main()
 		engine->renderer->CreateShaderModule("./resources/Shaders/shaderF.spv", *engine->get->logicalDevice, &fragmentShader);
 
 		nihil::graphics::PipelineInfo pipelineInfo = engine->CreatePipelineConfiguration(vAttrib, bindingInfo, vertexShader, fragmentShader);
-		nihil::graphics::PipelineBundle pipelineBundle = engine->CreatePipeline(pipelineInfo);
+		
+		nihil::graphics::RenderPassInfo basicPassInfo = {};
+		nihil::graphics::Attachment basicColorAttachment = {};
+		basicColorAttachment.type = nihil::graphics::AttachmentType::Color;
+		basicColorAttachment.sampleCount = vk::SampleCountFlagBits::e1;
+		basicColorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
+		basicColorAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+		basicColorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+		basicColorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+		basicColorAttachment.initialLayout = vk::ImageLayout::ePresentSrcKHR;
+		basicColorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+		basicPassInfo.attachments.push_back(basicColorAttachment);
 
-		engine->registerPipeline(pipelineBundle);
+		nihil::graphics::Attachment basicDepthAttachment = {};
+		basicDepthAttachment.type = nihil::graphics::AttachmentType::Depth;
+		basicDepthAttachment.sampleCount = vk::SampleCountFlagBits::e1;
+		basicDepthAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
+		basicDepthAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+		basicDepthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+		basicDepthAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+		basicDepthAttachment.initialLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+		basicDepthAttachment.finalLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+		basicPassInfo.attachments.push_back(basicDepthAttachment);
+
+		vk::RenderPass basicPass = engine->CreateRenderPass(basicPassInfo, engine->swapchain);
+		
+		nihil::graphics::PipelineBundle pipelineBundle = engine->CreatePipeline(pipelineInfo, basicPass);
+
+		uint32_t basicPipeline = engine->registerPipeline(pipelineBundle);
 
 		glm::mat4 trans = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 		std::vector<float> instanceData(0);
@@ -135,16 +195,18 @@ int main()
 		nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> instanceBuffer2(engine, instanceData2);
 
 		nihil::graphics::Model* modelCar = new nihil::graphics::Model(engine, "./resources/models/sphere.obj");
-		nihil::graphics::Model* modelCube = new nihil::graphics::Model(engine, "./resources/models/lambo.obj");
+		nihil::graphics::Model* modelCube = new nihil::graphics::Model(engine, "./resources/models/cube.obj");
 
 		modelCarP = modelCar;
 		modelCubeP = modelCube;
 
-		modelCar->setDeafultPipeline(0);
-		modelCar->setInstancedPipeline(0);
+		//modelCar->deafultTransform = glm::scale(modelCar->deafultTransform, glm::vec3(0.5f, 0.5f, 0.5f));
 
-		modelCube->setDeafultPipeline(0);
-		modelCube->setInstancedPipeline(0);
+		modelCar->setDeafultPipeline(basicPipeline);
+		modelCar->setInstancedPipeline(basicPipeline);
+
+		modelCube->setDeafultPipeline(basicPipeline);
+		modelCube->setInstancedPipeline(basicPipeline);
 
 		std::vector<nihil::nstd::Component> compArr;
 
@@ -152,43 +214,92 @@ int main()
 		//engine->renderer->pipeline = pipeline;
 
 		nihil::engine::Object obj1;
-		obj1.setPosition(glm::vec3(2.0f, 0.0f, 1.0f));
+		obj1.setPosition(glm::vec3(0.0f, 0.0f, 20.0f));
 		obj1.model = modelCarP;
 
 		nihil::engine::Object obj2;
-		obj2.setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
-		obj2.model = modelCarP;
+		obj2.setPosition(glm::vec3(-11.0f, 0.0f, -20.0f));
+		obj2.model = modelCubeP;
 
-		nihil::graphics::Camera camera = {};
+		nihil::engine::Object obj3;
+		obj3.setPosition(glm::vec3(11.0f, 0.0f, -20.0f));
+		//it is considered bad practice to manually alter these values
+		obj3.renderingData = glm::scale(obj3.renderingData, glm::vec3(0.5f, 0.5f, 0.5f));
+		obj3.model = modelCarP;
 
+		nihil::graphics::Camera camera(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		camera.setPerspectiveProjection(45.0f, 1.0f, 0.1f, 100.0f);
 
 		nihil::Nihil nihilO(engine);
 
-		uint64_t deleteDebug = 0;
+		nihilO.keyboard->registerKey(nihil::Key::ArrowLeft);
+		nihilO.keyboard->registerKey(nihil::Key::ArrowRight);
+		nihilO.keyboard->registerKey(nihil::Key::ArrowDown);
+		nihilO.keyboard->registerKey(nihil::Key::ArrowUp);
+		nihilO.keyboard->registerKey(nihil::Key::w);
+		nihilO.keyboard->registerKey(nihil::Key::a);
+		nihilO.keyboard->registerKey(nihil::Key::s);
+		nihilO.keyboard->registerKey(nihil::Key::d);
+
 		while (!*(app->get->shouldClose))
 		{
 			//camera.setOrthographicProjection(-1, 1, -1, 1, engine);
-			camera.setPerspectiveProjection(glm::radians(90.0f), (float)engine->swapchain->extent.width / (float)engine->swapchain->extent.height, 0.1f, 100.0f);
 
-			if (camera.getMatrix() == glm::perspectiveRH(glm::radians(90.0f), (float)engine->swapchain->extent.width / (float)engine->swapchain->extent.height, 0.1f, 100.0f))
+			//obj1.model->deafultTransform = glm::rotate(glm::mat4(1.0f), glm::radians(0.1f * loopCounter), glm::vec3(0.0f, 1.0f, 0.0f));
+			//obj3.rotate(glm::vec3(0.0f, 0.05f, 0.0f));
+
+			//nihilO.queueDrawObject(&obj2);
+
+			if (nihilO.keyboard->checkKey(nihil::Key::ArrowLeft))
 			{
-				std::cout << "were lucky" << std::endl;
+				camera.rotate(0.0f, 0.5f);
+			}
+			else if (nihilO.keyboard->checkKey(nihil::Key::ArrowRight))
+			{
+				camera.rotate(0.0f, -0.5f);
+			}
+			else if (nihilO.keyboard->checkKey(nihil::Key::w))
+			{
+				camera.move(glm::vec3(0.0f, 0.0f, -0.05f));
+			}
+			else if (nihilO.keyboard->checkKey(nihil::Key::s))
+			{
+				camera.move(glm::vec3(0.0f, 0.0f, 0.05f));
+			}
+			else if (nihilO.keyboard->checkKey(nihil::Key::a))
+			{
+				camera.move(glm::vec3(0.05f, 0.0f, 0.0f));
+			}
+			else if (nihilO.keyboard->checkKey(nihil::Key::d))
+			{
+				camera.move(glm::vec3(-0.05f, 0.0f, 0.0f));
 			}
 
+			std::cout << "Queue Draw1" << std::endl;
 			nihilO.queueDrawObject(&obj2);
+			std::cout << "Queue Draw2" << std::endl;
+			nihilO.queueDrawObject(&obj3);
 
-			nihilO.queueDrawObject(&obj1);
-
+			std::cout << "Execute Draws" << std::endl;
 			nihilO.executeDraws(camera);
 		}
-	//}, app, engine);
+	}, app, engine);
+
+	std::thread logThread([app]() {
+		uint64_t timer = 0;
+		logMemoryUsage("./nihil-memory.csv", timer, app->get->shouldClose);
+		std::cout << "timer: " << timer << std::endl;
+	});
 
 	while (!*(app->get->shouldClose))
 	{
 		app->handle();
+
+		//std::this_thread::sleep_for(std::chrono::milliseconds(16));
 	}
 
-	//render.join();
+	render.join();
+	logThread.join();
 
 	delete modelCarP;
 	delete modelCubeP;

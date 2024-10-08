@@ -27,6 +27,8 @@ namespace nihil::graphics {
 
 		CreateSwapchain(swapchainConfig);
 
+		engine->swapchain = &swapchainBundle;
+
 		CreateImageViews();
 
 		swapchainBundle.depthFormat = vk::Format::eD32Sfloat;
@@ -43,6 +45,10 @@ namespace nihil::graphics {
 		createDepthBuffers();
 		createFrameBuffers();
 		createSyncObjects();
+
+		swapchainBundle.depthFormat = vk::Format::eD32Sfloat;
+
+		clearScreenPass = createClearScreenRenderPass(engine->logicalDevice, swapchainBundle.format, swapchainBundle.depthFormat);
 
 		//loadingThread.join();
 

@@ -4,15 +4,28 @@
 #include "Classes/WorkCommand/WorkCommand.hpp"
 #include "nihil-render/nihil.hpp"
 #include "Classes/Camera/Camera.hpp"
+#include "nihil-render/nstd/nstd.hpp"
+#include "Classes/Keyboard/Keyboard.hpp"
 
 #include <unordered_map>
 #include <set>
 #include <algorithm>
 #include <mutex>
 
-void deleteQueueDrawCommandData(void* x);
+static void deleteQueueDrawCommandData(void* x)
+{
+	std::cout << "deleting draw command data" << std::endl;
+	delete (nihil::engine::QueueDrawCommandData*)x;
+}
+static void destructInstanceBuffer(void* x)
+{
+	std::cout << "Deleting instance buffer" << std::endl;
+	((nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*)x)->~Buffer();
+}
 
 namespace nihil {
+	using InstanceBuffer = nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>;
+
 	class Nihil 
 	{
 	public:
@@ -20,13 +33,18 @@ namespace nihil {
 		std::vector<engine::WorkCommand> workCommandPool;
 		std::vector<engine::WorkCommand> drawWorkCommandPool;
 
-		nstd::PtrManagerClass commandDataManager;
+		nstd::MemoryArena commandDataManager = nstd::MemoryArena(commandDataArenaSize);
+		nstd::ObjectPool<InstanceBuffer> instanceBufferManager = nstd::ObjectPool<InstanceBuffer>(
+			destructInstanceBuffer, sizeof(InstanceBuffer), 512
+		);
 
 		graphics::Engine* engine;
+		Keyboard* keyboard;
 
 		Nihil(graphics::Engine* _engine)
 		{
 			engine = _engine;
+			keyboard = new Keyboard(engine->app);
 		}
 		Nihil(bool debug = false)
 		{

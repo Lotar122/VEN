@@ -17,9 +17,8 @@ namespace nihil::graphics {
 		createInfo.codeSize = sourceCode.size();
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
 
-		vk::ShaderModule* module = new vk::ShaderModule();
-		engine->shaderManager.registerType(typeid(vk::ShaderModule*), deleteShaderModule);
-		engine->shaderManager.addPointer(typeid(vk::ShaderModule*), (void*)module);
+		vk::ShaderModule* module = (vk::ShaderModule*)engine->shaderManager.allocate();
+		*module = vk::ShaderModule();
 
 		try {
 			*module = device.createShaderModule(createInfo);

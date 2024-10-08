@@ -6,7 +6,7 @@
 namespace nihil::graphics {
 	void Renderer::Draw(Camera& camera)
 	{
-		if (lastFrameTime == std::chrono::steady_clock::time_point()) lastFrameTime = std::chrono::high_resolution_clock::now();
+		//if (lastFrameTime != std::chrono::steady_clock::time_point()) lastFrameTime = std::chrono::high_resolution_clock::now();
 		auto frameStartTime = std::chrono::high_resolution_clock::now();
 		auto elapsedTime = frameStartTime - lastFrameTime;
 		engine->logicalDevice.waitForFences(1, &swapchainBundle.frames[frameNumber].inFlightFence, VK_TRUE, UINT64_MAX);
@@ -25,7 +25,25 @@ namespace nihil::graphics {
 
 		commandBuffer.reset();
 
+		vk::CommandBufferBeginInfo beginInfo = {};
+		std::cout << "Begin commandbuffer" << std::endl;
+		try {
+			commandBuffer.begin(beginInfo);
+		}
+		catch (vk::SystemError err) {
+			throw std::exception(err.what());
+		}
+
+		clearScreen(commandBuffer, clearScreenPass, swapchainBundle.frames[imageIndex].frameBuffer, swapchainBundle.extent);
 		executeCommandQueue(&engine->commandQueue, commandBuffer, imageIndex, camera);
+
+		std::cout << "End commandbuffer" << std::endl;
+		try {
+			commandBuffer.end();
+		}
+		catch (vk::SystemError err) {
+			throw std::exception(err.what());
+		}
 
 		vk::SubmitInfo submitinfo = {};
 		vk::Semaphore waitSemaphores[] = { swapchainBundle.frames[frameNumber].imageAvailable };
@@ -72,24 +90,23 @@ namespace nihil::graphics {
 		// Measure frame end time and calculate the time to sleep
 		auto frameEndTime = std::chrono::high_resolution_clock::now();
 		auto frameTime = frameEndTime - frameStartTime;
+		std::cout << frameEndTime.time_since_epoch() << " " << frameStartTime.time_since_epoch() << std::endl;
 
 		if (frameTime < engine->frameDuration) {
 			//std::this_thread::sleep_for(engine->frameDuration - frameTime);
-			std::cout << engine->frameDuration - frameTime << std::endl;
+			std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(engine->frameDuration - frameTime) << std::endl;
 		}
+
+		double fps = (double)1 / ((double)std::chrono::duration_cast<std::chrono::nanoseconds>(frameTime).count() / (double)1000.0f / (double)1000.0f);
+		std::cout << (double)1 / ((double)std::chrono::duration_cast<std::chrono::nanoseconds>(frameTime).count() / (double)1000.0f / (double)1000.0f) << engine->frameDuration << std::endl;
+		glfwSetWindowTitle(engine->app->get->window, ("FPS Counter - " + std::to_string(static_cast<int>(fps)) + " FPS").c_str());
 
 		lastFrameTime = frameStartTime;
 	}
 	uint64_t count;
 	void Renderer::executeCommandQueue(std::vector<DrawCommand>* commandQueue, vk::CommandBuffer& commandBuffer, uint32_t imageIndex, Camera& camera)
 	{
-		vk::CommandBufferBeginInfo beginInfo = {};
-		try {
-			commandBuffer.begin(beginInfo);
-		}
-		catch (vk::SystemError err) {
-			throw std::exception(err.what());
-		}
+		//begin command buffer outside
 
 		for (DrawCommand& command : *commandQueue)
 		{
@@ -105,6 +122,7 @@ namespace nihil::graphics {
 			passInfo.clearValueCount = 2;
 			passInfo.pClearValues = clearValues;
 
+			std::cout << "Begin renderpass" << std::endl;
 			commandBuffer.beginRenderPass(passInfo, vk::SubpassContents::eInline);
 
 			if (command.commandType == CommandType::DrawInstanced)
@@ -173,16 +191,13 @@ namespace nihil::graphics {
 
 				drawModel(data.model, commandBuffer, engine->getPipeline(command.targetPipeline), &camera);
 			}
+
+			//end the renderPass
+			std::cout << "End renderpass" << std::endl;
+			commandBuffer.endRenderPass();
 		}
 
-		commandBuffer.endRenderPass();
-		try {
-			commandBuffer.end();
-		}
-		catch (vk::SystemError err) {
-			throw std::exception(err.what());
-		}
-
+		//end command buffer outside
 		engine->commandQueue.clear();
 	}
 
@@ -209,13 +224,11 @@ namespace nihil::graphics {
 
 		ObjectData data = {};
 
-		data.proj = camera->getMatrix();
-		data.pre = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-		data.pre = glm::rotate(data.pre, glm::radians(0.1f * count), glm::vec3(0.0f, 1.0f, 0.0f));
-		data.pre = glm::rotate(data.pre, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		data.proj = camera->getProjectionMatrix();
+		data.view = camera->getViewMatrix();
+		data.pre = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-		//remove later, only to make thing smaller
-		data.pre = glm::scale(data.pre, glm::vec3(0.05f, 0.05f, 0.05f));
+		data.pre = data.pre * model->deafultTransform;
 
 		if (model != NULL)
 		{
@@ -256,24 +269,18 @@ namespace nihil::graphics {
 
 		ObjectData data = {};
 
-		std::cout << swapchainBundle.extent.width << " " << swapchainBundle.extent.height << " " << (float)swapchainBundle.extent.width / (float)swapchainBundle.extent.height << std::endl;
+		//std::cout << swapchainBundle.extent.width << " " << swapchainBundle.extent.height << " " << (float)swapchainBundle.extent.width / (float)swapchainBundle.extent.height << std::endl;
 
-		data.proj = camera->getMatrix();
-		data.proj[1][1] *= -1.0f;
-		data.view = glm::lookAtRH(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-		data.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -1.0f));
-		data.model = glm::rotate(data.model, glm::radians(0.1f * count), glm::vec3(1.0f, 1.0f, 0.0f));
-		data.model = glm::rotate(data.model, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-
-		//remove later, only to make things smaller
-		data.model = glm::scale(data.model, glm::vec3(0.05f, 0.05f, 0.05f));
+		data.proj = camera->getProjectionMatrix();
+		data.view = camera->getViewMatrix();
+		data.pre = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
 		data.pre = data.pre * model->deafultTransform;
 
 		vk::PipelineLayout layout = pBundle->layout;
 		_commandBuffer.pushConstants(layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(ObjectData), &data);
 
-		std::cout << std::floor(instanceBuffer->Data.size() / 16) << " floored shit " << instanceBuffer->Data.size() << std::endl;
+		//std::cout << std::floor(instanceBuffer->Data.size() / 16) << " floored shit " << instanceBuffer->Data.size() << std::endl;
 
 		_commandBuffer.drawIndexed(static_cast<uint32_t>(model->iBuffer->Data.size()), std::floor(instanceBuffer->Data.size() / 16), 0, 0, 0);
 	}
@@ -298,13 +305,11 @@ namespace nihil::graphics {
 
 		ObjectData data = {};
 
-		data.proj = camera->getMatrix();
-		data.pre = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-		data.pre = glm::rotate(data.pre, glm::radians(0.1f * count), glm::vec3(0.0f, 1.0f, 0.0f));
-		data.pre = glm::rotate(data.pre, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		data.proj = camera->getProjectionMatrix();
+		data.view = camera->getViewMatrix();
+		data.pre = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-		//remove later, only to make thing smaller
-		data.pre = glm::scale(data.pre, glm::vec3(0.05f, 0.05f, 0.05f));
+		data.pre = data.pre * model->deafultTransform;
 
 		if (model != NULL)
 		{

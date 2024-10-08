@@ -3,16 +3,11 @@
 
 void nihil::Nihil::queueDrawObject(engine::Object* object)
 {
-	nstd::PtrManagerDeleteFunction fn = deleteQueueDrawCommandData;
-	commandDataManager.registerType(typeid(engine::QueueDrawCommandData*), fn);
-
 	engine::WorkCommand command = {};
 	command.commandType = engine::CommandType::QueueDraw;
-	engine::QueueDrawCommandData* drawData = new engine::QueueDrawCommandData();
+	engine::QueueDrawCommandData* drawData = commandDataManager.allocate<engine::QueueDrawCommandData>();
 	drawData->object = object;
 	command.data = (void*)drawData;
-
-	commandDataManager.addPointer(typeid(engine::QueueDrawCommandData*), (void*)drawData);
 
 	drawWorkCommandPool.push_back(command);
 }
@@ -106,18 +101,19 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 
 	for (int i = 0; i < drawWorkCommandPool.size(); i++)
 	{
-		std::thread* w = new std::thread(
-			utils::drawWorkProcessor, 
-			i, 
-			&names, 
-			&pipelines, 
-			&namesMutex, 
-			&instancedDrawMutex, 
-			&pipelinesMutex,
-			this
-		);
-		w->join();
-		workers.push_back(w);
+		//std::thread* w = new std::thread(
+		//	utils::drawWorkProcessor, 
+		//	i, 
+		//	&names, 
+		//	&pipelines, 
+		//	&namesMutex, 
+		//	&instancedDrawMutex, 
+		//	&pipelinesMutex,
+		//	this
+		//);
+		////w->join();
+		//workers.push_back(w);
+		utils::drawWorkProcessor(i, &names, &pipelines, &namesMutex, &instancedDrawMutex, &pipelinesMutex, this);
 	}
 	for (auto w : workers)
 	{
@@ -135,9 +131,11 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 		}
 	}
 
+	std::cout << "Processing commands" << std::endl;
 	for (engine::WorkCommand& wc : drawWorkCommandPool)
 	{
-		std::thread* w = new std::thread(
+		std::cout << "Command processor call " << drawWorkCommandPool.size() << std::endl;
+		/*std::thread* w = new std::thread(
 			utils::drawCommandProcessor, 
 			&wc, 
 			&names, 
@@ -147,14 +145,17 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 			&pipelinesMutex,
 			this
 		);
-		workers.push_back(w);
+		workers.push_back(w);*/
+
+		utils::drawCommandProcessor(&wc, &names, &instancedDraw, &namesMutex, &instancedDrawMutex, &pipelinesMutex, this);
 	}
-	for (auto w : workers)
+	/*for (auto w : workers)
 	{
 		if (w->joinable()) w->join();
 		delete w;
 	}
-	workers.clear();
+	workers.clear();*/
+	std::cout << "Instanced draw" << std::endl;
 	std::vector<graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
 	for (auto& x : instancedDraw)
 	{
@@ -166,6 +167,8 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 		decode64(*const_cast<uint64_t*>(&x.first), duo);
 
 		delete[] duo;
+
+		std::cout << "flatten matricies" << std::endl;
 		for (auto& obj : x.second)
 		{
 			std::vector<float> y = nstd::flattenMatrix4x4(obj->renderingData);
@@ -175,15 +178,23 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 			}
 		}
 		graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* buffer =
-			new graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(
-				engine, instanceData
-			);
+			(graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*)instanceBufferManager.allocate();
 
-		//!!! uses more ram and vram every frame. make sure to make manager for these buffers to delete them after every frame.
-		engine->registerObjectForDeletion(buffer);
+		std::cout << "BUFFER: " << buffer << std::endl;
+
+		buffer = new (buffer) graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, instanceData);
+		//graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> h = *buffer;
+
+		//!!! uses more ram and vram every frame. make sure to make manager for these buffers to delete them after every frame. (done) still leaks memory elsewhere
+		//engine->registerObjectForDeletion(buffer);
+		//now allocated to the memory arena
+
+		int y = 0;
 
 		//add the possibillity for the elements to be sorted, as they were on the entry, so in the work command vector
 		engine->queueInstancedDraw(x.second[0]->model, buffer, x.second[0]->model->instancedPipeline);
+
+		int i = 0;
 
 		//submit draw commands
 
@@ -192,8 +203,12 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 
 	//check for objects with the same pipelines and print an optimization hint
 
+	//the end list iterator happens here !!! happy happy happy
+
 	//at the end delete all command data
+	std::cout << "Final Draw" << std::endl;
 	engine->Draw(camera);
-	commandDataManager.deleteAll();
+	commandDataManager.reset();
+	instanceBufferManager.reset();
 	drawWorkCommandPool.clear();
 }

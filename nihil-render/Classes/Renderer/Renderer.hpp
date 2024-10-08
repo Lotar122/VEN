@@ -123,6 +123,101 @@ namespace nihil::graphics {
 
 		SwapchainConfiguration swapchainConfiguration;
 
+		vk::RenderPass createClearScreenRenderPass(vk::Device device, vk::Format colorFormat, vk::Format depthFormat) {
+			// Define the color attachment description
+			vk::AttachmentDescription colorAttachment = {};
+			colorAttachment.setFormat(colorFormat);
+			colorAttachment.setSamples(vk::SampleCountFlagBits::e1);
+			colorAttachment.setLoadOp(vk::AttachmentLoadOp::eClear); // Clear the attachment
+			colorAttachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+			colorAttachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+			colorAttachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+			colorAttachment.setInitialLayout(vk::ImageLayout::eUndefined);
+			colorAttachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+			// Define the depth attachment description
+			vk::AttachmentDescription depthAttachment = {};
+			depthAttachment.setFormat(depthFormat);
+			depthAttachment.setSamples(vk::SampleCountFlagBits::e1);
+			depthAttachment.setLoadOp(vk::AttachmentLoadOp::eClear); // Clear the depth buffer
+			depthAttachment.setStoreOp(vk::AttachmentStoreOp::eDontCare);
+			depthAttachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+			depthAttachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+			depthAttachment.setInitialLayout(vk::ImageLayout::eUndefined);
+			depthAttachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+			// Define the color attachment reference
+			vk::AttachmentReference colorAttachmentRef = {};
+			colorAttachmentRef.setAttachment(0);
+			colorAttachmentRef.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+			// Define the depth attachment reference
+			vk::AttachmentReference depthAttachmentRef = {};
+			depthAttachmentRef.setAttachment(1);
+			depthAttachmentRef.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+			// Define the subpass description
+			vk::SubpassDescription subpass = {};
+			subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+			subpass.setColorAttachmentCount(1);
+			subpass.setPColorAttachments(&colorAttachmentRef);
+			subpass.setInputAttachmentCount(0);
+			subpass.setPDepthStencilAttachment(&depthAttachmentRef);
+
+			vk::SubpassDependency dependency(
+				VK_SUBPASS_EXTERNAL, 0,
+				vk::PipelineStageFlagBits::eEarlyFragmentTests,
+				vk::PipelineStageFlagBits::eLateFragmentTests,
+				vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+				vk::AccessFlagBits::eDepthStencilAttachmentRead
+			);
+
+			// Define the render pass creation info
+			vk::RenderPassCreateInfo renderPassInfo = {};
+			renderPassInfo.setAttachmentCount(2);
+			vk::AttachmentDescription attachments[] = { colorAttachment, depthAttachment };
+			renderPassInfo.setPAttachments(attachments);
+			renderPassInfo.setSubpassCount(1);
+			renderPassInfo.setPSubpasses(&subpass);
+			renderPassInfo.dependencyCount = 1;
+			renderPassInfo.pDependencies = &dependency;
+
+			// Create the render pass
+			vk::RenderPass renderPass;
+			if (device.createRenderPass(&renderPassInfo, nullptr, &renderPass) != vk::Result::eSuccess) {
+				throw std::runtime_error("Failed to create render pass!");
+			}
+
+			return renderPass;
+		}
+
+		vk::RenderPass clearScreenPass;
+
+		void clearScreen(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, vk::Framebuffer framebuffer, vk::Extent2D extent) {
+			// Define the clear colors
+			vk::ClearValue clearColor = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}); // Black
+			vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0); // Depth clear value (1.0f for farthest)
+
+			vk::ClearValue clears[] = {
+				clearColor, clearDepth
+			};
+
+			// Create a render pass begin info structure
+			vk::RenderPassBeginInfo renderPassInfo(
+				renderPass,
+				framebuffer,
+				vk::Rect2D({ 0, 0 }, extent),
+				2, // Number of clear values
+				clears
+			);
+
+			// Begin the render pass
+			commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+
+			// End the render pass
+			commandBuffer.endRenderPass();
+		}
+
 		//can only be used for resource deletion in the destructor!!!
 		vk::Device copyLogicalDevice;
 	};

@@ -93,7 +93,7 @@ namespace nihil::graphics
 		return out;
 	}
 
-	PipelineBundle Engine::CreatePipeline(PipelineInfo pipelineInfoN)
+	PipelineBundle Engine::CreatePipeline(PipelineInfo pipelineInfoN, vk::RenderPass _renderPass)
 	{
 		vk::GraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.flags = vk::PipelineCreateFlags();
@@ -259,7 +259,8 @@ namespace nihil::graphics
 
 		//finish pipeline creation
 		pipelineInfo.layout = layout;
-		pipelineInfo.renderPass = renderPass;
+
+		pipelineInfo.renderPass = _renderPass;
 		pipelineInfo.basePipelineHandle = nullptr;
 
 		try {
@@ -272,12 +273,12 @@ namespace nihil::graphics
 		}
 		this->finishPipelineSetup();
 
-		out.renderPass = renderPass;
+		out.renderPass = _renderPass;
 		out.pipeline = pipeline;
 		out.layout = layout;
 
 		registerObjectForDeletion(layout);
-		registerObjectForDeletion(renderPass);
+		registerObjectForDeletion(_renderPass);
 		registerObjectForDeletion(*pipelineInfoN.fragmentShader);
 		registerObjectForDeletion(*pipelineInfoN.vertexShader);
 
@@ -298,5 +299,95 @@ namespace nihil::graphics
 	PipelineBundle* Engine::getPipeline(uint32_t index)
 	{
 		return &(pipelineStorage[index]);
+	}
+
+	//define in class
+	vk::RenderPass Engine::CreateRenderPass(RenderPassInfo info, SwapChainBundle* swapchainBundle)
+	{
+		//!!! this is temporary
+		swapchainBundle->depthFormat = vk::Format::eD32Sfloat;
+
+		vk::RenderPass out;
+
+		std::vector<vk::AttachmentDescription> attachments = {};
+
+		//get the attachments
+
+		uint64_t colorIndex = 0, depthIndex = 0, i = 0;
+
+		for (Attachment& a : info.attachments)
+		{
+			if (a.type == AttachmentType::Color)
+			{
+				vk::AttachmentDescription colorAttachment = {};
+				colorAttachment.flags = vk::AttachmentDescriptionFlags();
+				colorAttachment.format = swapchainBundle->format;
+				colorAttachment.samples = a.sampleCount;
+				colorAttachment.loadOp = a.loadOp;
+				colorAttachment.storeOp = a.storeOp;
+				colorAttachment.stencilLoadOp = a.stencilLoadOp;
+				colorAttachment.stencilStoreOp = a.stencilStoreOp;
+				colorAttachment.initialLayout = a.initialLayout;
+				colorAttachment.finalLayout = a.finalLayout;
+				attachments.push_back(colorAttachment);
+				colorIndex = i;
+			}
+			else if (a.type == AttachmentType::Depth)
+			{
+				vk::AttachmentDescription depthAttachment = {};
+				depthAttachment.flags = vk::AttachmentDescriptionFlags();
+				depthAttachment.format = swapchainBundle->depthFormat;
+				depthAttachment.samples = a.sampleCount;
+				depthAttachment.loadOp = a.loadOp;
+				depthAttachment.storeOp = a.storeOp;
+				depthAttachment.stencilLoadOp = a.stencilLoadOp;
+				depthAttachment.stencilStoreOp = a.stencilStoreOp;
+				depthAttachment.initialLayout = a.initialLayout;
+				depthAttachment.finalLayout = a.finalLayout;
+				depthIndex = i;
+			}
+			i++;
+		}
+
+		vk::AttachmentReference colorAttachmentRef = {};
+		colorAttachmentRef.attachment = colorIndex;
+		colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
+
+		vk::AttachmentReference depthAttachmentRef = {};
+		depthAttachmentRef.attachment = depthIndex;
+		depthAttachmentRef.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+		vk::SubpassDescription subpass = {};
+		subpass.flags = vk::SubpassDescriptionFlags();
+		subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+		vk::SubpassDependency dependency(
+			VK_SUBPASS_EXTERNAL, 0,
+			vk::PipelineStageFlagBits::eEarlyFragmentTests,
+			vk::PipelineStageFlagBits::eLateFragmentTests,
+			vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+			vk::AccessFlagBits::eDepthStencilAttachmentRead
+		);
+
+		vk::RenderPassCreateInfo renderpassInfo = {};
+		renderpassInfo.flags = vk::RenderPassCreateFlags();
+		renderpassInfo.attachmentCount = attachments.size();
+		renderpassInfo.pAttachments = attachments.data();
+		renderpassInfo.subpassCount = 1;
+		renderpassInfo.pSubpasses = &subpass;
+		renderpassInfo.dependencyCount = 1;
+		renderpassInfo.pDependencies = &dependency;
+
+		try {
+			out = this->logicalDevice.createRenderPass(renderpassInfo);
+		}
+		catch (vk::SystemError err) {
+			throw std::exception(err.what());
+		}
+
+		return out;
 	}
 }

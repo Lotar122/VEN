@@ -20,18 +20,28 @@ namespace nihil::engine {
 		}
 		void setRotation(glm::vec3 _rotation)
 		{
-			glm::vec3 rotationDiff = _rotation - rotation;
-			float rotX = rotationDiff.x;
-			float rotY = rotationDiff.y;
-			float rotZ = rotationDiff.z;
+			//glm::vec3 rotationDiff = _rotation - rotation;
+			float rotX = _rotation.x - rotation.x;
+			float rotY = _rotation.y - rotation.y;
+			float rotZ = _rotation.z - rotation.z;
 
-			renderingData = glm::rotate(renderingData, rotX, glm::vec3(1.0f, 0.0f, 0.0f));
-			renderingData = glm::rotate(renderingData, rotY, glm::vec3(0.0f, 1.0f, 0.0f));
-			renderingData = glm::rotate(renderingData, rotZ, glm::vec3(0.0f, 0.0f, 1.0f));
+			renderingData = glm::rotate(renderingData, glm::radians(rotX), glm::vec3(1.0f, 0.0f, 0.0f));
+			renderingData = glm::rotate(renderingData, glm::radians(rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+			renderingData = glm::rotate(renderingData, glm::radians(rotZ), glm::vec3(0.0f, 0.0f, 1.0f));
 
-			std::cout << rotationDiff.x << " " << rotationDiff.y << " " << rotationDiff.z << std::endl;
+			std::cout << rotX << " " << rotY << " " << rotZ << std::endl;
 
 			rotation = _rotation;
+		}
+		void rotate(glm::vec3 _rotateBy)
+		{
+			rotation.x += _rotateBy.x;
+			rotation.y += _rotateBy.y;
+			rotation.z += _rotateBy.z;
+
+			renderingData = glm::rotate(renderingData, glm::radians(_rotateBy.x), glm::vec3(1.0f, 0.0f, 0.0f));
+			renderingData = glm::rotate(renderingData, glm::radians(_rotateBy.y), glm::vec3(0.0f, 1.0f, 0.0f));
+			renderingData = glm::rotate(renderingData, glm::radians(_rotateBy.z), glm::vec3(0.0f, 0.0f, 1.0f));
 		}
 	};
 }

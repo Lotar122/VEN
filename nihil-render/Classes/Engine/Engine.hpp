@@ -35,6 +35,11 @@
 
 #include "Classes/Camera/Camera.hpp"
 
+#include "nstd/headers/Memory.hpp"
+
+#define commandDataArenaSize 16'777'216
+#define shaderPoolSize 0
+
 namespace nihil::graphics {
 
     enum class ResourceType {
@@ -85,7 +90,7 @@ namespace nihil::graphics {
 		void setApp(App* _app);
 
 		//Setup (for now just calls setupdeafult)
-		void Setup();
+		void Setup(bool validation);
 
 		Proxy* get;
 
@@ -250,7 +255,9 @@ namespace nihil::graphics {
 		}
 
         PipelineInfo CreatePipelineConfiguration(std::vector<VertexAttribute> attributes, std::vector<VertexBindingInformation> bindingInfo, vk::ShaderModule* vertexShader, vk::ShaderModule* fragmentShader);
-        PipelineBundle CreatePipeline(PipelineInfo pipelineInfoN);
+        PipelineBundle CreatePipeline(PipelineInfo pipelineInfoN, vk::RenderPass _renderPass);
+
+        vk::RenderPass CreateRenderPass(RenderPassInfo info, SwapChainBundle* swapchainBundle);
 
         uint32_t registerPipeline(PipelineBundle pipeline);
         PipelineBundle* getPipeline(uint32_t index);
@@ -298,8 +305,8 @@ namespace nihil::graphics {
         std::vector<vk::RenderPass> renderPassStorage;
         std::vector<PipelineBundle> pipelineStorage;
 
-        nstd::PtrManagerClass commandDataManager;
-        nstd::PtrManagerClass shaderManager;
+        nstd::MemoryArena commandDataManager = nstd::MemoryArena(commandDataArenaSize);
+        nstd::MemoryPool shaderManager = nstd::MemoryPool(sizeof(vk::ShaderModule), 256);
 		/*
 		* @brief Creates a Vulkan Instance
 		*
@@ -394,7 +401,7 @@ namespace nihil::graphics {
 
 		inline bool isSuitable(const vk::PhysicalDevice& device)
 		{
-			if (!(device.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu)) return false;
+			if (!(device.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu));
 			const std::vector<const char*> requestedExtensions = {
 				VK_KHR_SWAPCHAIN_EXTENSION_NAME
 			};
@@ -403,6 +410,10 @@ namespace nihil::graphics {
 			{
 				requiredExtensions.erase(extension.extensionName);
 			}
+            if (requiredExtensions.empty() && !(device.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu))
+            {
+                std::cout << "Continuing with an integrated GPU" << std::endl;
+            }
 			return requiredExtensions.empty();
 		}
 	};

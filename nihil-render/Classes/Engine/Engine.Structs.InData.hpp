@@ -57,6 +57,32 @@ namespace nihil::graphics {
 			return !(this->pipeline == other.pipeline && this->layout == other.layout && this->renderPass == other.renderPass);
 		}
 	};
+	enum class AttachmentType
+	{
+		Depth,
+		Color
+	};
+	struct Attachment
+	{
+		vk::SampleCountFlagBits sampleCount;
+		vk::AttachmentLoadOp loadOp;
+		vk::AttachmentLoadOp stencilLoadOp;
+		vk::AttachmentStoreOp storeOp;
+		vk::AttachmentStoreOp stencilStoreOp;
+
+		vk::ImageLayout initialLayout;
+		vk::ImageLayout finalLayout;
+
+		AttachmentType type;
+	};
+
+	//for now only a color attachment and a depth attachment are supported
+	struct RenderPassInfo
+	{
+		std::vector<Attachment> attachments;
+
+
+	};
 
 	struct VulkanInstanceCreateInfo {
 		Version appVersion;

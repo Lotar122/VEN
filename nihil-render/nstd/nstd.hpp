@@ -10,4 +10,4 @@
 #include "headers/Checksum.hpp"
 #include "headers/utils.hpp"
 #include "headers/_voidp.hpp"
-#include "headers/PtrManager.hpp"
+#include "headers/Memory.hpp"

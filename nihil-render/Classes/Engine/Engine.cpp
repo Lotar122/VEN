@@ -14,7 +14,7 @@ using namespace nihil::graphics;
 
 void Engine::Draw(Camera& camera) {
 	renderer->Draw(camera);
-	commandDataManager.deleteAll();
+	commandDataManager.reset();
 }
 
 Engine::Engine(bool _debug)
@@ -165,7 +165,7 @@ Engine::~Engine()
 		delete renderer;
 	}
 
-	shaderManager.deleteAll();
+	shaderManager.reset();
 
 	std::cout << "all resources deleted" << std::endl;
 
@@ -179,7 +179,7 @@ Engine::~Engine()
 	//cause nvoglv64.dll crashes
 }
 
-void Engine::Setup()
+void Engine::Setup(bool validation)
 {
 	if (app == NULL) { std::cerr << "App is nullptr" << std::endl; throw std::exception("App is nullptr"); }
 	//SetupDeafult();
@@ -189,7 +189,7 @@ void Engine::Setup()
 	instanceInfo.appVersion = *app->get->appVersion;
 	instanceInfo.vulkanVersion = *app->get->vulkanVersion;
 	//deafult false
-	instanceInfo.validationLayers = false;
+	instanceInfo.validationLayers = validation;
 
 	//Creation of the vulkan instance
 	CreateVulkanInstance(instanceInfo);
