@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.hpp>
 #include "Classes/Buffer/Buffer.hpp"
 
+#include "nstd/headers/Memory.hpp"
+
 namespace nihil::graphics {
 	class Engine;
 
@@ -26,8 +28,15 @@ namespace nihil::graphics {
 
 		nstd::OBJ obj;
 
-		Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* vBuffer;
-		Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* iBuffer;
+		nstd::MemoryArena bufferArena = nstd::MemoryArena(
+			nstd::CombinedSize<
+				Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>,
+				Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>
+			>::value + 8
+		);
+
+		Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* vBuffer = NULL;
+		Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* iBuffer = NULL;
 
 		Model(Engine* _engine, glm::mat4 _deafultTransform = glm::mat4(1.0f));
 

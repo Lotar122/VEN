@@ -14,8 +14,8 @@ namespace nihil::graphics {
 		vertices = obj.verticesRender;
 		indices = obj.indicesRender;
 
-		vBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
-		iBuffer = new Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
+		vBuffer = new (bufferArena.allocate<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>>()) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
+		iBuffer = new (bufferArena.allocate<Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>>()) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
 	}
 	Model::Model(Engine* _engine, const std::string path, glm::mat4 _deafultTransform)
 	{
@@ -29,14 +29,16 @@ namespace nihil::graphics {
 		vertices = obj.verticesRender;
 		indices = obj.indicesRender;
 
-		vBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
-		iBuffer = new Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
+		vBuffer = new (bufferArena.allocate<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>>()) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
+		iBuffer = new (bufferArena.allocate<Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>>()) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
 	}
 
 	Model::~Model()
 	{
-		delete vBuffer;
-		delete iBuffer;
+		vBuffer->~Buffer();
+		iBuffer->~Buffer();
+
+		bufferArena.free();
 	}
 
 	//, Buffer<InstanceData, vk::BufferUsageFlagBits::eVertexBuffer>* _instanceBuffer
@@ -49,10 +51,15 @@ namespace nihil::graphics {
 		indices = obj.indicesRender;
 		name = path;
 
-		delete vBuffer;
-		delete iBuffer;
+		if (vBuffer != NULL && iBuffer != NULL)
+		{
+			vBuffer->~Buffer();
+			iBuffer->~Buffer();
+		}
 
-		vBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
-		iBuffer = new Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
+		bufferArena.reset();
+
+		vBuffer = new (bufferArena.allocate<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>>()) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, vertices);
+		iBuffer = new (bufferArena.allocate<Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>>()) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(engine, indices);
 	}
 }

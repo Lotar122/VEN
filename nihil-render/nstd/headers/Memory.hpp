@@ -166,4 +166,22 @@ namespace nihil::nstd
 			if (mem != NULL) free();
 		}
 	};
+
+	//combined size
+	template<typename... Types>
+	class CombinedSize;
+
+	template<typename First, typename... Rest>
+	class CombinedSize<First, Rest...>
+	{
+	public:
+		static constexpr std::size_t value = sizeof(First) + CombinedSize<Rest...>::value;
+	};
+
+	template<>
+	class CombinedSize<>
+	{
+	public:
+		static constexpr std::size_t value = 0;
+	};
 }

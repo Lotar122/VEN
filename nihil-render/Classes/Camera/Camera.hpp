@@ -34,6 +34,7 @@ namespace nihil::graphics
 
 		inline void move(glm::vec3 _moveBy) { position += _moveBy; }
 		inline void moveTo(glm::vec3 _moveTo) { position = _moveTo; }
+		void moveRelative(glm::vec3 _moveBy);
 
 		void rotate(float _pitch, float _yaw);
 		void setRotation(float _pitch, float _yaw);

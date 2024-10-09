@@ -46,9 +46,9 @@ namespace nihil {
 			engine = _engine;
 			keyboard = new Keyboard(engine->app);
 		}
-		Nihil(bool debug = false)
+		Nihil(nstd::MemoryArena* _globalArena, bool debug = false)
 		{
-			engine = new graphics::Engine(debug);
+			engine = new graphics::Engine(debug, _globalArena);
 		}
 
 		void queueDrawObject(engine::Object* object);

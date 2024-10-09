@@ -65,6 +65,7 @@ App::~App()
 void App::handle()
 {
 	shouldClose = glfwWindowShouldClose(window);
+	if (shouldClose) std::cout << "CLosing..." << std::endl;
 	glfwPollEvents();
 	//engine->Draw(scene);
 }

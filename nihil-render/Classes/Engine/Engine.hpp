@@ -83,8 +83,10 @@ namespace nihil::graphics {
 		bool debug = false;
         Renderer* renderer = NULL;
 
-		Engine(bool _debug);
-		Engine();
+        nstd::MemoryArena* globalArena = NULL;
+
+		Engine(bool _debug, nstd::MemoryArena* _globalArena);
+		Engine(nstd::MemoryArena* _globalArena);
 		~Engine();
 
 		void setApp(App* _app);

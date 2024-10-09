@@ -67,3 +67,28 @@ void Camera::setRotation(float _pitch, float _yaw)
 	clampPitch();
 	updateCameraVectors();
 }
+
+void Camera::moveRelative(glm::vec3 _moveBy)
+{
+	// Create a direction vector based on yaw and pitch angles.
+	glm::vec3 direction;
+
+	// Convert pitch and yaw to radians.
+	float pitchRad = glm::radians(pitch);
+	float yawRad = glm::radians(yaw);
+
+	// Calculate the new front direction vector using spherical coordinates.
+	direction.x = cos(pitchRad) * cos(yawRad);
+	direction.y = sin(pitchRad); // pitch is the up/down movement, which is just on the Y axis
+	direction.z = cos(pitchRad) * sin(yawRad);
+
+	// Normalize the direction to get the unit vector.
+	direction = glm::normalize(direction);
+
+	direction *= -1;
+
+	// Calculate the new movement vector relative to the rotated direction.
+	glm::vec3 moveVector = direction * _moveBy.z + right * _moveBy.x + glm::cross(right, direction) * _moveBy.y;
+
+	position += moveVector;
+}

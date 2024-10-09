@@ -17,9 +17,10 @@ void Engine::Draw(Camera& camera) {
 	commandDataManager.reset();
 }
 
-Engine::Engine(bool _debug)
+Engine::Engine(bool _debug, nstd::MemoryArena* _globalArena)
 {
 	debug = _debug;
+	globalArena = _globalArena;
 
 	std::cout << YELLOW << "[Setup]" << RESET << "Constructor called, preparing the engine: " << std::endl;
 
@@ -29,9 +30,10 @@ Engine::Engine(bool _debug)
 		&logicalDevice
 	);
 }
-Engine::Engine()
+Engine::Engine(nstd::MemoryArena* _globalArena)
 {
 	debug = false;
+	globalArena = _globalArena;
 
 	std::cout << YELLOW << "[Setup]" << RESET << "Constructor called, preparing the engine: " << std::endl;
 
@@ -162,7 +164,7 @@ Engine::~Engine()
 		}
 
 		delete get;
-		delete renderer;
+		renderer->~Renderer();
 	}
 
 	shaderManager.reset();
@@ -202,7 +204,7 @@ void Engine::Setup(bool validation)
 
 	CreateVulkanLogicalDevice();
 
-	renderer = new Renderer(this);
+	renderer = new (globalArena->allocate<Renderer>()) Renderer(this);
 
 	swapchain = &renderer->swapchainBundle;
 }

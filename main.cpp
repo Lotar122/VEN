@@ -36,11 +36,28 @@ void logMemoryUsage(const std::string& filename, uint64_t& elapsedTime, const bo
 			elapsedTime++; // Increment elapsed time
 			std::cout << elapsedTime << std::endl;
 		}
-		std::this_thread::sleep_for(std::chrono::seconds(10)); // Log every 10 seconds
+		std::this_thread::sleep_for(std::chrono::seconds(2)); // Log every 10 seconds
 	}
 
 	logFile.close();
 }
+
+template<typename... Types>
+class CombinedSize;
+
+template<typename First, typename... Rest>
+class CombinedSize<First, Rest...>
+{
+public:
+	static constexpr std::size_t value = sizeof(First) + CombinedSize<Rest...>::value;
+};
+
+template<>
+class CombinedSize<>
+{
+public:
+	static constexpr std::size_t value = 0;
+};
 
 int main()
 {
@@ -50,13 +67,25 @@ int main()
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	_CrtMemCheckpoint(&sOld); //take a snapshot
 
+	nihil::nstd::MemoryArena globalArena(
+		CombinedSize<
+		nihil::graphics::Engine,
+		nihil::App,
+		nihil::graphics::Model,
+		nihil::graphics::Model,
+		nihil::graphics::Renderer
+		>::value +
+		//make the arena slightly bigger
+		32
+	);
+
 	nihil::graphics::Version vulkanVersion = {};
 	vulkanVersion.make_version(0, 1, 0, 0);
 
 	nihil::graphics::Version appVersion = {};
 	appVersion.make_version(0, 1, 0, 0);
 
-	nihil::graphics::Engine* engine = new nihil::graphics::Engine(true);
+	nihil::graphics::Engine* engine = new (globalArena.allocate<nihil::graphics::Engine>()) nihil::graphics::Engine(true, &globalArena);
 
 	nihil::AppCreationArgs* appArgs = new nihil::AppCreationArgs();
 	appArgs->appVersion = appVersion;
@@ -67,12 +96,14 @@ int main()
 	appArgs->width = 1280;
 	appArgs->height = 720;
 
-	nihil::App* app = new nihil::App(appArgs);
+	nihil::App* app = new (globalArena.allocate<nihil::App>()) nihil::App(appArgs);
+
+	delete appArgs;
 
 	nihil::graphics::Model* modelCarP = NULL;
 	nihil::graphics::Model* modelCubeP = NULL;
 
-	std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP](nihil::App* app, nihil::graphics::Engine* engine) {
+	std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP, &globalArena, &sNew, &sOld, &sDiff](nihil::App* app, nihil::graphics::Engine* engine) {
 		engine->Setup(true);
 
 		std::vector<nihil::graphics::VertexAttribute> vAttrib(8);
@@ -165,37 +196,8 @@ int main()
 
 		uint32_t basicPipeline = engine->registerPipeline(pipelineBundle);
 
-		glm::mat4 trans = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		std::vector<float> instanceData(0);
-		std::vector<float> instanceData2(0);
-
-		for (int i = 0; i < 4; i++)
-		{
-			glm::mat4 y = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f * i, 0.0f, 0.0f));
-			std::vector<float> x = nihil::nstd::flattenMatrix4x4(y);
-
-			for (float& f : x)
-			{
-				instanceData.push_back(f);
-			}
-		}
-		for (int i = 0; i < 2; i++)
-		{
-			glm::mat4 y = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f * i * 2, 10.0f, 0.0f));
-			y = glm::rotate(y, glm::radians(35.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			std::vector<float> x = nihil::nstd::flattenMatrix4x4(y);
-
-			for (float& f : x)
-			{
-				instanceData2.push_back(f);
-			}
-		}
-
-		nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> instanceBuffer(engine, instanceData);
-		nihil::graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> instanceBuffer2(engine, instanceData2);
-
-		nihil::graphics::Model* modelCar = new nihil::graphics::Model(engine, "./resources/models/sphere.obj");
-		nihil::graphics::Model* modelCube = new nihil::graphics::Model(engine, "./resources/models/cube.obj");
+		nihil::graphics::Model* modelCar = new (globalArena.allocate<nihil::graphics::Model>()) nihil::graphics::Model(engine, "./resources/models/sphere.obj");
+		nihil::graphics::Model* modelCube = new (globalArena.allocate<nihil::graphics::Model>()) nihil::graphics::Model(engine, "./resources/models/cube.obj");
 
 		modelCarP = modelCar;
 		modelCubeP = modelCube;
@@ -214,11 +216,13 @@ int main()
 		//engine->renderer->pipeline = pipeline;
 
 		nihil::engine::Object obj1;
-		obj1.setPosition(glm::vec3(0.0f, 0.0f, 20.0f));
+		obj1.setPosition(glm::vec3(-11.0f, 0.0f, -20.0f));
+		//it is considered bad practice to manually alter these values
+		obj1.renderingData = glm::scale(obj1.renderingData, glm::vec3(0.5f, 0.5f, 0.5f));
 		obj1.model = modelCarP;
 
 		nihil::engine::Object obj2;
-		obj2.setPosition(glm::vec3(-11.0f, 0.0f, -20.0f));
+		obj2.setPosition(glm::vec3(0.0f, 0.0f, -20.0f));
 		obj2.model = modelCubeP;
 
 		nihil::engine::Object obj3;
@@ -241,6 +245,8 @@ int main()
 		nihilO.keyboard->registerKey(nihil::Key::s);
 		nihilO.keyboard->registerKey(nihil::Key::d);
 
+		camera.rotate(0.0f, 0.0f);
+
 		while (!*(app->get->shouldClose))
 		{
 			//camera.setOrthographicProjection(-1, 1, -1, 1, engine);
@@ -254,33 +260,35 @@ int main()
 			{
 				camera.rotate(0.0f, 0.5f);
 			}
-			else if (nihilO.keyboard->checkKey(nihil::Key::ArrowRight))
+			if (nihilO.keyboard->checkKey(nihil::Key::ArrowRight))
 			{
 				camera.rotate(0.0f, -0.5f);
 			}
-			else if (nihilO.keyboard->checkKey(nihil::Key::w))
+			if (nihilO.keyboard->checkKey(nihil::Key::w))
 			{
-				camera.move(glm::vec3(0.0f, 0.0f, -0.05f));
+				camera.moveRelative(glm::vec3(0.0f, 0.0f, -0.05f));
 			}
-			else if (nihilO.keyboard->checkKey(nihil::Key::s))
+			if (nihilO.keyboard->checkKey(nihil::Key::s))
 			{
-				camera.move(glm::vec3(0.0f, 0.0f, 0.05f));
+				camera.moveRelative(glm::vec3(0.0f, 0.0f, 0.05f));
 			}
-			else if (nihilO.keyboard->checkKey(nihil::Key::a))
+			if (nihilO.keyboard->checkKey(nihil::Key::a))
 			{
-				camera.move(glm::vec3(0.05f, 0.0f, 0.0f));
+				camera.moveRelative(glm::vec3(0.05f, 0.0f, 0.0f));
 			}
-			else if (nihilO.keyboard->checkKey(nihil::Key::d))
+			if (nihilO.keyboard->checkKey(nihil::Key::d))
 			{
-				camera.move(glm::vec3(-0.05f, 0.0f, 0.0f));
+				camera.moveRelative(glm::vec3(-0.05f, 0.0f, 0.0f));
 			}
 
-			std::cout << "Queue Draw1" << std::endl;
+			obj1.rotate(glm::vec3(0.0f, 0.2f, 0.0f));
+			obj2.rotate(glm::vec3(0.0f, 0.2f, 0.0f));
+			obj3.rotate(glm::vec3(0.0f, 0.2f, 0.0f));
+
+			nihilO.queueDrawObject(&obj1);
 			nihilO.queueDrawObject(&obj2);
-			std::cout << "Queue Draw2" << std::endl;
 			nihilO.queueDrawObject(&obj3);
 
-			std::cout << "Execute Draws" << std::endl;
 			nihilO.executeDraws(camera);
 		}
 	}, app, engine);
@@ -294,17 +302,23 @@ int main()
 	while (!*(app->get->shouldClose))
 	{
 		app->handle();
+		std::cout << *app->get->shouldClose << std::endl;
 
 		//std::this_thread::sleep_for(std::chrono::milliseconds(16));
 	}
 
+	std::cout << "Render Join" << std::endl;
 	render.join();
+	std::cout << "Render Joined" << std::endl;
 	logThread.join();
 
-	delete modelCarP;
-	delete modelCubeP;
-	delete engine;
-	delete app;
+	//call the destructors of objects allocated in the arena
+	modelCarP->~Model();
+	modelCubeP->~Model();
+	engine->~Engine();
+	app->~App();
+
+	globalArena.free();
 
 	//i will work on memory leaks in the future. for now i will leave as is, same goes for vulkan resource managment.
 	_CrtMemCheckpoint(&sNew); //take a snapshot 

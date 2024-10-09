@@ -344,6 +344,7 @@ namespace nihil::graphics
 				depthAttachment.stencilStoreOp = a.stencilStoreOp;
 				depthAttachment.initialLayout = a.initialLayout;
 				depthAttachment.finalLayout = a.finalLayout;
+				attachments.push_back(depthAttachment);
 				depthIndex = i;
 			}
 			i++;
