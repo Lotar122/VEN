@@ -107,31 +107,32 @@ namespace nihil::graphics {
 
 	void Renderer::RecreateSwapchain()
 	{
-		int* pWidth = new int(0);
-		int* pHeight = new int(0);
-		glfwGetFramebufferSize(const_cast<GLFWwindow*>(engine->app->get->window), pWidth, pHeight);
-		engine->app->SetWidth(*pWidth);
-		engine->app->SetHeight(*pHeight);
+		int pWidth = 0;
+		int pHeight = 0;
+		glfwGetFramebufferSize(const_cast<GLFWwindow*>(engine->app->get->window), &pWidth, &pHeight);
+		engine->app->SetWidth(pWidth);
+		engine->app->SetHeight(pHeight);
 		while (engine->app->get->width == 0 || engine->app->get->height == 0)
 		{
-			glfwGetFramebufferSize(const_cast<GLFWwindow*>(engine->app->get->window), pWidth, pHeight);
+			glfwGetFramebufferSize(const_cast<GLFWwindow*>(engine->app->get->window), &pWidth, &pHeight);
 			glfwWaitEvents();
 		}
-		engine->app->SetWidth(static_cast<uint16_t>(*pWidth));
-		engine->app->SetHeight(static_cast<uint16_t>(*pHeight));
+		engine->app->SetWidth(static_cast<uint16_t>(pWidth));
+		engine->app->SetHeight(static_cast<uint16_t>(pHeight));
 
-		delete pWidth;
-		delete pHeight;
 		engine->logicalDevice.waitIdle();
+		std::cout << "The Device is idle, Destroying the swapchain" << std::endl;
 		destroySwapchain();
 
-		objobject->Load("./resources/models/car.obj", nstd::LoadBinObj::DontCare, engine->app->screenRatio);
+		//objobject->Load("./resources/models/car.obj", nstd::LoadBinObj::DontCare, engine->app->screenRatio);
 
 		SwapchainConfigCreateInfo configInfo = {};
 		configInfo.preferredBuffering = BufferingMode::eTriple;
 		configInfo.windowHeight = *engine->app->get->height;
 		configInfo.windowWidth = *engine->app->get->width;
+		std::cout << "Creating swapchain configuration" << std::endl;
 		swapchainConfiguration = CreateSwapchainConfiguration(configInfo);
+		std::cout << "Creating swapchain" << std::endl;
 		CreateSwapchain(swapchainConfiguration);
 		CreateImageViews();
 		createDepthBuffers();

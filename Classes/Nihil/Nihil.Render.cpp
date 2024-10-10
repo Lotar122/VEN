@@ -131,10 +131,8 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 		}
 	}
 
-	std::cout << "Processing commands" << std::endl;
 	for (engine::WorkCommand& wc : drawWorkCommandPool)
 	{
-		std::cout << "Command processor call " << drawWorkCommandPool.size() << std::endl;
 		/*std::thread* w = new std::thread(
 			utils::drawCommandProcessor, 
 			&wc, 
@@ -155,7 +153,6 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 		delete w;
 	}
 	workers.clear();*/
-	std::cout << "Instanced draw" << std::endl;
 	std::vector<graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
 	for (auto& x : instancedDraw)
 	{
@@ -168,7 +165,6 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 
 		delete[] duo;
 
-		std::cout << "flatten matricies" << std::endl;
 		for (auto& obj : x.second)
 		{
 			std::vector<float> y = nstd::flattenMatrix4x4(obj->renderingData);
@@ -179,8 +175,6 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 		}
 		graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* buffer =
 			(graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*)instanceBufferManager.allocate();
-
-		std::cout << "BUFFER: " << buffer << std::endl;
 
 		buffer = new (buffer) graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(engine, instanceData);
 		//graphics::Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> h = *buffer;
@@ -206,7 +200,6 @@ void nihil::Nihil::executeDraws(graphics::Camera& camera)
 	//the end list iterator happens here !!! happy happy happy
 
 	//at the end delete all command data
-	std::cout << "Final Draw" << std::endl;
 	engine->Draw(camera);
 	commandDataManager.reset();
 	instanceBufferManager.reset();

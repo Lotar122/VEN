@@ -73,7 +73,8 @@ int main()
 		nihil::App,
 		nihil::graphics::Model,
 		nihil::graphics::Model,
-		nihil::graphics::Renderer
+		nihil::graphics::Renderer,
+		nihil::Keyboard
 		>::value +
 		//make the arena slightly bigger
 		32
@@ -104,8 +105,9 @@ int main()
 	nihil::graphics::Model* modelCubeP = NULL;
 
 	std::thread render = std::thread([app, engine, &modelCarP, &modelCubeP, &globalArena, &sNew, &sOld, &sDiff](nihil::App* app, nihil::graphics::Engine* engine) {
-		engine->Setup(true);
+		engine->Setup(false);
 
+		#pragma region Pipeline Setup
 		std::vector<nihil::graphics::VertexAttribute> vAttrib(8);
 		vAttrib[0].binding = 0;
 		vAttrib[0].location = 0;
@@ -195,25 +197,21 @@ int main()
 		nihil::graphics::PipelineBundle pipelineBundle = engine->CreatePipeline(pipelineInfo, basicPass);
 
 		uint32_t basicPipeline = engine->registerPipeline(pipelineBundle);
+		#pragma endregion
 
+		#pragma region Model Loading
 		nihil::graphics::Model* modelCar = new (globalArena.allocate<nihil::graphics::Model>()) nihil::graphics::Model(engine, "./resources/models/sphere.obj");
 		nihil::graphics::Model* modelCube = new (globalArena.allocate<nihil::graphics::Model>()) nihil::graphics::Model(engine, "./resources/models/cube.obj");
 
 		modelCarP = modelCar;
 		modelCubeP = modelCube;
 
-		//modelCar->deafultTransform = glm::scale(modelCar->deafultTransform, glm::vec3(0.5f, 0.5f, 0.5f));
-
 		modelCar->setDeafultPipeline(basicPipeline);
 		modelCar->setInstancedPipeline(basicPipeline);
 
 		modelCube->setDeafultPipeline(basicPipeline);
 		modelCube->setInstancedPipeline(basicPipeline);
-
-		std::vector<nihil::nstd::Component> compArr;
-
-		//pipeline assignment
-		//engine->renderer->pipeline = pipeline;
+		#pragma endregion
 
 		nihil::engine::Object obj1;
 		obj1.setPosition(glm::vec3(-11.0f, 0.0f, -20.0f));
@@ -233,92 +231,88 @@ int main()
 
 		nihil::graphics::Camera camera(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		camera.setPerspectiveProjection(45.0f, 1.0f, 0.1f, 100.0f);
-
-		nihil::Nihil nihilO(engine);
-
-		nihilO.keyboard->registerKey(nihil::Key::ArrowLeft);
-		nihilO.keyboard->registerKey(nihil::Key::ArrowRight);
-		nihilO.keyboard->registerKey(nihil::Key::ArrowDown);
-		nihilO.keyboard->registerKey(nihil::Key::ArrowUp);
-		nihilO.keyboard->registerKey(nihil::Key::w);
-		nihilO.keyboard->registerKey(nihil::Key::a);
-		nihilO.keyboard->registerKey(nihil::Key::s);
-		nihilO.keyboard->registerKey(nihil::Key::d);
-
 		camera.rotate(0.0f, 0.0f);
+
+		nihil::Nihil nihilEngine(engine);
+
+		nihilEngine.keyboard->registerKey(nihil::Key::ArrowLeft);
+		nihilEngine.keyboard->registerKey(nihil::Key::ArrowRight);
+		nihilEngine.keyboard->registerKey(nihil::Key::ArrowDown);
+		nihilEngine.keyboard->registerKey(nihil::Key::ArrowUp);
+		nihilEngine.keyboard->registerKey(nihil::Key::w);
+		nihilEngine.keyboard->registerKey(nihil::Key::a);
+		nihilEngine.keyboard->registerKey(nihil::Key::s);
+		nihilEngine.keyboard->registerKey(nihil::Key::d);
 
 		while (!*(app->get->shouldClose))
 		{
-			//camera.setOrthographicProjection(-1, 1, -1, 1, engine);
+			engine->setOnResize([&camera](nihil::graphics::Engine* engine) {
+				std::cout << "OnResize" << std::endl;
+				camera.setPerspectiveProjection(45.0f, 1.0f, 0.1f, 100.0f);
+			});
 
-			//obj1.model->deafultTransform = glm::rotate(glm::mat4(1.0f), glm::radians(0.1f * loopCounter), glm::vec3(0.0f, 1.0f, 0.0f));
-			//obj3.rotate(glm::vec3(0.0f, 0.05f, 0.0f));
-
-			//nihilO.queueDrawObject(&obj2);
-
-			if (nihilO.keyboard->checkKey(nihil::Key::ArrowLeft))
+			#pragma region Keyboard handling
+			if (nihilEngine.keyboard->checkKey(nihil::Key::ArrowLeft))
 			{
 				camera.rotate(0.0f, 0.5f);
 			}
-			if (nihilO.keyboard->checkKey(nihil::Key::ArrowRight))
+			if (nihilEngine.keyboard->checkKey(nihil::Key::ArrowRight))
 			{
 				camera.rotate(0.0f, -0.5f);
 			}
-			if (nihilO.keyboard->checkKey(nihil::Key::w))
+			if (nihilEngine.keyboard->checkKey(nihil::Key::w))
 			{
 				camera.moveRelative(glm::vec3(0.0f, 0.0f, -0.05f));
 			}
-			if (nihilO.keyboard->checkKey(nihil::Key::s))
+			if (nihilEngine.keyboard->checkKey(nihil::Key::s))
 			{
 				camera.moveRelative(glm::vec3(0.0f, 0.0f, 0.05f));
 			}
-			if (nihilO.keyboard->checkKey(nihil::Key::a))
+			if (nihilEngine.keyboard->checkKey(nihil::Key::a))
 			{
 				camera.moveRelative(glm::vec3(0.05f, 0.0f, 0.0f));
 			}
-			if (nihilO.keyboard->checkKey(nihil::Key::d))
+			if (nihilEngine.keyboard->checkKey(nihil::Key::d))
 			{
 				camera.moveRelative(glm::vec3(-0.05f, 0.0f, 0.0f));
 			}
+			#pragma endregion
 
 			obj1.rotate(glm::vec3(0.0f, 0.2f, 0.0f));
 			obj2.rotate(glm::vec3(0.0f, 0.2f, 0.0f));
 			obj3.rotate(glm::vec3(0.0f, 0.2f, 0.0f));
 
-			nihilO.queueDrawObject(&obj1);
-			nihilO.queueDrawObject(&obj2);
-			nihilO.queueDrawObject(&obj3);
+			nihilEngine.queueDrawObject(&obj1);
+			nihilEngine.queueDrawObject(&obj2);
+			nihilEngine.queueDrawObject(&obj3);
 
-			nihilO.executeDraws(camera);
+			nihilEngine.executeDraws(camera);
 		}
 	}, app, engine);
 
 	std::thread logThread([app]() {
 		uint64_t timer = 0;
 		logMemoryUsage("./nihil-memory.csv", timer, app->get->shouldClose);
-		std::cout << "timer: " << timer << std::endl;
 	});
 
 	while (!*(app->get->shouldClose))
 	{
 		app->handle();
-		std::cout << *app->get->shouldClose << std::endl;
 
-		//std::this_thread::sleep_for(std::chrono::milliseconds(16));
+		std::this_thread::sleep_for(std::chrono::milliseconds(4));
 	}
 
-	std::cout << "Render Join" << std::endl;
 	render.join();
-	std::cout << "Render Joined" << std::endl;
 	logThread.join();
 
-	//call the destructors of objects allocated in the arena
+	#pragma region Arena Disposal
 	modelCarP->~Model();
 	modelCubeP->~Model();
 	engine->~Engine();
 	app->~App();
 
 	globalArena.free();
+	#pragma endregion
 
 	//i will work on memory leaks in the future. for now i will leave as is, same goes for vulkan resource managment.
 	_CrtMemCheckpoint(&sNew); //take a snapshot 

@@ -44,11 +44,13 @@ namespace nihil {
 		Nihil(graphics::Engine* _engine)
 		{
 			engine = _engine;
-			keyboard = new Keyboard(engine->app);
+			keyboard = new (engine->globalArena->allocate<Keyboard>()) Keyboard(engine->app);
 		}
-		Nihil(nstd::MemoryArena* _globalArena, bool debug = false)
+		Nihil(nstd::MemoryArena* _globalArena, App* app, bool debug = false)
 		{
 			engine = new graphics::Engine(debug, _globalArena);
+			engine->setApp(app);
+			keyboard = new (_globalArena->allocate<Keyboard>()) Keyboard(engine->app);
 		}
 
 		void queueDrawObject(engine::Object* object);

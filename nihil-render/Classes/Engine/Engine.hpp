@@ -297,7 +297,16 @@ namespace nihil::graphics {
         inline float getAspectRatio() const {
             return (float)swapchain->extent.width / (float)swapchain->extent.height;
         }
+
+        typedef std::function<void(Engine*)> EventLambda;
+
+        inline void setOnResize(EventLambda lambda)
+        {
+            onResize = lambda;
+        }
 	private:
+        EventLambda onResize;
+
         std::vector<BufferBase*> bufferStorage;
         std::vector<vk::Image> imageStorage;
         std::vector<vk::ImageView> imageViewStorage;

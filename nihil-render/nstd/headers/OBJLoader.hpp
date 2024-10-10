@@ -851,9 +851,9 @@ namespace nihil {
                     verticesRender[f.second.index * 11 + 1] = vertexVec[f.second.vi - 1].y;
                     verticesRender[f.second.index * 11 + 2] = vertexVec[f.second.vi - 1].z;
 
-                    verticesRender[f.second.index * 11 + 3] = 0.0f;
-                    verticesRender[f.second.index * 11 + 4] = 0.0f;
-                    verticesRender[f.second.index * 11 + 5] = 1.0f;
+                    verticesRender[f.second.index * 11 + 3] = 0.1f * count;
+                    verticesRender[f.second.index * 11 + 4] = 0.2f * count;
+                    verticesRender[f.second.index * 11 + 5] = 0.4f * count;
 
                     if (count >= 3) count = 0;
 

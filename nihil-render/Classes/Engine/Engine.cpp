@@ -179,6 +179,9 @@ Engine::~Engine()
 	//REMEMBER
 	//undestroyed resources, unfinished setups, ETC.
 	//cause nvoglv64.dll crashes
+
+	shaderManager.free();
+	commandDataManager.free();
 }
 
 void Engine::Setup(bool validation)
