@@ -200,7 +200,7 @@ int main()
 
         app.handle();
 
-        engine._renderer()->Render(&pipeline, &renderPass, &scene, &camera);
+        engine._renderer()->Render(&basicPipeline, &renderPass, &scene, &camera);
     }
 
     return 0;
