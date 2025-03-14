@@ -129,8 +129,8 @@ int main()
     vk::VertexInputAttributeDescription attribute26 = {6, 1, vk::Format::eR32G32B32Sfloat, 8 * sizeof(float)};
     vk::VertexInputAttributeDescription attribute27 = {7, 1, vk::Format::eR32G32B32Sfloat, 12 * sizeof(float)};
 
-    std::vector<vk::VertexInputBindingDescription> bindingDesc1 = {binding21, binding22};
-    std::vector<vk::VertexInputAttributeDescription> attributeDesc1 = {
+    std::vector<vk::VertexInputBindingDescription> bindingDesc2 = {binding21, binding22};
+    std::vector<vk::VertexInputAttributeDescription> attributeDesc2 = {
         attribute21, attribute22, attribute23, attribute24, attribute25, attribute26, attribute27
     };
 
