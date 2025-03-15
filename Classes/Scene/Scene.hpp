@@ -8,12 +8,17 @@
 
 namespace nihil::graphics
 {
+    class Engine;
+
     class Scene
     {
+        Engine* engine = nullptr;
     public:
         std::vector<Object*> objects;
 
         std::unordered_set<Model*> models;
+
+        std::vector<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
         
         inline void addObject(Object* object) { objects.push_back(object); models.insert(object->model); };
 
@@ -21,5 +26,20 @@ namespace nihil::graphics
         inline void unuse() { for(Object* o : objects){ o->unuse(); } };
 
         void recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera);
+
+        Scene(Engine* _engine)
+        {
+            assert(_engine != nullptr);
+
+            engine = _engine;
+        }
+
+        ~Scene()
+        {
+            for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
+            {
+                delete b;
+            }
+        }
     };
 }

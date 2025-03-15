@@ -25,6 +25,7 @@ namespace nihil
         {
             if(line[0] != '#')
             {
+                Logger::Log(std::string("Using platform: ") + line);
                 if(line == std::string("Linux_Wayland"))
                 {
                     return Platform::LinuxWayland;

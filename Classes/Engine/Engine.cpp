@@ -28,7 +28,7 @@ Engine::Engine(App* _app, EngineArgs& args)
 
 	vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
 
-	Logger::Log(std::string("Continuing with the Device: ") + std::string(properties.deviceName));
+	//Logger::Log(std::string("Continuing with the Device: ") + std::string(properties.deviceName));
 
 	auto queueInfo = CreateVKQueueInfo(instance.getRes(), physicalDevice, surface.getRes());
 

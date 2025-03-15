@@ -39,8 +39,6 @@ namespace nihil::graphics
 
             engine = _engine;
 
-            data.reserve(100 / sizeof(T));
-
             data = _data;
 
             size = data.size() * sizeof(T);

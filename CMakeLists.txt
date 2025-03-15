@@ -5,9 +5,14 @@ cmake_minimum_required (VERSION 3.10)
 
 project ("VEN")
 
+# Manually set the glfw3 installed directory. Only on windows. Couldn't get it to work another way.
+if(WIN32) 
+	set(glfw3_DIR "./vcpkg_installed/x64-windows-static/share/glfw3/") 
+endif()
+
 # Find Vulkan and GLFW
 find_package(Vulkan REQUIRED)
-find_package(glfw3 REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 
 file(GLOB_RECURSE SOURCES 
 	"Classes/*.cpp"
@@ -25,7 +30,7 @@ target_include_directories(VEN
 # link_directories(${CMAKE_CURRENT_SOURCE_DIR}/nstd)
 
 target_link_libraries(VEN PUBLIC
-	/usr/lib/libvulkan.so
+	Vulkan::Vulkan
 	glfw
 )
 

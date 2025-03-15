@@ -42,7 +42,7 @@ namespace nihil::graphics
         const inline vk::Extent2D _extent() { return extent; };
         const inline uint16_t _width() { return extent.width; };
         const inline uint16_t _height() { return extent.height; };
-        const inline std::vector<Frame>& _frames() {return frames; };
+        inline std::vector<Frame>& _frames() { return frames; };
 
         vk::SurfaceFormatKHR surfaceFormat;
         vk::Format depthFormat;

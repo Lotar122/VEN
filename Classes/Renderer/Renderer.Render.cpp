@@ -17,24 +17,26 @@ void Renderer::Render(
 	Camera* camera
 )
 {
-	uint32_t imageIndex = 0;
-	Swapchain::Frame* frameP = engine->swapchain->acquireNextFrame(&imageIndex);
+	uint32_t imageIndex = 0, frameIndex = 0;
+	Swapchain::Frame* frameP = engine->swapchain->acquireNextFrame(&imageIndex, &frameIndex);
 	if(!frameP) return;
 	Swapchain::Frame& frame = *frameP;
 
-	frame.commandBuffer.reset();
+	vk::CommandBuffer& commandBuffer = engine->swapchain->_frames()[frameIndex].commandBuffer;
+
+	commandBuffer.reset();
 
 	vk::CommandBufferBeginInfo commandBufferBeginInfo = {};
 	commandBufferBeginInfo.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-	frame.commandBuffer.begin(commandBufferBeginInfo);
+	commandBuffer.begin(commandBufferBeginInfo);
 
 	//record commands;
 
 	//Dynamic States
 
 	//bind the dynamic states
-	frame.commandBuffer.setViewport(0, 1, &viewport);
-	frame.commandBuffer.setScissor(0, 1, &scissor);
+	commandBuffer.setViewport(0, 1, &viewport);
+	commandBuffer.setScissor(0, 1, &scissor);
 
 	vk::RenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.renderPass = renderPass->_renderPass();    // Your vk::RenderPass object
@@ -50,28 +52,28 @@ void Renderer::Render(
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	frame.commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+	commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
-	scene->recordCommands(frame.commandBuffer, camera);
+	scene->recordCommands(commandBuffer, camera);
 
-	frame.commandBuffer.endRenderPass();
+	commandBuffer.endRenderPass();
 
-	frame.commandBuffer.end();
+	commandBuffer.end();
 
 	vk::SubmitInfo submitInfo = {};
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &frame.imageAvailable;
+	submitInfo.pWaitSemaphores = &engine->_swapchain()->_frames()[frameIndex].imageAvailable;
 	vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 	submitInfo.pWaitDstStageMask = waitStages; // Wait until color attachment is ready
 
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &frame.commandBuffer;
+	submitInfo.pCommandBuffers = &commandBuffer;
 
 	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &frame.renderFinished;
+	submitInfo.pSignalSemaphores = &engine->_swapchain()->_frames()[frameIndex].renderFinished;
 
 	//vk::Result discardResult = engine->_device().resetFences(1, &frame.inFlightFence);
-	vk::Result discardResult = engine->_renderQueue().submit(1, &submitInfo, frame.inFlightFence);
+	vk::Result discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);
 
 	engine->swapchain->presentFrame(frame, imageIndex);
 }

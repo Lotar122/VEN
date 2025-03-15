@@ -29,6 +29,8 @@ namespace nihil::graphics
         uint32_t rasterizerDiscardEnable = VK_FALSE;
         uint32_t depthBiasEnable = VK_FALSE;
 
+        uint32_t anistropyEnable = VK_FALSE;
+
         uint32_t sampleShadingEnable = VK_FALSE;
         vk::SampleCountFlagBits rasterizationSampleCount = vk::SampleCountFlagBits::e1;
     };

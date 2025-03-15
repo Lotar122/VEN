@@ -154,7 +154,7 @@ int main()
     nihil::graphics::Object cube1(&model, &engine);
     nihil::graphics::Object cube2(&model, &engine);
 
-    nihil::graphics::Scene scene;
+    nihil::graphics::Scene scene(&engine);
     scene.addObject(&cube1);
     scene.addObject(&cube2);
 
@@ -195,8 +195,8 @@ int main()
 
     while(!app.shouldExit)
     {
-        cube1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
-        cube2.rotate(glm::vec3(0.0f, -1.0f, 0.0f));
+        /*cube1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
+        cube2.rotate(glm::vec3(0.0f, -1.0f, 0.0f));*/
 
         app.handle();
 

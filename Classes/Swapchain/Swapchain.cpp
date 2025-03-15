@@ -55,13 +55,17 @@ Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _preffe
 Swapchain::Frame* Swapchain::acquireNextFrame(uint32_t* _imageIndex, uint32_t* _frameIndex)
 {
 	vk::Result discardResult = engine->_device().waitForFences(1, &frames[frameIndex].inFlightFence, VK_TRUE, UINT64_MAX);
+	discardResult = engine->_device().resetFences(1, &frames[frameIndex].inFlightFence);
 
 	uint32_t imageIndex = 0;
 
 	vk::Result result = engine->_device().acquireNextImageKHR(swapchain.getRes(), UINT64_MAX, frames[frameIndex].imageAvailable, nullptr, &imageIndex);
 
-	discardResult = engine->_device().waitForFences(1, &frames[imageIndex].inFlightFence, VK_TRUE, UINT64_MAX);
-	discardResult = engine->_device().resetFences(1, &frames[imageIndex].inFlightFence);
+	if (frameIndex != imageIndex)
+	{
+		//discardResult = engine->_device().waitForFences(1, &frames[imageIndex].inFlightFence, VK_TRUE, UINT64_MAX);
+		//discardResult = engine->_device().resetFences(1, &frames[imageIndex].inFlightFence);
+	}
 	
 	if(result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR)
 	{
@@ -85,7 +89,7 @@ void Swapchain::presentFrame(Frame& frame, uint32_t& imageIndex)
 {
 	vk::PresentInfoKHR presentInfo = {};
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = &frame.renderFinished;
+	presentInfo.pWaitSemaphores = &engine->_swapchain()->_frames()[frameIndex].renderFinished;
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapchain.getResP();
 	presentInfo.pImageIndices = &imageIndex;
