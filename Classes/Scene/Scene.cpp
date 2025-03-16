@@ -50,57 +50,66 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
         }
     }
 
-    for(Object* o : normalDraws)
+    for(auto& it : instancedDraws)
+    {
+        //checks if there's more than one object to be instanced.
+        if (it.second.size() == 1)
+        {
+            normalDraws.push_back(it.second[0]);
+        }
+        else
+        {
+            //Push Constants
+            //Model component of the push constants is unused
+            commandBuffer.pushConstants(it.first->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
+
+            //Draw
+            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.first->_instancedPipeline()->_pipeline());
+
+            constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
+
+            std::vector<float> instanceData;
+            instanceData.resize(it.second.size() * instanceDataChunkSize);
+
+            for (int i = 0; i < it.second.size(); i++)
+            {
+                const float* matrixData = glm::value_ptr(it.second[i]->_modelMatrix());
+                memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), matrixData, instanceDataChunkSize);
+            }
+
+            Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+            instanceBuffers.push_back(instanceBuffer);
+            instanceBuffer->moveToGPU();
+
+            std::array<vk::Buffer, 2> vertexBuffers = {
+                it.first->_vertexBuffer()._buffer(),
+                instanceBuffer->_buffer()
+
+            };
+            std::array<vk::DeviceSize, 2> vertexBufferOffsets = {
+                0,
+                0
+            };
+            commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexBufferOffsets);
+
+            commandBuffer.bindIndexBuffer(it.first->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
+
+            std::cout << it.first->_indexBuffer()._typedSize() << " " << it.second.size() << '\n';
+            commandBuffer.drawIndexed(static_cast<uint32_t>(it.first->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
+        }
+    }
+
+    for (Object* o : normalDraws)
     {
         //Push Constants
         commandBuffer.pushConstants(o->model->_pipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
 
         //Draw
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, o->model->_pipeline()->_pipeline());
-        commandBuffer.bindVertexBuffers(0, o->_vertexBuffer()._buffer(), {0});
+        commandBuffer.bindVertexBuffers(0, o->_vertexBuffer()._buffer(), { 0 });
 
         commandBuffer.bindIndexBuffer(o->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
 
         commandBuffer.drawIndexed(static_cast<uint32_t>(o->_indexBuffer()._typedSize()), 1, 0, 0, 0);
-    }
-
-    for(auto& it : instancedDraws)
-    {
-        //Push Constants
-        commandBuffer.pushConstants(it.first->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
-
-        //Draw
-        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.first->_instancedPipeline()->_pipeline());
-
-        constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
-
-        std::vector<float> instanceData;
-        instanceData.resize(it.second.size() * instanceDataChunkSize);
-
-        for(int i = 0; i < it.second.size(); i++)
-        {
-            const float* matrixData = glm::value_ptr(it.second[i]->_modelMatrix());
-            memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), matrixData, instanceDataChunkSize);
-        }
-
-        Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
-        instanceBuffers.push_back(instanceBuffer);
-        instanceBuffer->moveToGPU();
-
-        std::array<vk::Buffer, 2> vertexBuffers = {
-            it.first->_vertexBuffer()._buffer(),
-            instanceBuffer->_buffer()
-
-        };
-        std::array<vk::DeviceSize, 2> vertexBufferOffsets = {
-            0,
-            0
-        };
-        commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexBufferOffsets);
-
-        commandBuffer.bindIndexBuffer(it.first->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
-
-        std::cout << it.first->_indexBuffer()._typedSize() << " " << it.second.size() << '\n';
-        commandBuffer.drawIndexed(static_cast<uint32_t>(it.first->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
     }
 }

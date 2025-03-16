@@ -65,7 +65,7 @@ static std::pair<std::vector<float>, std::vector<uint32_t>> readOBJFile(std::str
 
     for(int i = 0; i < buffer.size(); i++)
     {
-        if(buffer[i] == '\n')
+        if(buffer[i] == '\n' || buffer[i] == '\r')
         {
             end = i;
             if(!(*(buffer.data() + start) == '\n' || *(buffer.data() + start) == '#')) lines.push_back(BasicString{end - start, buffer.data() + start});

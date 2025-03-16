@@ -124,10 +124,10 @@ int main()
     vk::VertexInputAttributeDescription attribute22 = {1, 0, vk::Format::eR32G32Sfloat, 3 * sizeof(float)};
     vk::VertexInputAttributeDescription attribute23 = {2, 0, vk::Format::eR32G32B32Sfloat, 5 * sizeof(float)};
 
-    vk::VertexInputAttributeDescription attribute24 = {4, 1, vk::Format::eR32G32B32Sfloat, 0};
-    vk::VertexInputAttributeDescription attribute25 = {5, 1, vk::Format::eR32G32B32Sfloat, 4 * sizeof(float)};
-    vk::VertexInputAttributeDescription attribute26 = {6, 1, vk::Format::eR32G32B32Sfloat, 8 * sizeof(float)};
-    vk::VertexInputAttributeDescription attribute27 = {7, 1, vk::Format::eR32G32B32Sfloat, 12 * sizeof(float)};
+    vk::VertexInputAttributeDescription attribute24 = {4, 1, vk::Format::eR32G32B32A32Sfloat, 0};
+    vk::VertexInputAttributeDescription attribute25 = {5, 1, vk::Format::eR32G32B32A32Sfloat, 4 * sizeof(float)};
+    vk::VertexInputAttributeDescription attribute26 = {6, 1, vk::Format::eR32G32B32A32Sfloat, 8 * sizeof(float)};
+    vk::VertexInputAttributeDescription attribute27 = {7, 1, vk::Format::eR32G32B32A32Sfloat, 12 * sizeof(float)};
 
     std::vector<vk::VertexInputBindingDescription> bindingDesc2 = {binding21, binding22};
     std::vector<vk::VertexInputAttributeDescription> attributeDesc2 = {
@@ -149,17 +149,26 @@ int main()
     instancedPipeline.create(pipelineInfo2, &renderPass);
 
 
-    nihil::graphics::Model model("./Resources/Models/model.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
+    nihil::graphics::Model cubeModel("./Resources/Models/cube.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
+    nihil::graphics::Model pyramidModel("./Resources/Models/pyramid.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
     
-    nihil::graphics::Object cube1(&model, &engine);
-    nihil::graphics::Object cube2(&model, &engine);
+    nihil::graphics::Object cube1(&cubeModel, &engine);
+    nihil::graphics::Object cube2(&cubeModel, &engine);
+
+    nihil::graphics::Object pyramid1(&pyramidModel, &engine);
 
     nihil::graphics::Scene scene(&engine);
     scene.addObject(&cube1);
     scene.addObject(&cube2);
 
-    cube1.move(glm::vec3(1.0f, 0.0f, 5.0f));
-    cube2.move(glm::vec3(-1.0f, 0.0f, 5.0f));
+    scene.addObject(&pyramid1);
+
+    cube1.move(glm::vec3(1.7f, 0.0f, 6.0f));
+    cube2.move(glm::vec3(-1.7f, 0.0f, 6.0f));
+
+    pyramid1.move(glm::vec3(0.0f, 0.0f, 12.0f));
+
+    pyramid1.rotate(glm::vec3(180.0f, 0.0f, 0.0f));
 
     //moves all of the models onto the GPU
     scene.use();
@@ -195,8 +204,12 @@ int main()
 
     while(!app.shouldExit)
     {
-        /*cube1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
-        cube2.rotate(glm::vec3(0.0f, -1.0f, 0.0f));*/
+        cube1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
+        cube2.rotate(glm::vec3(0.0f, -1.0f, 0.0f));
+
+        pyramid1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
+
+        if (cube1._modelMatrix() == glm::mat4(1.0f)) std::cout << "YESSS.\n";
 
         app.handle();
 
