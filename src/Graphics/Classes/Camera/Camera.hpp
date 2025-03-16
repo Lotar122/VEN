@@ -118,6 +118,14 @@ namespace nihil::graphics
             recalculateVPMatrix();
         }
 
+        inline void move(const glm::vec3& _move)
+        {
+            position += _move;
+            recalculateProjectionMatrix();
+            recalculateViewMatrix();
+            recalculateVPMatrix();
+        }
+
         const inline glm::mat4& _projectionMatrix() const { return projectionMatrix; };
         const inline glm::mat4& _viewMatrix() const { return viewMatrix; };
         const inline glm::mat4& _vp() const { return vp; };

@@ -15,15 +15,19 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
 file(GLOB_RECURSE SOURCES 
-	"Classes/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-add_executable(VEN ${SOURCES} "main.cpp")
+add_executable(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 
 target_include_directories(VEN 
 	PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/includes
 	${CMAKE_CURRENT_SOURCE_DIR}
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Engine
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Standard
 )
 
 #link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lib)

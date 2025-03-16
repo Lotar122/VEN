@@ -42,7 +42,7 @@ int main()
 
     nihil::graphics::Engine engine(&app, eArgs);
 
-    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eFifo, (uint8_t)3, &engine);
+    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eMailbox, (uint8_t)3, &engine);
 
     std::vector<nihil::graphics::RenderPassAttachment> renderPassAttachments = {
         nihil::graphics::RenderPassAttachment(
@@ -208,8 +208,6 @@ int main()
         cube2.rotate(glm::vec3(0.0f, -1.0f, 0.0f));
 
         pyramid1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
-
-        if (cube1._modelMatrix() == glm::mat4(1.0f)) std::cout << "YESSS.\n";
 
         app.handle();
 

@@ -94,7 +94,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
 
             commandBuffer.bindIndexBuffer(it.first->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
 
-            std::cout << it.first->_indexBuffer()._typedSize() << " " << it.second.size() << '\n';
             commandBuffer.drawIndexed(static_cast<uint32_t>(it.first->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
         }
     }
