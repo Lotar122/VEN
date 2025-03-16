@@ -55,7 +55,7 @@ VEN/
 │   ├── Models/     # Models used by the engine
 │   ├── Shaders/    # Shaders used in the engine
 │   ├── Textures/   # Textures used by the engine
-├── Classes/        # All Classes' Declarations & Definitions
+├── src/            # Source code for the engine
 ├── thirdparty/     # External dependencies
 └── build/          # Compiled binaries
 ```
