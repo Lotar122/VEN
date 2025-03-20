@@ -4,6 +4,9 @@ using namespace nihil::graphics;
 
 Camera::Camera(const CameraCreateInfo& info)
 {
+    pitch = 0.0f;
+    yaw = 0.0f;
+
     position = info.position;
     lookAt = info.lookAt;
     up = info.up;

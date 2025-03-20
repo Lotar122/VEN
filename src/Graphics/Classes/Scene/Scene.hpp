@@ -8,25 +8,20 @@
 
 namespace nihil::graphics
 {
-    using byte = unsigned char;
-
     class Engine;
 
     class Scene
     {
         Engine* engine = nullptr;
-
-        size_t drawCommandSlabSize = 0;
-        byte* drawCommandSlab = nullptr;
-        size_t instanceBufferSlabSize = 0;
-        Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBufferSlab = nullptr;
     public:
         std::vector<Object*> objects;
-        
+
+        std::vector<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
+
         inline void addObject(Object* object) { objects.push_back(object); };
 
-        inline void use() { for(Object* o : objects){ o->use(); } };
-        inline void unuse() { for(Object* o : objects){ o->unuse(); } };
+        inline void use() { for (Object* o : objects) { o->use(); } };
+        inline void unuse() { for (Object* o : objects) { o->unuse(); } };
 
         void recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera);
 
@@ -39,18 +34,10 @@ namespace nihil::graphics
 
         ~Scene()
         {
-            // for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
-            // {
-            //     delete b;
-            // }
-
-            for(int i = 0; i < instanceBufferSlabSize / sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>); i++)
+            for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
             {
-                if((instanceBufferSlab + i)->_engine() == engine) (instanceBufferSlab + i)->~Buffer();
+                delete b;
             }
-
-            free(instanceBufferSlab);
-            free(drawCommandSlab);
         }
     };
 }
