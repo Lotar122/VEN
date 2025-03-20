@@ -8,22 +8,22 @@
 
 namespace nihil::graphics
 {
+    using byte = unsigned char;
+
     class Engine;
 
     class Scene
     {
         Engine* engine = nullptr;
-    public:
-        std::vector<Object*> objects;
 
-        std::unordered_set<Model*> models;
-
-        std::vector<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
-
+        size_t drawCommandSlabSize = 0;
+        byte* drawCommandSlab = nullptr;
         size_t instanceBufferSlabSize = 0;
         Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBufferSlab = nullptr;
+    public:
+        std::vector<Object*> objects;
         
-        inline void addObject(Object* object) { objects.push_back(object); models.insert(object->model); };
+        inline void addObject(Object* object) { objects.push_back(object); };
 
         inline void use() { for(Object* o : objects){ o->use(); } };
         inline void unuse() { for(Object* o : objects){ o->unuse(); } };
@@ -50,6 +50,7 @@ namespace nihil::graphics
             }
 
             free(instanceBufferSlab);
+            free(drawCommandSlab);
         }
     };
 }

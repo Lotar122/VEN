@@ -54,15 +54,8 @@ void Renderer::Render(
 	renderPassInfo.pClearValues = clearValues.data();
 
 	commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-
-	auto start = std::chrono::high_resolution_clock::now();
     
     scene->recordCommands(commandBuffer, camera);
-    
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
-    
-    std::cout << "Function runtime: " << elapsed.count() << " ms\n";
 
 	commandBuffer.endRenderPass();
 
