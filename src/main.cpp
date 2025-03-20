@@ -42,7 +42,7 @@ int main()
 
     nihil::graphics::Engine engine(&app, eArgs);
 
-    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eMailbox, (uint8_t)3, &engine);
+    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eFifo, (uint8_t)3, &engine);
 
     std::vector<nihil::graphics::RenderPassAttachment> renderPassAttachments = {
         nihil::graphics::RenderPassAttachment(

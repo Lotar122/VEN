@@ -19,6 +19,9 @@ namespace nihil::graphics
         std::unordered_set<Model*> models;
 
         std::vector<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
+
+        size_t instanceBufferSlabSize = 0;
+        Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBufferSlab = nullptr;
         
         inline void addObject(Object* object) { objects.push_back(object); models.insert(object->model); };
 
@@ -36,10 +39,17 @@ namespace nihil::graphics
 
         ~Scene()
         {
-            for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
+            // for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
+            // {
+            //     delete b;
+            // }
+
+            for(int i = 0; i < instanceBufferSlabSize / sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>); i++)
             {
-                delete b;
+                if((instanceBufferSlab + i)->_engine() == engine) (instanceBufferSlab + i)->~Buffer();
             }
+
+            free(instanceBufferSlab);
         }
     };
 }

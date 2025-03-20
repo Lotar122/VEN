@@ -32,6 +32,8 @@ namespace nihil::graphics
         //returns the size of the buffer in units of its type
         inline size_t _typedSize() const { return data.size(); };
 
+        inline const Engine* _engine() const { return engine; };
+
         Buffer(const std::vector<T>& _data, Engine* _engine)
         {
             assert(_data.size() != 0);
@@ -111,6 +113,25 @@ namespace nihil::graphics
             engine->_device().waitIdle();
 
             engine->_device().freeMemory(memory);
+        }
+
+        void update(const std::vector<T>& _data)
+        {
+            assert(_data.size() == data.size());
+
+            data = _data;
+
+            bool wasOnGPU = onGPU;
+
+            moveToGPU();
+
+            void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+            T* dataTyped = reinterpret_cast<T*>(dataRaw);
+            //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
+            std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+            engine->_device().unmapMemory(memory);
+
+            if(!wasOnGPU) freeFromGPU();
         }
 
         void destroy()

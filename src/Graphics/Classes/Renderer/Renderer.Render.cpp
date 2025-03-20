@@ -8,6 +8,7 @@
 #include "Classes/Scene/Scene.hpp"
 
 #include <thread>
+#include <chrono>
 
 using namespace nihil::graphics;
 
@@ -54,7 +55,14 @@ void Renderer::Render(
 
 	commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
-	scene->recordCommands(commandBuffer, camera);
+	auto start = std::chrono::high_resolution_clock::now();
+    
+    scene->recordCommands(commandBuffer, camera);
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = end - start;
+    
+    std::cout << "Function runtime: " << elapsed.count() << " ms\n";
 
 	commandBuffer.endRenderPass();
 

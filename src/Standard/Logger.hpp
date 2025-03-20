@@ -1,6 +1,6 @@
 #pragma once
 
-#define ENABLE_LOGGING
+//#define ENABLE_LOGGING
 
 #include <iostream>
 
