@@ -55,8 +55,11 @@ namespace nihil
         void addEventListener(T* listener, Listeners type);
 
     private:
-        void fixedOnResize();
+        inline void fixedOnResize();
+        inline void fixedOnHandle();
+
         std::vector<onResizeListener*> onResizeListeners;
+        std::vector<onHandleListener*> onHandleListeners;
     };
 }
 

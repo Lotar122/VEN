@@ -11,6 +11,7 @@
 #include "Classes/Model/Model.hpp"
 #include "Classes/Object/Object.hpp"
 #include "Classes/Scene/Scene.hpp"
+#include "Classes/Keyboard/Keyboard.hpp"
 
 #include "Logger.hpp"
 
@@ -201,6 +202,8 @@ int main()
 
         //this is user defined behavoiur
     };
+
+    nihil::Keyboard keyboard(&app);
 
     while(!app.shouldExit)
     {

@@ -34,9 +34,10 @@ void App::handle()
 {
     glfwPollEvents();
     shouldExit = glfwWindowShouldClose(window);
+    fixedOnHandle();
 }
 
-void App::fixedOnResize()
+inline void App::fixedOnResize()
 {
     // Get the width and height of the window
     int _width, _height;
@@ -50,5 +51,13 @@ void App::fixedOnResize()
     for(auto l : onResizeListeners)
     {
         l->onResize();
+    }
+}
+
+inline void App::fixedOnHandle()
+{
+    for (auto l : onHandleListeners)
+    {
+        l->onHandle();
     }
 }

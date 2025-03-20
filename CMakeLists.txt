@@ -28,6 +28,7 @@ target_include_directories(VEN
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Engine
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Standard
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Core
 )
 
 #link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lib)
