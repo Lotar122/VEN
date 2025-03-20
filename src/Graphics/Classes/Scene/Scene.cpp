@@ -139,150 +139,103 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
 {
     /*
     TODO:
-    Reuse instance buffers. 
+    Reuse instance buffers.
     */
 
-    if (drawCommandSlabSize != (sizeof(Node<DrawCommandNodeData>) * objects.size()) + (sizeof(DrawCommandNodeData) * objects.size()) || !drawCommandSlab)
+    std::unordered_map<Model*, std::vector<Object*>> instancedDraws;
+    std::vector<Object*> normalDraws;
+
+    for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
     {
-        drawCommandSlab = (byte*)realloc(
-            drawCommandSlab,
-            (sizeof(Node<DrawCommandNodeData>) * objects.size()) +
-            (sizeof(DrawCommandNodeData) * objects.size())
-        );
-    }
-    drawCommandSlabSize = (sizeof(Node<DrawCommandNodeData>) * objects.size()) + (sizeof(DrawCommandNodeData) * objects.size());
-
-    byte* nodeMemory = drawCommandSlab;
-    byte* dataMemory = drawCommandSlab + (sizeof(Node<DrawCommandNodeData>) * objects.size());
-
-    size_t nodeRelativePointer = 0, dataRelativePointer = 0;
-
-    bool setBaseNode = false;
-    Node<DrawCommandNodeData>* baseNode = nullptr;
-    Node<DrawCommandNodeData>* previousNode = nullptr;
-
-    for(Object* o : objects)
-    {
-        if(o->model->_instancedPipeline())
-        {
-            Node<DrawCommandNodeData>* node = reinterpret_cast<Node<DrawCommandNodeData>*>(nodeMemory) + nodeRelativePointer;
-            DrawCommandNodeData* data = reinterpret_cast<DrawCommandNodeData*>(dataMemory) + dataRelativePointer;
-
-            *node = {};
-            *data = {};
-
-            data->type = DrawCommandType::Instanced;
-            data->object = o;
-
-            node->prev = previousNode;
-            node->data = data;
-            if(previousNode) previousNode->next = node;
-
-            previousNode = node;
-
-            if(!setBaseNode) {baseNode = node; setBaseNode = true;};
-
-            nodeRelativePointer++;
-            dataRelativePointer++;
-        }
-        else
-        {
-            Node<DrawCommandNodeData>* node = reinterpret_cast<Node<DrawCommandNodeData>*>(nodeMemory + nodeRelativePointer);
-            DrawCommandNodeData* data = reinterpret_cast<DrawCommandNodeData*>(dataMemory + dataRelativePointer);
-
-            *node = {};
-            *data = {};
-
-            data->type = DrawCommandType::Normal;
-            data->object = o;
-
-            node->prev = previousNode;
-            node->data = data;
-            if(previousNode) previousNode->next = node;
-
-            previousNode = node;
-
-            if(!setBaseNode) {baseNode = node; setBaseNode = true;};
-
-            nodeRelativePointer++;
-            dataRelativePointer++;
-        }
+        delete b;
     }
 
-    size_t uniqueModelsCount = 0;
+    size_t toReserve = instanceBuffers.size();
+    instanceBuffers.clear();
+    instanceBuffers.reserve(toReserve);
 
-    Node<DrawCommandNodeData>* nodeIterator = baseNode;
-    while(nodeIterator)
+    for (Object* o : objects)
     {
-        if(!nodeIterator) break;
-
-        if(nodeIterator->data->type == DrawCommandType::Normal)
+        if (o->model->_instancedPipeline())
         {
-            drawNormal(nodeIterator->data->object, camera, commandBuffer);
-        }
-        else if(nodeIterator->data->type == DrawCommandType::Instanced)
-        {
-            if(!headExists(baseNode, nodeIterator->data->object->model))
+            auto it = instancedDraws.find(o->model);
+            if (it != instancedDraws.end())
             {
-                nodeIterator->data->instancingData.head = true;
-                uniqueModelsCount++;
-                nodeIterator->data->instancingData.instancedDrawSize = 1;
-            }
-            else 
-            {
-                Node<DrawCommandNodeData>* modelHead = findModelHead(baseNode, nodeIterator->data->object->model);
-                modelHead->data->instancingData.instancedDrawSize++;
-
-                //? Seek the node without a nextUniqueModelNode
-                Node<DrawCommandNodeData>* nodeIterator2 = modelHead;
-                while(nodeIterator2)
-                {
-                    if(nodeIterator2->data->instancingData.nextUniqueModelNode == nullptr)
-                    {
-                        nodeIterator2->data->instancingData.nextUniqueModelNode = nodeIterator;
-                        break;
-                    }
-                    nodeIterator2 = nodeIterator2->data->instancingData.nextUniqueModelNode;
-                }
-            }
-        }
-
-        nodeIterator = nodeIterator->next;
-    }
-
-    size_t instanceBufferRelativePointer = 0;
-    if(!instanceBufferSlab) 
-    {
-        instanceBufferSlab = (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*)malloc(sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) * uniqueModelsCount);
-        instanceBufferSlabSize = sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) * uniqueModelsCount;
-    }
-    else
-    {
-        if(!(instanceBufferSlabSize == sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) * uniqueModelsCount))
-        {
-            instanceBufferSlab = (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*)realloc(instanceBufferSlab, sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) * uniqueModelsCount);
-            instanceBufferSlabSize = sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) * uniqueModelsCount;
-        }
-    }
-
-    nodeIterator = baseNode;
-    size_t i = 0;
-    while(nodeIterator)
-    {
-        if(nodeIterator->data->type == DrawCommandType::Instanced && nodeIterator->data->instancingData.head)
-        {
-            //TODO: figure out the instance buffer allocation
-            if(nodeIterator->data->instancingData.instancedDrawSize > 1)
-            {
-                drawInstanced(nodeIterator, commandBuffer, camera, instanceBufferSlab + i, engine);
-                i++;
+                it->second.push_back(o);
             }
             else
             {
-                drawNormal(nodeIterator->data->object, camera, commandBuffer);
+                instancedDraws.insert(std::make_pair(o->model, std::vector<Object*>()));
+                instancedDraws[o->model].reserve(50);
+                instancedDraws[o->model].push_back(o);
             }
         }
+        else
+        {
+            normalDraws.push_back(o);
+        }
+    }
 
-        nodeIterator = nodeIterator->next;
+    for (auto& it : instancedDraws)
+    {
+        //checks if there's more than one object to be instanced.
+        if (it.second.size() == 1)
+        {
+            normalDraws.push_back(it.second[0]);
+        }
+        else
+        {
+            //Push Constants
+            //Model component of the push constants is unused
+            commandBuffer.pushConstants(it.first->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
+
+            //Draw
+            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.first->_instancedPipeline()->_pipeline());
+
+            constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
+
+            std::vector<float> instanceData;
+            instanceData.resize(it.second.size() * instanceDataChunkSize);
+
+            for (int i = 0; i < it.second.size(); i++)
+            {
+                const float* matrixData = glm::value_ptr(it.second[i]->_modelMatrix());
+                memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), matrixData, instanceDataChunkSize);
+            }
+
+            Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+            instanceBuffers.push_back(instanceBuffer);
+            instanceBuffer->moveToGPU();
+
+            std::array<vk::Buffer, 2> vertexBuffers = {
+                it.first->_vertexBuffer()._buffer(),
+                instanceBuffer->_buffer()
+
+            };
+            std::array<vk::DeviceSize, 2> vertexBufferOffsets = {
+                0,
+                0
+            };
+            commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexBufferOffsets);
+
+            commandBuffer.bindIndexBuffer(it.first->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
+
+            std::cout << it.first->_indexBuffer()._typedSize() << " " << it.second.size() << '\n';
+            commandBuffer.drawIndexed(static_cast<uint32_t>(it.first->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
+        }
+    }
+
+    for (Object* o : normalDraws)
+    {
+        //Push Constants
+        commandBuffer.pushConstants(o->model->_pipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
+
+        //Draw
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, o->model->_pipeline()->_pipeline());
+        commandBuffer.bindVertexBuffers(0, o->_vertexBuffer()._buffer(), { 0 });
+
+        commandBuffer.bindIndexBuffer(o->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
+
+        commandBuffer.drawIndexed(static_cast<uint32_t>(o->_indexBuffer()._typedSize()), 1, 0, 0, 0);
     }
 }

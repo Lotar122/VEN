@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 #include "Classes/Listeners/Listeners.hpp"
 
@@ -31,6 +32,8 @@ namespace nihil::graphics
         glm::vec3 lookAt;
         glm::vec3 up;
         glm::mat4 viewMatrix;
+
+        float pitch, yaw;
 
         float fov;
         float near;
@@ -68,6 +71,13 @@ namespace nihil::graphics
         inline void recalculateVPMatrix()
         {
             vp = projectionMatrix * viewMatrix;
+        }
+
+        inline void recalculateLookAt()
+        {
+            lookAt.x = position.x + cos(pitch) * sin(yaw);
+            lookAt.y = position.y + sin(pitch);
+            lookAt.z = position.z + cos(pitch) * cos(yaw);
         }
 
         inline void setFOV(const float& _fov)
@@ -120,7 +130,38 @@ namespace nihil::graphics
 
         inline void move(const glm::vec3& _move)
         {
-            position += _move;
+            glm::vec3 forward = glm::normalize(glm::vec3(
+                cos(pitch) * sin(yaw),
+                sin(pitch),
+                cos(pitch) * cos(yaw)
+            ));
+
+            glm::vec3 right = glm::normalize(glm::cross(forward, up));
+            glm::vec3 _up = glm::normalize(glm::cross(right, forward));
+
+            position += forward * _move.z;  // Forward/backward movement
+            position += right * _move.x;    // Left/right movement
+            position += _up * _move.y;       // Up/down movement
+            
+            recalculateLookAt();
+
+            recalculateProjectionMatrix();
+            recalculateViewMatrix();
+            recalculateVPMatrix();
+        }
+
+        inline void rotate(float deltaX, float deltaY, float rotationSpeed) {
+            yaw += deltaX * rotationSpeed;
+            pitch -= deltaY * rotationSpeed;
+
+            // Constrain pitch to prevent flipping the camera
+            if (pitch > glm::half_pi<float>())
+                pitch = glm::half_pi<float>();
+            if (pitch < -glm::half_pi<float>())
+                pitch = -glm::half_pi<float>();
+
+            recalculateLookAt();
+
             recalculateProjectionMatrix();
             recalculateViewMatrix();
             recalculateVPMatrix();

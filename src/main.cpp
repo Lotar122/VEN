@@ -43,7 +43,7 @@ int main()
 
     nihil::graphics::Engine engine(&app, eArgs);
 
-    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eMailbox, (uint8_t)3, &engine);
+    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eFifo, (uint8_t)3, &engine);
 
     std::vector<nihil::graphics::RenderPassAttachment> renderPassAttachments = {
         nihil::graphics::RenderPassAttachment(
@@ -153,34 +153,36 @@ int main()
     nihil::graphics::Model cubeModel("./Resources/Models/cube.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
     nihil::graphics::Model pyramidModel("./Resources/Models/pyramid.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
     
-    nihil::graphics::Object cube1(&cubeModel, &engine);
-    nihil::graphics::Object cube2(&cubeModel, &engine);
+    std::vector<nihil::graphics::Object> objects =
+    {
+        
+    };
 
-    nihil::graphics::Object pyramid1(&pyramidModel, &engine);
+    int z = 0;
+    for (int i = 0; i < 100; i++)
+    {
+        for (int j = 0; j < 100; j++)
+        {
+            size_t index = objects.size();
+            objects.push_back(nihil::graphics::Object(&cubeModel, &engine));
+            objects[index].move(glm::vec3(2.0f * i, 0.0f, 2.0f * j));
+            z++;
+        }
+    }
 
     nihil::graphics::Scene scene(&engine);
-    scene.addObject(&cube1);
-    scene.addObject(&cube2);
 
-    scene.addObject(&pyramid1);
-
-    cube1.move(glm::vec3(1.7f, 0.0f, 6.0f));
-    cube2.move(glm::vec3(-1.7f, 0.0f, 6.0f));
-
-    pyramid1.move(glm::vec3(0.0f, 0.0f, 12.0f));
-
-    pyramid1.rotate(glm::vec3(180.0f, 0.0f, 0.0f));
+    //* Add objects here
+    for (nihil::graphics::Object& o : objects) scene.addObject(&o);
 
     //moves all of the models onto the GPU
     scene.use();
-
-    nihil::graphics::PushConstants pushConstants = {};
 
     nihil::graphics::CameraCreateInfo cameraInfo = {};
     cameraInfo.app = &app;
     nihil::graphics::Camera camera(cameraInfo);
 
-    pushConstants.vp = camera._vp();
+    camera.setLookAt(glm::vec3(0.0f, 0.0f, 100.0f));
 
     struct UserPointer 
     {
@@ -189,7 +191,7 @@ int main()
         nihil::graphics::Camera* camera;
     };
 
-    UserPointer userData{ &pushConstants, &swapchain, &camera };
+    UserPointer userData{ nullptr, &swapchain, &camera };
 
     app.userPointer = reinterpret_cast<void*>(&userData);
 
@@ -207,12 +209,19 @@ int main()
 
     while(!app.shouldExit)
     {
-        cube1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
-        cube2.rotate(glm::vec3(0.0f, -1.0f, 0.0f));
-
-        pyramid1.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
-
         app.handle();
+
+        if (keyboard.getKey(nihil::Key::W)) camera.move(glm::vec3(0.0f, 0.0f, 1.0f));
+        if (keyboard.getKey(nihil::Key::S)) camera.move(glm::vec3(0.0f, 0.0f, -1.0f));
+        if (keyboard.getKey(nihil::Key::A)) camera.move(glm::vec3(-0.5f, 0.0f, 0.0f));
+        if (keyboard.getKey(nihil::Key::D)) camera.move(glm::vec3(0.5f, 0.0f, 0.0f));
+        if (keyboard.getKey(nihil::Key::LShift)) camera.move(glm::vec3(0.0f, 0.5f, 0.0f));
+        if (keyboard.getKey(nihil::Key::Space)) camera.move(glm::vec3(0.0f, -0.5f, 0.0f));
+
+        if (keyboard.getKey(nihil::Key::ArrowLeft)) camera.rotate(0.1f, 0.0f, 0.1f);
+        if (keyboard.getKey(nihil::Key::ArrowRight)) camera.rotate(-0.1f, 0.0f, 0.1f);
+        if (keyboard.getKey(nihil::Key::ArrowUp)) camera.rotate(0.0f, 0.1f, 0.1f);
+        if (keyboard.getKey(nihil::Key::ArrowDown)) camera.rotate(0.0f, -0.1f, 0.1f);
 
         engine._renderer()->Render(&basicPipeline, &renderPass, &scene, &camera);
     }
