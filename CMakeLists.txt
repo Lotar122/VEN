@@ -10,6 +10,13 @@ if(WIN32)
 	set(glfw3_DIR "./vcpkg_installed/x64-windows-static/share/glfw3/") 
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+	# do not define the macro
+    # target_compile_definitions(my_executable PRIVATE ENABLE_LOGGING)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(my_executable PRIVATE ENABLE_LOGGING)
+endif()
+
 # Find Vulkan and GLFW
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)

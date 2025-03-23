@@ -1,6 +1,7 @@
 #pragma once
 
-#define ENABLE_LOGGING
+//? Moved to CMakeLists.txt
+// #define ENABLE_LOGGING
 
 #include <iostream>
 

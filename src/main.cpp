@@ -223,6 +223,11 @@ int main()
         if (keyboard.getKey(nihil::Key::ArrowUp)) camera.rotate(0.0f, 0.1f, 0.1f);
         if (keyboard.getKey(nihil::Key::ArrowDown)) camera.rotate(0.0f, -0.1f, 0.1f);
 
+        for(nihil::graphics::Object& o : objects)
+        {
+            o.rotate(glm::vec3(0.0f, 0.5f, 0.0f));
+        }
+
         engine._renderer()->Render(&basicPipeline, &renderPass, &scene, &camera);
     }
 

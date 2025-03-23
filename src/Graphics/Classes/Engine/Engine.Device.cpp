@@ -86,11 +86,11 @@ vk::PhysicalDevice Engine::PickPhysicalDevice(vk::Instance _instance, PhysicalDe
             vk::PhysicalDeviceMemoryProperties memoryProperties = device.getMemoryProperties();
 
             if (properties.limits.maxSamplerAnisotropy >= 1.0f) {
-                std::cout << "GPU supports anisotropy: max "
-                    << properties.limits.maxSamplerAnisotropy << "x" << std::endl;
+                //std::cout << "GPU supports anisotropy: max "
+                //    << properties.limits.maxSamplerAnisotropy << "x" << std::endl;
             }
             else {
-                std::cout << "GPU does NOT support anisotropic filtering!" << std::endl;
+                //std::cout << "GPU does NOT support anisotropic filtering!" << std::endl;
             }
 
             uint64_t deviceLocalMemory = 0;
