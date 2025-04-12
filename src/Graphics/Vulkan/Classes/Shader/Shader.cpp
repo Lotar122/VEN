@@ -24,9 +24,7 @@ void Shader::LoadFromBinary(const std::string& path)
     createInfo.codeSize = buffer.size() * sizeof(uint32_t); // Size in bytes
     createInfo.pCode = buffer.data(); // Pointer to SPIR-V data
 
-    shaderModule = engine->_device().createShaderModule(createInfo);
-
-    Logger::Log("Created a shader.");
+    shaderModule.assignRes(engine->_device().createShaderModule(createInfo), engine->_device());
 }
 
 void Shader::LoadFromSource(const std::string& path)
@@ -43,7 +41,5 @@ Shader::Shader(Engine* _engine)
 
 Shader::~Shader()
 {
-    engine->_device().destroyShaderModule(shaderModule);
-
-    Logger::Log("Destroyed the shader.");
+    shaderModule.destroy();
 }

@@ -3,6 +3,7 @@
 #include "Classes/PushConstants/PushConstants.hpp"
 #include "Classes/RenderPass/RenderPass.hpp"
 #include "Classes/Swapchain/Swapchain.hpp"
+#include "Classes/Resources/Resources.hpp"
 #include <vulkan/vulkan.hpp>
 #include "Logger.hpp"
 
@@ -37,16 +38,16 @@ namespace nihil::graphics
 
     class Pipeline
     {
-        vk::Pipeline pipeline;
-        vk::PipelineLayout layout;
+        Resource<vk::Pipeline> pipeline;
+        Resource<vk::PipelineLayout> layout;
         RenderPass* baseRenderPass = nullptr;
         Engine* engine = nullptr;
 
         bool destroyed = false;
 
     public:
-        inline vk::Pipeline _pipeline() const { return pipeline; };
-        inline vk::PipelineLayout _layout() const {return layout; };
+        inline vk::Pipeline _pipeline() { return pipeline.getRes(); };
+        inline vk::PipelineLayout _layout() {return layout.getRes(); };
         inline RenderPass* _baseRenderPass() { return baseRenderPass; };
 
         Pipeline(Engine* _engine);

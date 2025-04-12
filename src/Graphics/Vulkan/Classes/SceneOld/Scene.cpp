@@ -145,9 +145,9 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
     std::unordered_map<Model*, std::vector<Object*>> instancedDraws;
     std::vector<Object*> normalDraws;
 
-    for (Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* b : instanceBuffers)
+    for (auto& b : instanceBuffers)
     {
-        delete b;
+        delete b.second.first;
     }
 
     size_t toReserve = instanceBuffers.size();
@@ -203,9 +203,27 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
                 memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), matrixData, instanceDataChunkSize);
             }
 
-            Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
-            instanceBuffers.push_back(instanceBuffer);
-            instanceBuffer->moveToGPU();
+            //implement buffer reuse
+            // Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+            // instanceBuffers.push_back(instanceBuffer);
+            // instanceBuffer->moveToGPU();
+
+            /*
+            TODO: 
+            iterate over all buffers, mark them as false (not used). only mark reused buffers as true (used). delete all buffers marked as false.
+            */
+
+            Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
+            auto it = instanceBuffers.find(instanceData.size());
+            if(it == instanceBuffers.end())
+            {
+                instanceBuffer = bufferHeap.alloc<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>>();
+                instanceBuffer = new (instanceBuffer) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+            }
+            else
+            {
+                //reuse the buffer
+            }
 
             std::array<vk::Buffer, 2> vertexBuffers = {
                 it.first->_vertexBuffer()._buffer(),

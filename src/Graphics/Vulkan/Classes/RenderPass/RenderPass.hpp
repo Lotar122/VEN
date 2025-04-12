@@ -38,10 +38,10 @@ namespace nihil::graphics
 
         Swapchain* swapchain = nullptr;
         vk::Device device;
-        vk::RenderPass renderPass;
+        Resource<vk::RenderPass> renderPass;
 
     public:
-        inline vk::RenderPass _renderPass() const { return renderPass; };
+        inline vk::RenderPass _renderPass() { return renderPass.getRes(); };
 
         RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchain* _swapchain, vk::Device _device);
 

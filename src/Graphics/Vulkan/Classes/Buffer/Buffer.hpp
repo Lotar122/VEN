@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Classes/Engine/Engine.hpp"
+#include "Classes/Resources/Resources.hpp"
 
 namespace nihil::graphics
 {
@@ -18,7 +19,7 @@ namespace nihil::graphics
 
         uint32_t memoryTypeIndex = uint32_t(-1);
 
-        vk::Buffer buffer;
+        Resource<vk::Buffer> buffer;
         vk::DeviceMemory memory;
 
         bool onGPU = false;
@@ -26,7 +27,7 @@ namespace nihil::graphics
         bool destroyed = false;
     
     public:
-        inline vk::Buffer _buffer() const { return buffer; };
+        inline vk::Buffer _buffer() { return buffer.getRes(); };
         //return the size of the buffer in bytes
         inline size_t _size() const { return size; };
         //returns the size of the buffer in units of its type
@@ -53,10 +54,10 @@ namespace nihil::graphics
                 vk::SharingMode::eExclusive // Sharing mode
             );
 
-            buffer = engine->_device().createBuffer(bufferCreateInfo);
+            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
 
             // Step 2: Get memory requirements
-            memRequirements = engine->_device().getBufferMemoryRequirements(buffer);
+            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
 
             // Step 3: Allocate memory
             memProperties = engine->_physicalDevice().getMemoryProperties();
@@ -99,7 +100,7 @@ namespace nihil::graphics
             engine->_device().unmapMemory(memory);
 
             // Step 4: Bind buffer to memory
-            engine->_device().bindBufferMemory(buffer, memory, 0);
+            engine->_device().bindBufferMemory(buffer.getRes(), memory, 0);
         }
 
         inline void freeFromGPU()
@@ -144,7 +145,7 @@ namespace nihil::graphics
 
             freeFromGPU();
 
-            engine->_device().destroyBuffer(buffer);
+            buffer.destroy();
         }
 
         inline ~Buffer()

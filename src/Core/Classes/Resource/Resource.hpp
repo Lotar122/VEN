@@ -8,7 +8,7 @@ namespace nihil
     protected:
         T res;
     public:
-        virtual void destroy() {Logger::Error("Called an empty destroy function for a Resource.");};
+        virtual void destroy() { Logger::Error("Called an empty destroy function for a Resource."); };
         ResourceAbstract() {};
         virtual ~ResourceAbstract() {};
         // {
