@@ -13,7 +13,7 @@
 using namespace nihil::graphics;
 
 void Renderer::Render(
-	Pipeline* pipeline, RenderPass* renderPass, 
+	RenderPass* renderPass, 
 	Scene* scene,
 	Camera* camera
 )

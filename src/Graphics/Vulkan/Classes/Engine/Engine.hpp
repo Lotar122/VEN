@@ -52,9 +52,13 @@ namespace nihil::graphics
         Swapchain* swapchain = nullptr;
         Renderer* renderer = nullptr;
 
+        uint64_t lastAssetId = 0;
+
     public:
         Engine(App* _app, EngineArgs& args);
         ~Engine();
+
+        inline uint64_t requestAssetId() { return requestAssetId++; };
 
         inline vk::Instance _instance() { return instance.getRes(); };
         inline vk::PhysicalDevice _physicalDevice() const { return physicalDevice; };

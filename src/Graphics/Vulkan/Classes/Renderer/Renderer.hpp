@@ -38,7 +38,7 @@ namespace nihil::graphics
         //Add draw queueing in the future
 
         void Render(
-            Pipeline* pipeline, RenderPass* renderPass, 
+            RenderPass* renderPass, 
             Scene* scene,
             Camera* camera
         );

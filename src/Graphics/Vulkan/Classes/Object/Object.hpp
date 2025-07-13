@@ -11,11 +11,16 @@
 
 namespace nihil::graphics
 {
+    class Scene;
+
     class Object
     {
+        friend class Scene;
     public:
         //? used for resource optimization in the future, for now just sits here to remind me of my plans.
         bool active = true;
+
+        bool modifiedThisFrame = false;
 
         PushConstants pushConstants;
 
@@ -23,7 +28,6 @@ namespace nihil::graphics
         Model* model = nullptr;
         Engine* engine = nullptr;
 
-        //! should only be accessible via getters
         glm::vec3 position = glm::vec3(0.0f);
         glm::vec3 rotation = glm::vec3(0.0f);
         glm::mat4 modelMatrix = glm::mat4(1.0f);
@@ -41,8 +45,8 @@ namespace nihil::graphics
             return &pushConstants;
         }
 
-        inline const Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>& _vertexBuffer() { return model->_vertexBuffer(); };
-        inline const Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>& _indexBuffer() { return model->_indexBuffer(); };
+        inline Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>& _vertexBuffer() { return model->_vertexBuffer(); };
+        inline Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>& _indexBuffer() { return model->_indexBuffer(); };
 
         inline Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* _vertexBufferPtr() { return model->_vertexBufferPtr(); };
         inline Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* _indexBufferPtr() { return model->_indexBufferPtr(); };
@@ -75,15 +79,30 @@ namespace nihil::graphics
         {
             position += _moveBy;
             recalculateModelMatrix();
+
+            modifiedThisFrame = true;
         }
 
         inline void rotate(const glm::vec3& _rotateBy)
         {
             rotation += _rotateBy;
             recalculateModelMatrix();
+
+            modifiedThisFrame = true;
+        }
+
+        inline void modified()
+        {
+            modifiedThisFrame = true;
         }
 
         inline void use() { model->moveToGPU(); };
         inline void unuse() { model->freeFromGPU(); };
+
+    private:
+        inline void afterRender()
+        {
+            modifiedThisFrame = false;
+        }
     };
 }

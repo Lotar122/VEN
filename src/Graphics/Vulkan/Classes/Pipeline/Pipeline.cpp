@@ -14,8 +14,8 @@ void Pipeline::destroy()
 	assert(!destroyed);
 
 	destroyed = true;
-	engine->_device().destroyPipeline(pipeline);
-	engine->_device().destroyPipelineLayout(layout);
+	pipeline.destroy();
+	layout.destroy();
 
 	Logger::Log("Destroyed Pipeline.");
 }
@@ -166,18 +166,18 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass)
 	layoutInfo.pPushConstantRanges = &pushConstantInfo;
 
 	try {
-		layout = engine->_device().createPipelineLayout(layoutInfo);
+		layout.assignRes(engine->_device().createPipelineLayout(layoutInfo), engine->_device());
 	}
 	catch (vk::SystemError err) {
 		Logger::Exception(err.what());
 	}
 
-	pipelineInfo.layout = layout;
+	pipelineInfo.layout = layout.getRes();
 	pipelineInfo.renderPass = _renderPass->_renderPass();
 	pipelineInfo.basePipelineHandle = nullptr;
 
 	try {
-		pipeline = engine->_device().createGraphicsPipeline(nullptr, pipelineInfo).value;
+		pipeline.assignRes(engine->_device().createGraphicsPipeline(nullptr, pipelineInfo).value, engine->_device());
 	}
 	catch (vk::SystemError err) {
 		Logger::Exception(err.what());

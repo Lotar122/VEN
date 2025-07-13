@@ -15,7 +15,7 @@ namespace nihil::graphics
     {
         Engine* engine = nullptr;
     public:
-        vk::ShaderModule shaderModule;
+        Resource<vk::ShaderModule> shaderModule;
 
         std::string name;
 
@@ -26,6 +26,6 @@ namespace nihil::graphics
 
         ~Shader();
 
-        inline vk::ShaderModule* _ptr() { return &shaderModule; };
+        inline vk::ShaderModule* _ptr() { return shaderModule.getResP(); };
     };
 }

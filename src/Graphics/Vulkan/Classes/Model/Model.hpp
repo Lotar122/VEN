@@ -51,8 +51,8 @@ namespace nihil::graphics
         inline Pipeline* _pipeline() { return pipeline; };
         inline Pipeline* _instancedPipeline() { return instancedPipeline; };
         inline RenderPass* _renderPass() { return renderPass; };
-        inline const Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>& _vertexBuffer() { return *vertexBuffer; };
-        inline const Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>& _indexBuffer() { return *indexBuffer; };
+        inline Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>& _vertexBuffer() { return *vertexBuffer; };
+        inline Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>& _indexBuffer() { return *indexBuffer; };
 
         inline Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* _vertexBufferPtr() { return vertexBuffer; };
         inline Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* _indexBufferPtr() { return indexBuffer; };

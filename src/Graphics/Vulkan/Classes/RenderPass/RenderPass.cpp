@@ -73,10 +73,10 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 		1, &dependency // Dependencies
 	);
 
-	renderPass = device.createRenderPass(renderPassInfo);
+	renderPass.assignRes(device.createRenderPass(renderPassInfo), device);
 }
 
 RenderPass::~RenderPass()
 {
-	device.destroyRenderPass(renderPass);
+	renderPass.destroy();
 }

@@ -34,7 +34,7 @@ int main()
     eArgs.appVersion.minor = 0;
     eArgs.appVersion.patch = 0;
 
-    eArgs.appName = "nihil based application";
+    eArgs.appName = "nihil based app";
 
     eArgs.validationLayers = true;
 
@@ -75,7 +75,7 @@ int main()
 
     engine.setSwapchain(&swapchain);
 
-    engine.createRenderer();
+    engine.createRenderer(); 
 
     nihil::graphics::Shader basicVertexShader(&engine);
     nihil::graphics::Shader basicFragmentShader(&engine);
@@ -211,8 +211,8 @@ int main()
     {
         app.handle();
 
-        if (keyboard.getKey(nihil::Key::W)) camera.move(glm::vec3(0.0f, 0.0f, 1.0f));
-        if (keyboard.getKey(nihil::Key::S)) camera.move(glm::vec3(0.0f, 0.0f, -1.0f));
+        if (keyboard.getKey(nihil::Key::W)) camera.move(glm::vec3(0.0f, 0.0f, 0.5f));
+        if (keyboard.getKey(nihil::Key::S)) camera.move(glm::vec3(0.0f, 0.0f, -0.5f));
         if (keyboard.getKey(nihil::Key::A)) camera.move(glm::vec3(-0.5f, 0.0f, 0.0f));
         if (keyboard.getKey(nihil::Key::D)) camera.move(glm::vec3(0.5f, 0.0f, 0.0f));
         if (keyboard.getKey(nihil::Key::LShift)) camera.move(glm::vec3(0.0f, 0.5f, 0.0f));
@@ -228,7 +228,7 @@ int main()
             o.rotate(glm::vec3(0.0f, 0.5f, 0.0f));
         }
 
-        engine._renderer()->Render(&basicPipeline, &renderPass, &scene, &camera);
+        engine._renderer()->Render(&renderPass, &scene, &camera);
     }
 
     return 0;
