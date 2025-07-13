@@ -58,7 +58,7 @@ namespace nihil::graphics
         Engine(App* _app, EngineArgs& args);
         ~Engine();
 
-        inline uint64_t requestAssetId() { return requestAssetId++; };
+        inline uint64_t requestAssetId() { return lastAssetId++; };
 
         inline vk::Instance _instance() { return instance.getRes(); };
         inline vk::PhysicalDevice _physicalDevice() const { return physicalDevice; };
