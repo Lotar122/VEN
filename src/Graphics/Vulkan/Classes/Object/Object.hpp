@@ -11,25 +11,16 @@
 
 namespace nihil::graphics
 {
-    //* Static - the object exists through the entire lifetime of its scene, Dynamic - the object may be removed during the scenes lifetime.
-    enum class ObjectUsage : uint8_t
-    {
-        Static,
-        Dynamic
-    }
-
-    //* Static - the objects position doesn't change, Dynamic - the object might move.
-    enum class ObjectPlacement : uint8_t
-    {
-        Static,
-        Dynamic
-    }
+    class Scene;
 
     class Object
     {
+        friend class Scene;
     public:
         //? used for resource optimization in the future, for now just sits here to remind me of my plans.
         bool active = true;
+
+        bool modifiedThisFrame = false;
 
         PushConstants pushConstants;
 
@@ -88,15 +79,30 @@ namespace nihil::graphics
         {
             position += _moveBy;
             recalculateModelMatrix();
+
+            modifiedThisFrame = true;
         }
 
         inline void rotate(const glm::vec3& _rotateBy)
         {
             rotation += _rotateBy;
             recalculateModelMatrix();
+
+            modifiedThisFrame = true;
+        }
+
+        inline void modified()
+        {
+            modifiedThisFrame = true;
         }
 
         inline void use() { model->moveToGPU(); };
         inline void unuse() { model->freeFromGPU(); };
+
+    private:
+        inline void afterRender()
+        {
+            modifiedThisFrame = false;
+        }
     };
 }

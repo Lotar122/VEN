@@ -25,7 +25,6 @@ namespace nihil::graphics
         bool onGPU = false;
 
         bool destroyed = false;
-    
     public:
         inline vk::Buffer _buffer() { return buffer.getRes(); };
         //return the size of the buffer in bytes
@@ -121,6 +120,25 @@ namespace nihil::graphics
             assert(_data.size() == data.size());
 
             data = _data;
+
+            bool wasOnGPU = onGPU;
+
+            moveToGPU();
+
+            void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+            T* dataTyped = reinterpret_cast<T*>(dataRaw);
+            //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
+            std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+            engine->_device().unmapMemory(memory);
+
+            if(!wasOnGPU) freeFromGPU();
+        }
+
+        void update(const std::vector<T>&& _data)
+        {
+            assert(_data.size() == data.size());
+
+            data = std::move(_data);
 
             bool wasOnGPU = onGPU;
 

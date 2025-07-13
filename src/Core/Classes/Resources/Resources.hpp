@@ -11,5 +11,6 @@
 #include "Pipeline.hpp"
 #include "PipelineLayout.hpp"
 #include "RenderPass.hpp"
+#include "Shader.hpp"
 
 #include "SwapchainKHR.hpp"

@@ -34,7 +34,7 @@ int main()
     eArgs.appVersion.minor = 0;
     eArgs.appVersion.patch = 0;
 
-    eArgs.appName = "nihil based application";
+    eArgs.appName = "nihil based app";
 
     eArgs.validationLayers = true;
 
