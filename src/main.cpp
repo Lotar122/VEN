@@ -89,66 +89,66 @@ int main()
     instancedVertexShader.LoadFromBinary("./Resources/Shaders/instanced.vert.spv");
     instancedFragmentShader.LoadFromBinary("./Resources/Shaders/instanced.frag.spv");
 
-    uint32_t vertexSize1 = sizeof(float) * 8;
-
-    vk::VertexInputBindingDescription binding11 = {0, vertexSize1, vk::VertexInputRate::eVertex};
-
-    vk::VertexInputAttributeDescription attribute11 = {0, 0, vk::Format::eR32G32B32Sfloat, 0};
-    vk::VertexInputAttributeDescription attribute12 = {1, 0, vk::Format::eR32G32Sfloat, 3 * sizeof(float)};
-    vk::VertexInputAttributeDescription attribute13 = {2, 0, vk::Format::eR32G32B32Sfloat, 5 * sizeof(float)};
-
-    std::vector<vk::VertexInputBindingDescription> bindingDesc1 = {binding11};
-    std::vector<vk::VertexInputAttributeDescription> attributeDesc1 = {attribute11, attribute12, attribute13};
-
-    nihil::graphics::PipelineCreateInfo pipelineInfo1 = { bindingDesc1, attributeDesc1 };
-
-    pipelineInfo1.vertexShader = basicVertexShader._ptr();
-    pipelineInfo1.fragmentShader = basicFragmentShader._ptr();
-
-    //to visualize the mesh
-    pipelineInfo1.cullingMode = vk::CullModeFlagBits::eBack;
-    pipelineInfo1.polygonMode = vk::PolygonMode::eFill;
-    pipelineInfo1.frontFace = vk::FrontFace::eCounterClockwise;
-
     nihil::graphics::Pipeline basicPipeline(&engine);
-
-    basicPipeline.create(pipelineInfo1, &renderPass);
-
-
-    uint32_t vertexSize21 = sizeof(float) * 8;
-    uint32_t vertexSize22 = sizeof(float) * 16;
-
-    vk::VertexInputBindingDescription binding21 = {0, vertexSize21, vk::VertexInputRate::eVertex};
-    vk::VertexInputBindingDescription binding22 = {1, vertexSize22, vk::VertexInputRate::eInstance};
-
-    vk::VertexInputAttributeDescription attribute21 = {0, 0, vk::Format::eR32G32B32Sfloat, 0};
-    vk::VertexInputAttributeDescription attribute22 = {1, 0, vk::Format::eR32G32Sfloat, 3 * sizeof(float)};
-    vk::VertexInputAttributeDescription attribute23 = {2, 0, vk::Format::eR32G32B32Sfloat, 5 * sizeof(float)};
-
-    vk::VertexInputAttributeDescription attribute24 = {4, 1, vk::Format::eR32G32B32A32Sfloat, 0};
-    vk::VertexInputAttributeDescription attribute25 = {5, 1, vk::Format::eR32G32B32A32Sfloat, 4 * sizeof(float)};
-    vk::VertexInputAttributeDescription attribute26 = {6, 1, vk::Format::eR32G32B32A32Sfloat, 8 * sizeof(float)};
-    vk::VertexInputAttributeDescription attribute27 = {7, 1, vk::Format::eR32G32B32A32Sfloat, 12 * sizeof(float)};
-
-    std::vector<vk::VertexInputBindingDescription> bindingDesc2 = {binding21, binding22};
-    std::vector<vk::VertexInputAttributeDescription> attributeDesc2 = {
-        attribute21, attribute22, attribute23, attribute24, attribute25, attribute26, attribute27
-    };
-
-    nihil::graphics::PipelineCreateInfo pipelineInfo2 = { bindingDesc2, attributeDesc2 };
-
-    pipelineInfo2.vertexShader = instancedVertexShader._ptr();
-    pipelineInfo2.fragmentShader = instancedFragmentShader._ptr();
-
-    //to visualize the mesh
-    pipelineInfo2.cullingMode = vk::CullModeFlagBits::eBack;
-    pipelineInfo2.polygonMode = vk::PolygonMode::eFill;
-    pipelineInfo2.frontFace = vk::FrontFace::eCounterClockwise;
-
     nihil::graphics::Pipeline instancedPipeline(&engine);
 
-    instancedPipeline.create(pipelineInfo2, &renderPass);
+    //*Pipeline creation
+    {
+        uint32_t vertexSize1 = sizeof(float) * 8;
 
+        vk::VertexInputBindingDescription binding11 = { 0, vertexSize1, vk::VertexInputRate::eVertex };
+
+        vk::VertexInputAttributeDescription attribute11 = { 0, 0, vk::Format::eR32G32B32Sfloat, 0 };
+        vk::VertexInputAttributeDescription attribute12 = { 1, 0, vk::Format::eR32G32Sfloat, 3 * sizeof(float) };
+        vk::VertexInputAttributeDescription attribute13 = { 2, 0, vk::Format::eR32G32B32Sfloat, 5 * sizeof(float) };
+
+        std::vector<vk::VertexInputBindingDescription> bindingDesc1 = { binding11 };
+        std::vector<vk::VertexInputAttributeDescription> attributeDesc1 = { attribute11, attribute12, attribute13 };
+
+        nihil::graphics::PipelineCreateInfo pipelineInfo1 = { bindingDesc1, attributeDesc1 };
+
+        pipelineInfo1.vertexShader = basicVertexShader._ptr();
+        pipelineInfo1.fragmentShader = basicFragmentShader._ptr();
+
+        //to visualize the mesh
+        pipelineInfo1.cullingMode = vk::CullModeFlagBits::eBack;
+        pipelineInfo1.polygonMode = vk::PolygonMode::eFill;
+        pipelineInfo1.frontFace = vk::FrontFace::eCounterClockwise;
+
+        basicPipeline.create(pipelineInfo1, &renderPass);
+
+        uint32_t vertexSize21 = sizeof(float) * 8;
+        uint32_t vertexSize22 = sizeof(float) * 16;
+
+        vk::VertexInputBindingDescription binding21 = { 0, vertexSize21, vk::VertexInputRate::eVertex };
+        vk::VertexInputBindingDescription binding22 = { 1, vertexSize22, vk::VertexInputRate::eInstance };
+
+        vk::VertexInputAttributeDescription attribute21 = { 0, 0, vk::Format::eR32G32B32Sfloat, 0 };
+        vk::VertexInputAttributeDescription attribute22 = { 1, 0, vk::Format::eR32G32Sfloat, 3 * sizeof(float) };
+        vk::VertexInputAttributeDescription attribute23 = { 2, 0, vk::Format::eR32G32B32Sfloat, 5 * sizeof(float) };
+
+        vk::VertexInputAttributeDescription attribute24 = { 4, 1, vk::Format::eR32G32B32A32Sfloat, 0 };
+        vk::VertexInputAttributeDescription attribute25 = { 5, 1, vk::Format::eR32G32B32A32Sfloat, 4 * sizeof(float) };
+        vk::VertexInputAttributeDescription attribute26 = { 6, 1, vk::Format::eR32G32B32A32Sfloat, 8 * sizeof(float) };
+        vk::VertexInputAttributeDescription attribute27 = { 7, 1, vk::Format::eR32G32B32A32Sfloat, 12 * sizeof(float) };
+
+        std::vector<vk::VertexInputBindingDescription> bindingDesc2 = { binding21, binding22 };
+        std::vector<vk::VertexInputAttributeDescription> attributeDesc2 = {
+            attribute21, attribute22, attribute23, attribute24, attribute25, attribute26, attribute27
+        };
+
+        nihil::graphics::PipelineCreateInfo pipelineInfo2 = { bindingDesc2, attributeDesc2 };
+
+        pipelineInfo2.vertexShader = instancedVertexShader._ptr();
+        pipelineInfo2.fragmentShader = instancedFragmentShader._ptr();
+
+        //to visualize the mesh
+        pipelineInfo2.cullingMode = vk::CullModeFlagBits::eBack;
+        pipelineInfo2.polygonMode = vk::PolygonMode::eFill;
+        pipelineInfo2.frontFace = vk::FrontFace::eCounterClockwise;
+
+        instancedPipeline.create(pipelineInfo2, &renderPass);
+    }
 
     nihil::graphics::Model cubeModel("./Resources/Models/cube.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
     nihil::graphics::Model pyramidModel("./Resources/Models/pyramid.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
@@ -173,7 +173,7 @@ int main()
     nihil::graphics::Scene scene(&engine);
 
     //* Add objects here
-    for (nihil::graphics::Object& o : objects) scene.addObject(&o);
+    scene.addObjects(objects);
 
     //moves all of the models onto the GPU
     scene.use();
@@ -206,6 +206,8 @@ int main()
     };
 
     nihil::Keyboard keyboard(&app);
+
+    std::cout << "Max Sample Count: " << engine.getMaxUsableSampleCount<uint64_t>() << '\n';
 
     while(!app.shouldExit)
     {

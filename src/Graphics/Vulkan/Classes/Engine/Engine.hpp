@@ -12,6 +12,8 @@
 #include "Classes/Renderer/Renderer.hpp"
 #include "Classes/Listeners/Listeners.hpp"
 
+#include "Concepts/Integer.hpp"
+
 namespace nihil::graphics
 {
     struct PhysicalDevicePreferences
@@ -59,6 +61,23 @@ namespace nihil::graphics
         ~Engine();
 
         inline uint64_t requestAssetId() { return lastAssetId++; };
+        template<typename ReturnT>
+        requires(Integer<ReturnT> || (std::is_enum_v<ReturnT> && Integer<std::underlying_type_t<ReturnT>>))
+        ReturnT getMaxUsableSampleCount()
+        {
+            auto props = physicalDevice.getProperties();
+            auto colorSampleCounts = props.limits.framebufferColorSampleCounts;
+            auto depthSampleCounts = props.limits.framebufferDepthSampleCounts;
+            auto counts = colorSampleCounts & depthSampleCounts;
+
+            if (counts & vk::SampleCountFlagBits::e64) return static_cast<ReturnT>(vk::SampleCountFlagBits::e64);
+            if (counts & vk::SampleCountFlagBits::e32) return static_cast<ReturnT>(vk::SampleCountFlagBits::e32);
+            if (counts & vk::SampleCountFlagBits::e16) return static_cast<ReturnT>(vk::SampleCountFlagBits::e16);
+            if (counts & vk::SampleCountFlagBits::e8)  return static_cast<ReturnT>(vk::SampleCountFlagBits::e8);
+            if (counts & vk::SampleCountFlagBits::e4)  return static_cast<ReturnT>(vk::SampleCountFlagBits::e4);
+            if (counts & vk::SampleCountFlagBits::e2)  return static_cast<ReturnT>(vk::SampleCountFlagBits::e2);
+            return static_cast<ReturnT>(vk::SampleCountFlagBits::e1);
+        }
 
         inline vk::Instance _instance() { return instance.getRes(); };
         inline vk::PhysicalDevice _physicalDevice() const { return physicalDevice; };

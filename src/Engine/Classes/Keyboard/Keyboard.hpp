@@ -72,7 +72,6 @@ namespace nihil
 		void onHandle() final override 
 		{
 			//Handle all the key changes
-			Logger::Log("onHandle Called");
 
 			for (auto& it : keys)
 			{

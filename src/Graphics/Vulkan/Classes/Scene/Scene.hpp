@@ -29,6 +29,10 @@ namespace nihil::graphics
     public:
 
         inline void addObject(Object* object) { objects.push_back(object); };
+        void addObjects(const Object** newObjects, size_t size);
+        void addObjects(Object* newObjects, size_t size);
+        void addObjects(const std::vector<Object*>& newObjects);
+        void addObjects(std::vector<Object>& newObjects);
 
         inline void use() { for (Object* o : objects) { o->use(); } };
         inline void unuse() { for (Object* o : objects) { o->unuse(); } };

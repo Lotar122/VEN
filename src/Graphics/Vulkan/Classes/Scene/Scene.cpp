@@ -10,6 +10,40 @@
 
 using namespace nihil::graphics;
 
+void Scene::addObjects(const Object** newObjects, size_t size)
+{
+    size_t originalObjectsSize = objects.size();
+    objects.resize(objects.size() + size);
+    std::memcpy(reinterpret_cast<char*>(objects.data() + originalObjectsSize), reinterpret_cast<char*>(newObjects), size * sizeof(Object**));
+}
+
+void Scene::addObjects(Object* newObjects, size_t size)
+{
+    size_t originalObjectsSize = objects.size();
+    objects.resize(objects.size() + size);
+    for (size_t i = 0; i < size; i++)
+    {
+        objects[originalObjectsSize + i] = &newObjects[i];
+    }
+}
+
+void Scene::addObjects(const std::vector<Object*>& newObjects)
+{
+    size_t originalObjectsSize = objects.size();
+    objects.resize(objects.size() + newObjects.size());
+    std::memcpy(reinterpret_cast<char*>(objects.data() + originalObjectsSize), reinterpret_cast<const char*>(newObjects.data()), newObjects.size() * sizeof(Object**));
+}
+
+void Scene::addObjects(std::vector<Object>& newObjects)
+{
+    size_t originalObjectsSize = objects.size();
+    objects.resize(objects.size() + newObjects.size());
+    for (size_t i = 0; i < newObjects.size(); i++)
+    {
+        objects[originalObjectsSize + i] = &newObjects[i];
+    }
+}
+
 void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
 {
     instancedDraws.clear();
@@ -57,12 +91,9 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
             if(bufferIT != instanceBuffers.end()) 
             {
                 instanceBuffer = bufferIT->second; 
-                Logger::Log("Reusing buffer.");
             }
             else
             {
-                Logger::Log("Creating a buffer.");
-
                 instanceBuffer = bufferHeap.alloc<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>>();
 
                 std::vector<float> instanceData;
@@ -91,8 +122,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
 
             if(bufferIT != instanceBuffers.end() && objectModified)
             {
-                Logger::Log("Modifing a buffer.");
-
                 //In the future do this so that it only modifies the matrix of the modified object
                 std::vector<float> instanceData;
 
