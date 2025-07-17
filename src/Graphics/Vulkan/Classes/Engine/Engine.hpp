@@ -14,6 +14,8 @@
 
 #include "Concepts/Integer.hpp"
 
+//! TODO: MAKE A std::mutex FOR THE MAIN COMMAND BUFFER, THIS SHOULD ENSURE THAT IT ISN'T RECORDED TO FROM TWO THREADS AT THE SAME TIME
+
 namespace nihil::graphics
 {
     struct PhysicalDevicePreferences
@@ -91,13 +93,17 @@ namespace nihil::graphics
         inline vk::SurfaceKHR _surfaceKHR() { return surface.getRes(); };
         inline vk::Device _device() { return device.getRes(); };
 
-        inline vk::CommandPool _mainCommandPool() const { return mainCommandPool; };
-        inline vk::CommandBuffer _mainCommandBuffer() const { return mainCommandBuffer; };
+        inline vk::CommandPool& _mainCommandPool() { return mainCommandPool; };
+        inline vk::CommandBuffer& _mainCommandBuffer() { return mainCommandBuffer; };
 
         inline uint32_t _renderQueueIndex() const { return renderQueueIndex; };
         inline uint32_t _presentQueueIndex() const { return presentQueueIndex; };
+        inline uint32_t _transferQueueIndex() const { return transferQueueIndex; };
         inline vk::Queue _renderQueue() const { return renderQueue; };
         inline vk::Queue _presentQueue() const { return presentQueue; };
+        inline vk::Queue _transferQueue() const { return transferQueue; };
+
+        inline vk::Fence& _transferFence() { return transferFence; };
 
         inline Renderer* _renderer() { return renderer; };
 
@@ -113,17 +119,17 @@ namespace nihil::graphics
         static vk::PhysicalDevice PickPhysicalDevice(vk::Instance _instance, PhysicalDevicePreferences& prefs);
         static vk::SurfaceKHR GetSurfaceKHR(App* _app, vk::Instance _instance);
 
-        static std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> Engine::CreateVKQueueInfo(
+        static std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> CreateVKQueueInfo(
             vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
         );
         static vk::Device CreateVKLogicalDevice(
             vk::PhysicalDevice physicalDevice,
-            const std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
+            std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
             const std::vector<const char*>& requiredExtensions
         );
-        static std::pair<std::pair<vk::Queue, vk::Queue>, std::pair<uint32_t, uint32_t>> GetVKQueues(
+        static std::pair<std::tuple<vk::Queue, vk::Queue, vk::Queue>, std::tuple<uint32_t, uint32_t, uint32_t>> GetVKQueues(
             vk::Device _device, 
-            const std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos
+            const std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos
         ); 
         static vk::CommandPool CreateVKCommandPool(vk::Device _device, uint32_t _renderQueueIndex);
         static vk::CommandBuffer CreateVKCommandBuffer(vk::Device _device, vk::CommandPool commandPool);

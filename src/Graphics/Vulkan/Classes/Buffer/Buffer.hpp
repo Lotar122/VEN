@@ -8,7 +8,8 @@ namespace nihil::graphics
     static uint32_t findMemoryTypeIndex(vk::PhysicalDeviceMemoryProperties memProperties, vk::MemoryRequirements memRequirements, vk::MemoryPropertyFlags memFlags)
     {
         uint32_t memoryTypeIndex = uint32_t(-1);
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) 
+        {
             if (
                 (memRequirements.memoryTypeBits & (1 << i)) &&
                 (memProperties.memoryTypes[i].propertyFlags & memFlags)
@@ -18,6 +19,8 @@ namespace nihil::graphics
                 break;
             }
         }
+
+        return memoryTypeIndex;
     }
     template<typename T, vk::BufferUsageFlagBits usageT>
     class Buffer
@@ -77,7 +80,7 @@ namespace nihil::graphics
 
             vk::BufferCreateInfo stagingBufferCreateInfo{
                 {},
-                bufferSize,
+                size,
                 vk::BufferUsageFlagBits::eTransferSrc,
                 vk::SharingMode::eExclusive
             };
@@ -129,14 +132,26 @@ namespace nihil::graphics
             engine->_device().bindBufferMemory(buffer.getRes(), memory, 0);
             engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
 
+            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+
             // Step 5: Copy staging buffer to buffer
             vk::CommandBufferBeginInfo beginInfo{};
             engine->_mainCommandBuffer().begin(beginInfo);
 
             vk::BufferCopy copyRegion{ 0, 0, size };
-            commandBuffer.copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
+            engine->_mainCommandBuffer().copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
 
-            commandBuffer.end();
+            engine->_mainCommandBuffer().end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = nullptr;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+
+            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
         }
 
         inline void freeFromGPU()
@@ -150,6 +165,7 @@ namespace nihil::graphics
             engine->_device().waitIdle();
 
             engine->_device().freeMemory(memory);
+            engine->_device().freeMemory(stagingMemory);
         }
 
         void update(const std::vector<T>& _data)
@@ -162,11 +178,32 @@ namespace nihil::graphics
 
             moveToGPU();
 
-            void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+            void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
             T* dataTyped = reinterpret_cast<T*>(dataRaw);
             //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
             std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-            engine->_device().unmapMemory(memory);
+            engine->_device().unmapMemory(stagingMemory);
+
+            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+
+            // Copy staging buffer to buffer
+            vk::CommandBufferBeginInfo beginInfo{};
+            engine->_mainCommandBuffer().begin(beginInfo);
+
+            vk::BufferCopy copyRegion{ 0, 0, size };
+            engine->_mainCommandBuffer().copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
+
+            engine->_mainCommandBuffer().end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = nullptr;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+
+            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
 
             if(!wasOnGPU) freeFromGPU();
         }
@@ -181,11 +218,33 @@ namespace nihil::graphics
 
             moveToGPU();
 
-            void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+            void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
             T* dataTyped = reinterpret_cast<T*>(dataRaw);
             //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
             std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-            engine->_device().unmapMemory(memory);
+            engine->_device().unmapMemory(stagingMemory);
+
+            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+
+            //Copy staging buffer to buffer
+            vk::CommandBufferBeginInfo beginInfo{};
+            engine->_mainCommandBuffer().begin(beginInfo);
+
+            vk::BufferCopy copyRegion{ 0, 0, size };
+            engine->_mainCommandBuffer().copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
+
+            engine->_mainCommandBuffer().end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = nullptr;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+
+            //vk::Result discardResult = engine->_device().resetFences(1, &frame.inFlightFence);
+            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
 
             if(!wasOnGPU) freeFromGPU();
         }

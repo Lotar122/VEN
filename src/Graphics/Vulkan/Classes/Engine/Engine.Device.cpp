@@ -200,6 +200,7 @@ std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueue
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eTransfer) 
         {
             transferQueueFamilyIndex = i;
+            Logger::Log("Transfer Queue found");
         }
 
         if (graphicsQueueFamilyIndex != -1 && presentQueueFamilyIndex != -1 && transferQueueFamilyIndex != -1) 
@@ -216,8 +217,9 @@ std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueue
     float queuePriority = 1.0f;
     vk::DeviceQueueCreateInfo graphicsQueueCreateInfo({}, graphicsQueueFamilyIndex, 1, &queuePriority);
     vk::DeviceQueueCreateInfo presentQueueCreateInfo({}, presentQueueFamilyIndex, 1, &queuePriority);
+    vk::DeviceQueueCreateInfo transferQueueCreateInfo({}, transferQueueFamilyIndex, 1, &queuePriority);
 
-    return std::make_tuple(graphicsQueueCreateInfo, presentQueueCreateInfo);
+    return std::make_tuple(graphicsQueueCreateInfo, presentQueueCreateInfo, transferQueueCreateInfo);
 }
 
 vk::Device Engine::CreateVKLogicalDevice(
@@ -229,10 +231,9 @@ vk::Device Engine::CreateVKLogicalDevice(
     assert(physicalDevice != nullptr);
 
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueInfos;
-    
-    //fix
+
     std::apply([&deviceQueueInfos](auto&&... queueInfo) {
-        (..., (deviceQueueInfos.find(queueInfo) == deviceQueueInfos.end()
+        (..., (std::find(deviceQueueInfos.begin(), deviceQueueInfos.end(), queueInfo) == deviceQueueInfos.end()
             ? deviceQueueInfos.push_back(queueInfo)
             : void()));
         }, queueInfos);
@@ -242,27 +243,28 @@ vk::Device Engine::CreateVKLogicalDevice(
     vk::PhysicalDeviceFeatures supportedFeatures = physicalDevice.getFeatures();
     if (supportedFeatures.samplerAnisotropy) deviceFeatures.samplerAnisotropy = VK_TRUE;
 
-    vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueInfosVec, nullptr, requiredExtensions, &deviceFeatures);
+    vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueInfos, nullptr, requiredExtensions, &deviceFeatures);
     return physicalDevice.createDevice(deviceCreateInfo);
 }
 
-// first is queues, second is queueIndices, where first is present and second is render
-std::pair<std::pair<vk::Queue, vk::Queue>, std::pair<uint32_t, uint32_t>> Engine::GetVKQueues(
+std::pair<std::tuple<vk::Queue, vk::Queue, vk::Queue>, std::tuple<uint32_t, uint32_t, uint32_t>> Engine::GetVKQueues(
     vk::Device _device, 
-    const std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos
+    const std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos
 ) 
 {
     assert(_device != nullptr);
 
-    uint32_t graphicsQueueFamilyIndex = queueInfos.first.queueFamilyIndex;
-    uint32_t presentQueueFamilyIndex = queueInfos.second.queueFamilyIndex;
+    uint32_t graphicsQueueFamilyIndex = std::get<0>(queueInfos).queueFamilyIndex;
+    uint32_t presentQueueFamilyIndex = std::get<1>(queueInfos).queueFamilyIndex;
+    uint32_t transferQueueFamilyIndex = std::get<2>(queueInfos).queueFamilyIndex;
 
     vk::Queue graphicsQueue = _device.getQueue(graphicsQueueFamilyIndex, 0);
     vk::Queue presentQueue = _device.getQueue(presentQueueFamilyIndex, 0);
+    vk::Queue transferQueue = _device.getQueue(transferQueueFamilyIndex, 0);
 
     return std::make_pair(
-        std::make_pair(presentQueue, graphicsQueue), 
-        std::make_pair<uint32_t, uint32_t>(static_cast<uint32_t>(presentQueueFamilyIndex), static_cast<uint32_t>(graphicsQueueFamilyIndex))
+        std::make_tuple(presentQueue, graphicsQueue, transferQueue), 
+        std::make_tuple<uint32_t, uint32_t, uint32_t>(static_cast<uint32_t>(presentQueueFamilyIndex), static_cast<uint32_t>(graphicsQueueFamilyIndex), static_cast<uint32_t>(transferQueueFamilyIndex))
     );
 }
 

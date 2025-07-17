@@ -35,18 +35,30 @@ Engine::Engine(App* _app, EngineArgs& args)
 
 	auto queues = GetVKQueues(device.getRes(), queueInfo);
 
-	presentQueue = queues.first.first;
-	renderQueue = queues.first.second;
+	presentQueue = std::get<0>(queues.first);
+	renderQueue = std::get<1>(queues.first);
+	transferQueue = std::get<2>(queues.first);
 
-	presentQueueIndex = queues.second.first;
-	renderQueueIndex = queues.second.second;
+	presentQueueIndex = std::get<0>(queues.second);
+	renderQueueIndex = std::get<1>(queues.second);
+	transferQueueIndex = std::get<2>(queues.second);
 
 	mainCommandPool = CreateVKCommandPool(device.getRes(), renderQueueIndex);
 	mainCommandBuffer = CreateVKCommandBuffer(device.getRes(), mainCommandPool);
+
+	vk::FenceCreateInfo transferFenceCreateInfo = {};
+	transferFenceCreateInfo.sType = vk::StructureType::eFenceCreateInfo;
+	transferFenceCreateInfo.pNext = nullptr;
+	transferFenceCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+	//transferFenceCreateInfo.flags = {};
+
+	transferFence = device.getRes().createFence(transferFenceCreateInfo);
 }
 
 Engine::~Engine() 
 {
+	device.getRes().destroyFence(transferFence);
+
     device.destroy();
 	surface.destroy();
     instance.destroy();
