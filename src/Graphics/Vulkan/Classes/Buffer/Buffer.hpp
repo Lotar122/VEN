@@ -26,6 +26,7 @@ namespace nihil::graphics
     class Buffer
     {
         Engine* engine = nullptr;
+        vk::Fence transferFence = nullptr;
 
         size_t size = 0;
         std::vector<T> data;
@@ -54,12 +55,38 @@ namespace nihil::graphics
 
         inline const Engine* _engine() const { return engine; };
 
+        static void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
+        {
+            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+
+            // Step 5: Copy staging buffer to buffer
+            vk::CommandBufferBeginInfo beginInfo{};
+            engine->_mainCommandBuffer().begin(beginInfo);
+
+            vk::BufferCopy copyRegion{ 0, 0, size };
+            engine->_mainCommandBuffer().copyBuffer(src, dst, copyRegion);
+
+            engine->_mainCommandBuffer().end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = nullptr;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+
+            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+        }
+
         Buffer(const std::vector<T>& _data, Engine* _engine, vk::MemoryPropertyFlags memPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal)
         {
             assert(_data.size() != 0);
             assert(_engine != nullptr);
+            assert(_engine->_transferFence() != nullptr);
 
             engine = _engine;
+            transferFence = engine->_transferFence();
 
             data = _data;
 
@@ -132,26 +159,7 @@ namespace nihil::graphics
             engine->_device().bindBufferMemory(buffer.getRes(), memory, 0);
             engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
 
-            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
-
-            // Step 5: Copy staging buffer to buffer
-            vk::CommandBufferBeginInfo beginInfo{};
-            engine->_mainCommandBuffer().begin(beginInfo);
-
-            vk::BufferCopy copyRegion{ 0, 0, size };
-            engine->_mainCommandBuffer().copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
-
-            engine->_mainCommandBuffer().end();
-
-            vk::SubmitInfo submitInfo = {};
-            submitInfo.waitSemaphoreCount = 0;
-            submitInfo.pWaitSemaphores = nullptr;
-
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
-
-            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+            copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
         }
 
         inline void freeFromGPU()
@@ -184,26 +192,7 @@ namespace nihil::graphics
             std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
             engine->_device().unmapMemory(stagingMemory);
 
-            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
-
-            // Copy staging buffer to buffer
-            vk::CommandBufferBeginInfo beginInfo{};
-            engine->_mainCommandBuffer().begin(beginInfo);
-
-            vk::BufferCopy copyRegion{ 0, 0, size };
-            engine->_mainCommandBuffer().copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
-
-            engine->_mainCommandBuffer().end();
-
-            vk::SubmitInfo submitInfo = {};
-            submitInfo.waitSemaphoreCount = 0;
-            submitInfo.pWaitSemaphores = nullptr;
-
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
-
-            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+            copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
 
             if(!wasOnGPU) freeFromGPU();
         }
@@ -224,27 +213,7 @@ namespace nihil::graphics
             std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
             engine->_device().unmapMemory(stagingMemory);
 
-            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
-
-            //Copy staging buffer to buffer
-            vk::CommandBufferBeginInfo beginInfo{};
-            engine->_mainCommandBuffer().begin(beginInfo);
-
-            vk::BufferCopy copyRegion{ 0, 0, size };
-            engine->_mainCommandBuffer().copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
-
-            engine->_mainCommandBuffer().end();
-
-            vk::SubmitInfo submitInfo = {};
-            submitInfo.waitSemaphoreCount = 0;
-            submitInfo.pWaitSemaphores = nullptr;
-
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
-
-            //vk::Result discardResult = engine->_device().resetFences(1, &frame.inFlightFence);
-            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+            copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
 
             if(!wasOnGPU) freeFromGPU();
         }

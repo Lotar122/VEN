@@ -21,19 +21,22 @@ namespace nihil::graphics
     public:
         struct Frame {
             vk::Image resolved;
-            vk::ImageView resolvedView;
-            vk::Image multisampled;
-            vk::DeviceMemory multisampledImageMemory;
-            vk::ImageView multisampledView;
-            vk::Framebuffer frameBuffer;
-            vk::CommandPool commandPool;
-            vk::CommandBuffer commandBuffer;
-            vk::Image depthBuffer;
-            vk::DeviceMemory depthBufferMemory;
-            vk::ImageView depthBufferView;
+            Resource<vk::ImageView> resolvedView;
+            Resource<vk::Image> multisampled;
+            Resource<vk::ImageView> multisampledView;
+            Resource<vk::DeviceMemory> multisampledImageMemory;
 
-            vk::Semaphore imageAvailable, renderFinished;
-            vk::Fence inFlightFence;
+            Resource<vk::Framebuffer> frameBuffer;
+
+            Resource<vk::CommandPool> commandPool;
+            Resource<vk::CommandBuffer> commandBuffer;
+
+            Resource<vk::Image> depthBuffer;
+            Resource<vk::ImageView> depthBufferView;
+            Resource<vk::DeviceMemory> depthBufferMemory;
+
+            Resource<vk::Semaphore> imageAvailable, renderFinished;
+            Resource<vk::Fence> inFlightFence;
 	    };
     private:
         std::vector<Frame> frames;

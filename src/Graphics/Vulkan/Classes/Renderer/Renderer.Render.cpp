@@ -63,7 +63,7 @@ void Renderer::Render(
 
 	vk::SubmitInfo submitInfo = {};
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &engine->_swapchain()->_frames()[frameIndex].imageAvailable;
+	submitInfo.pWaitSemaphores = engine->_swapchain()->_frames()[frameIndex].imageAvailable.getResP();
 	vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 	submitInfo.pWaitDstStageMask = waitStages; // Wait until color attachment is ready
 
@@ -71,7 +71,7 @@ void Renderer::Render(
 	submitInfo.pCommandBuffers = &commandBuffer;
 
 	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &engine->_swapchain()->_frames()[frameIndex].renderFinished;
+	submitInfo.pSignalSemaphores = engine->_swapchain()->_frames()[frameIndex].renderFinished.getResP();
 
 	//vk::Result discardResult = engine->_device().resetFences(1, &frame.inFlightFence);
 	vk::Result discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);

@@ -12,5 +12,13 @@
 #include "PipelineLayout.hpp"
 #include "RenderPass.hpp"
 #include "Shader.hpp"
+#include "CommandBuffer.hpp"
+#include "CommandPool.hpp"
+#include "Fence.hpp"
+#include "Semaphore.hpp"
+#include "DeviceMemory.hpp"
+#include "Image.hpp"
+#include "ImageView.hpp"
+#include "FrameBuffer.hpp"
 
 #include "SwapchainKHR.hpp"

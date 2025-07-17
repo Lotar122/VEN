@@ -56,12 +56,12 @@ Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _preffe
 
 Swapchain::Frame* Swapchain::acquireNextFrame(uint32_t* _imageIndex, uint32_t* _frameIndex)
 {
-	vk::Result discardResult = engine->_device().waitForFences(1, &frames[frameIndex].inFlightFence, VK_TRUE, UINT64_MAX);
-	discardResult = engine->_device().resetFences(1, &frames[frameIndex].inFlightFence);
+	vk::Result discardResult = engine->_device().waitForFences(1, frames[frameIndex].inFlightFence.getResP(), VK_TRUE, UINT64_MAX);
+	discardResult = engine->_device().resetFences(1, frames[frameIndex].inFlightFence.getResP());
 
 	uint32_t imageIndex = 0;
 
-	vk::Result result = engine->_device().acquireNextImageKHR(swapchain.getRes(), UINT64_MAX, frames[frameIndex].imageAvailable, nullptr, &imageIndex);
+	vk::Result result = engine->_device().acquireNextImageKHR(swapchain.getRes(), UINT64_MAX, frames[frameIndex].imageAvailable.getRes(), nullptr, &imageIndex);
 
 	if (frameIndex != imageIndex)
 	{
@@ -91,7 +91,7 @@ void Swapchain::presentFrame(Frame& frame, uint32_t& imageIndex)
 {
 	vk::PresentInfoKHR presentInfo = {};
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = &engine->_swapchain()->_frames()[frameIndex].renderFinished;
+	presentInfo.pWaitSemaphores = engine->_swapchain()->_frames()[frameIndex].renderFinished.getResP();
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapchain.getResP();
 	presentInfo.pImageIndices = &imageIndex;
@@ -219,8 +219,7 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 		);
 
 		// Create image view
-		vk::ImageView resolvedView = engine->_device().createImageView(resolvedViewCreateInfo);
-		frame.resolvedView = resolvedView;
+		frame.resolvedView.assignRes(engine->_device().createImageView(resolvedViewCreateInfo), engine->_device());
 
 		vk::ImageCreateInfo multisampledImageCreateInfo = {
 			{}, vk::ImageType::e2D, imageFormat,
@@ -232,11 +231,11 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 			{}, vk::ImageLayout::eUndefined
 		};
 
-		frame.multisampled = engine->_device().createImage(multisampledImageCreateInfo);
+		frame.multisampled.assignRes(engine->_device().createImage(multisampledImageCreateInfo), engine->_device());
 		
 		vk::MemoryRequirements multisampledMemRequirements = engine->_device().getImageMemoryRequirements(frame.multisampled);
 		vk::MemoryAllocateInfo multisampledMemoryAllocInfo(multisampledMemRequirements.size, findMemoryType(engine->_physicalDevice(), multisampledMemRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
-		frame.multisampledImageMemory = engine->_device().allocateMemory(multisampledMemoryAllocInfo);
+		frame.multisampledImageMemory.assignRes(engine->_device().allocateMemory(multisampledMemoryAllocInfo), engine->_device());
 		engine->_device().bindImageMemory(frame.multisampled, frame.multisampledImageMemory, 0);
 
 		vk::ImageViewCreateInfo multisampledViewCreateInfo(
@@ -253,8 +252,7 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 		);
 
 		// Create multisampledImage view
-		vk::ImageView multisampledView = engine->_device().createImageView(multisampledViewCreateInfo);
-		frame.multisampledView = multisampledView;
+		frame.multisampledView.assignRes(engine->_device().createImageView(multisampledViewCreateInfo), engine->_device());
 
 		// Rest of the frame setup, (DONE! framebuffer), depthubffer, depthview, depthmemory, (DONE! commandBuffers), (DONE! commandPools)
 
@@ -275,11 +273,11 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 			vk::ImageLayout::eUndefined                  // initialLayout
 		);
 
-		frame.depthBuffer = engine->_device().createImage(depthImageCreateInfo);
+		frame.depthBuffer.assignRes(engine->_device().createImage(depthImageCreateInfo), engine->_device());
 
 		vk::MemoryRequirements depthMemRequirements = engine->_device().getImageMemoryRequirements(frame.depthBuffer);
 		vk::MemoryAllocateInfo depthMemoryAllocInfo(depthMemRequirements.size, findMemoryType(engine->_physicalDevice(), depthMemRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
-		frame.depthBufferMemory = engine->_device().allocateMemory(depthMemoryAllocInfo);
+		frame.depthBufferMemory.assignRes(engine->_device().allocateMemory(depthMemoryAllocInfo), engine->_device());
 		engine->_device().bindImageMemory(frame.depthBuffer, frame.depthBufferMemory, 0);
 
 		vk::ImageViewCreateInfo depthImageViewCreateInfo(
@@ -297,7 +295,7 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 			)
 		);
 
-		frame.depthBufferView = engine->_device().createImageView(depthImageViewCreateInfo);
+		frame.depthBufferView.assignRes(engine->_device().createImageView(depthImageViewCreateInfo), engine->_device());
 
 		//FrameBuffer
 		std::array<vk::ImageView, 3> views = {frame.multisampledView, frame.depthBufferView, frame.resolvedView};
@@ -312,31 +310,31 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 			1                                  // ✅ Number of layers (1 for 2D images)
 		);
 		
-		frame.frameBuffer = engine->_device().createFramebuffer(framebufferInfo);
+		frame.frameBuffer.assignRes(engine->_device().createFramebuffer(framebufferInfo), engine->_device());
 
 		vk::CommandPoolCreateInfo poolInfo{};
 		poolInfo.queueFamilyIndex = queueFamilyIndices.second;
 		poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer; // Allow command buffer resets
 
-		frame.commandPool = engine->_device().createCommandPool(poolInfo);
+		frame.commandPool.assignRes(engine->_device().createCommandPool(poolInfo), engine->_device());
 
 		vk::CommandBufferAllocateInfo commandBufferAllocateInfo{};
 		commandBufferAllocateInfo.commandPool = frame.commandPool;
 		commandBufferAllocateInfo.level = vk::CommandBufferLevel::ePrimary;
 		commandBufferAllocateInfo.commandBufferCount = 1;
 
-		frame.commandBuffer = engine->_device().allocateCommandBuffers(commandBufferAllocateInfo)[0]; //the function returns a vector, but we only allocate one command buffer hence we put "[0]" at the end
+		frame.commandBuffer.assignRes(engine->_device().allocateCommandBuffers(commandBufferAllocateInfo)[0], engine->_device(), frame.commandPool.getRes()); //the function returns a vector, but we only allocate one command buffer hence we put "[0]" at the end
 
 		vk::SemaphoreCreateInfo imageAvailableCreateInfo = {};
-        frame.imageAvailable = engine->_device().createSemaphore(imageAvailableCreateInfo);
+        frame.imageAvailable.assignRes(engine->_device().createSemaphore(imageAvailableCreateInfo), engine->_device());
 
 		vk::SemaphoreCreateInfo renderFinishedCreateInfo = {};
-        frame.renderFinished = engine->_device().createSemaphore(renderFinishedCreateInfo);
+        frame.renderFinished.assignRes(engine->_device().createSemaphore(renderFinishedCreateInfo), engine->_device());
 
         // Create Fence (starts in signaled state)
         vk::FenceCreateInfo fenceCreateInfo = {};
 		fenceCreateInfo.flags = vk::FenceCreateFlags() | vk::FenceCreateFlagBits::eSignaled;
-        frame.inFlightFence = engine->_device().createFence(fenceCreateInfo);
+        frame.inFlightFence.assignRes(engine->_device().createFence(fenceCreateInfo), engine->_device());
 	}
 }
 
@@ -347,22 +345,11 @@ void Swapchain::recreate()
 
 	for(Frame& f : frames)
 	{
-		engine->_device().destroyImageView(f.resolvedView);
-		engine->_device().destroyFramebuffer(f.frameBuffer);
-		engine->_device().freeCommandBuffers(f.commandPool, f.commandBuffer);
-		engine->_device().destroyCommandPool(f.commandPool);
-		engine->_device().destroySemaphore(f.imageAvailable);
-		engine->_device().destroySemaphore(f.renderFinished);
-		engine->_device().destroyFence(f.inFlightFence);
-
-		engine->_device().destroyImageView(f.depthBufferView);
-		engine->_device().destroyImage(f.depthBuffer);
-		engine->_device().freeMemory(f.depthBufferMemory);
-
-		engine->_device().destroyImageView(f.multisampledView);
-		engine->_device().destroyImage(f.multisampled);
-		engine->_device().freeMemory(f.multisampledImageMemory);
+		f.commandBuffer.destroy();
+		f.commandPool.destroy();
 	}
+
+	frames.clear();
 
 	//create new swapchain
 	create(queueFamilyIndices, basicRenderPass, true);
@@ -379,20 +366,7 @@ Swapchain::~Swapchain()
 {
 	for (Frame& f : frames)
 	{
-		engine->_device().destroyImageView(f.resolvedView);
-		engine->_device().destroyFramebuffer(f.frameBuffer);
-		engine->_device().freeCommandBuffers(f.commandPool, f.commandBuffer);
-		engine->_device().destroyCommandPool(f.commandPool);
-		engine->_device().destroySemaphore(f.imageAvailable);
-		engine->_device().destroySemaphore(f.renderFinished);
-		engine->_device().destroyFence(f.inFlightFence);
-
-		engine->_device().destroyImageView(f.depthBufferView);
-		engine->_device().destroyImage(f.depthBuffer);
-		engine->_device().freeMemory(f.depthBufferMemory);
-
-		engine->_device().destroyImageView(f.multisampledView);
-		engine->_device().destroyImage(f.multisampled);
-		engine->_device().freeMemory(f.multisampledImageMemory);
+		f.commandBuffer.destroy();
+		f.commandPool.destroy();
 	}
 }

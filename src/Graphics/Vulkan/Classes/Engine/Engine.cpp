@@ -20,20 +20,20 @@ Engine::Engine(App* _app, EngineArgs& args)
 	Platform platform = getPlatform();
 
 	instance.assignRes(CreateVKInstance(args, platform));
-	physicalDevice = PickPhysicalDevice(instance.getRes(), args.dPrefs);
+	physicalDevice = PickPhysicalDevice(instance, args.dPrefs);
 
-	surface.assignRes(GetSurfaceKHR(_app, instance.getRes()), instance.getRes());
+	surface.assignRes(GetSurfaceKHR(_app, instance), instance);
 
 	app->endAccess();
 
 	vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
 
-	auto queueInfo = CreateVKQueueInfo(instance.getRes(), physicalDevice, surface.getRes());
+	auto queueInfo = CreateVKQueueInfo(instance, physicalDevice, surface);
 
 	std::vector<const char*> requiredExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 	device.assignRes(CreateVKLogicalDevice(physicalDevice, queueInfo, requiredExtensions));
 
-	auto queues = GetVKQueues(device.getRes(), queueInfo);
+	auto queues = GetVKQueues(device, queueInfo);
 
 	presentQueue = std::get<0>(queues.first);
 	renderQueue = std::get<1>(queues.first);
@@ -43,8 +43,8 @@ Engine::Engine(App* _app, EngineArgs& args)
 	renderQueueIndex = std::get<1>(queues.second);
 	transferQueueIndex = std::get<2>(queues.second);
 
-	mainCommandPool = CreateVKCommandPool(device.getRes(), renderQueueIndex);
-	mainCommandBuffer = CreateVKCommandBuffer(device.getRes(), mainCommandPool);
+	mainCommandPool.assignRes(CreateVKCommandPool(device, renderQueueIndex), device);
+	mainCommandBuffer.assignRes(CreateVKCommandBuffer(device, mainCommandPool), device, mainCommandPool);
 
 	vk::FenceCreateInfo transferFenceCreateInfo = {};
 	transferFenceCreateInfo.sType = vk::StructureType::eFenceCreateInfo;
@@ -52,12 +52,15 @@ Engine::Engine(App* _app, EngineArgs& args)
 	transferFenceCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 	//transferFenceCreateInfo.flags = {};
 
-	transferFence = device.getRes().createFence(transferFenceCreateInfo);
+	transferFence.assignRes(device.getRes().createFence(transferFenceCreateInfo), device);
 }
 
 Engine::~Engine() 
 {
-	device.getRes().destroyFence(transferFence);
+	transferFence.destroy();
+
+	mainCommandBuffer.destroy();
+	mainCommandPool.destroy();
 
     device.destroy();
 	surface.destroy();

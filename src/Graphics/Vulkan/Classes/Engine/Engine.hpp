@@ -50,14 +50,14 @@ namespace nihil::graphics
         uint32_t renderQueueIndex;
         uint32_t transferQueueIndex;
 
-        vk::Fence transferFence;
+        Resource<vk::Fence> transferFence;
 
         Resource<vk::SurfaceKHR> surface;
 
         Resource<vk::Device> device;
 
-        vk::CommandPool mainCommandPool;
-        vk::CommandBuffer mainCommandBuffer;
+        Resource<vk::CommandPool> mainCommandPool;
+        Resource<vk::CommandBuffer> mainCommandBuffer;
 
         App* app = nullptr;
         Swapchain* swapchain = nullptr;
@@ -93,8 +93,8 @@ namespace nihil::graphics
         inline vk::SurfaceKHR _surfaceKHR() { return surface.getRes(); };
         inline vk::Device _device() { return device.getRes(); };
 
-        inline vk::CommandPool& _mainCommandPool() { return mainCommandPool; };
-        inline vk::CommandBuffer& _mainCommandBuffer() { return mainCommandBuffer; };
+        inline vk::CommandPool& _mainCommandPool() { return mainCommandPool.getResR(); };
+        inline vk::CommandBuffer& _mainCommandBuffer() { return mainCommandBuffer.getResR(); };
 
         inline uint32_t _renderQueueIndex() const { return renderQueueIndex; };
         inline uint32_t _presentQueueIndex() const { return presentQueueIndex; };
@@ -103,7 +103,7 @@ namespace nihil::graphics
         inline vk::Queue _presentQueue() const { return presentQueue; };
         inline vk::Queue _transferQueue() const { return transferQueue; };
 
-        inline vk::Fence& _transferFence() { return transferFence; };
+        inline vk::Fence& _transferFence() { return transferFence.getResR(); };
 
         inline Renderer* _renderer() { return renderer; };
 

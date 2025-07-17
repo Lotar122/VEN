@@ -16,6 +16,9 @@ namespace nihil
         //     destroyed = true;
         // }
 
+        //make this implicitly castable to T
+        inline operator T&() { return res; };
+
         virtual T getRes()
         {
             if(!assigned) return (T)nullptr;
@@ -26,6 +29,12 @@ namespace nihil
         {
             return &res;
         }
+
+        virtual T& getResR()
+        {
+            return res;
+        }
+
         virtual void assignRes(T _res)
         {
             if(!assigned)
