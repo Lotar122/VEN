@@ -37,6 +37,7 @@ namespace nihil::graphics
         Resource<vk::Buffer> buffer;
         Resource<vk::Buffer> stagingBuffer;
         vk::DeviceMemory memory;
+        vk::DeviceMemory stagingMemory;
 
         bool onGPU = false;
 
@@ -110,16 +111,32 @@ namespace nihil::graphics
                 memoryTypeIndex          // Memory type index
             );
 
-            memory = engine->_device().allocateMemory(allocInfo);
+            vk::MemoryAllocateInfo stagingAllocInfo(
+                memRequirements.size,    // Allocation size
+                stagingMemoryTypeIndex          // Memory type index
+            );
 
-            void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+            memory = engine->_device().allocateMemory(allocInfo);
+            stagingMemory = engine->_device().allocateMemory(stagingAllocInfo);
+
+            void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
             T* dataTyped = reinterpret_cast<T*>(dataRaw);
             //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
             std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-            engine->_device().unmapMemory(memory);
+            engine->_device().unmapMemory(stagingMemory);
 
             // Step 4: Bind buffer to memory
             engine->_device().bindBufferMemory(buffer.getRes(), memory, 0);
+            engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
+
+            // Step 5: Copy staging buffer to buffer
+            vk::CommandBufferBeginInfo beginInfo{};
+            engine->_mainCommandBuffer().begin(beginInfo);
+
+            vk::BufferCopy copyRegion{ 0, 0, size };
+            commandBuffer.copyBuffer(stagingBuffer.getRes(), buffer.getRes(), copyRegion);
+
+            commandBuffer.end();
         }
 
         inline void freeFromGPU()

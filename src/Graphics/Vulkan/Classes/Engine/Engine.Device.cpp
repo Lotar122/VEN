@@ -4,6 +4,8 @@
 
 #include "Classes/Swapchain/Swapchain.hpp"
 
+#include <unordered_set>
+
 using namespace nihil::graphics;
 using namespace nihil;
 
@@ -169,7 +171,7 @@ vk::PhysicalDevice Engine::PickPhysicalDevice(vk::Instance _instance, PhysicalDe
     return pickedDevice;
 }
 
-std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> Engine::CreateVKQueueInfo(
+std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> Engine::CreateVKQueueInfo(
     vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
 ) 
 {
@@ -180,53 +182,67 @@ std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> Engine::CreateVK
     auto queueFamilies = physicalDevice.getQueueFamilyProperties();
     uint32_t graphicsQueueFamilyIndex = -1;
     uint32_t presentQueueFamilyIndex = -1;
+    uint32_t transferQueueFamilyIndex = -1;
+
 
     for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) 
+        {
             graphicsQueueFamilyIndex = i;
             Logger::Log("Graphics Queue found");
         }
         vk::Bool32 presentSupport = physicalDevice.getSurfaceSupportKHR(i, surface);
-        if (presentSupport) {
+        if (presentSupport) 
+        {
             presentQueueFamilyIndex = i;
             Logger::Log("Present Queue found");
         }
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eTransfer) 
+        {
+            transferQueueFamilyIndex = i;
+        }
 
-        if (graphicsQueueFamilyIndex != -1 && presentQueueFamilyIndex != -1) {
+        if (graphicsQueueFamilyIndex != -1 && presentQueueFamilyIndex != -1 && transferQueueFamilyIndex != -1) 
+        {
             break;
         }
     }
 
-    if (graphicsQueueFamilyIndex == -1 || presentQueueFamilyIndex == -1) {
-        throw std::runtime_error("Failed to find suitable queue families.");
+    if (graphicsQueueFamilyIndex == -1 || presentQueueFamilyIndex == -1 || transferQueueFamilyIndex == -1) 
+    {
+        Logger::Exception("Failed to find suitable queue families.");
     }
 
     float queuePriority = 1.0f;
     vk::DeviceQueueCreateInfo graphicsQueueCreateInfo({}, graphicsQueueFamilyIndex, 1, &queuePriority);
     vk::DeviceQueueCreateInfo presentQueueCreateInfo({}, presentQueueFamilyIndex, 1, &queuePriority);
 
-    return std::make_pair(graphicsQueueCreateInfo, presentQueueCreateInfo);
+    return std::make_tuple(graphicsQueueCreateInfo, presentQueueCreateInfo);
 }
 
 vk::Device Engine::CreateVKLogicalDevice(
     vk::PhysicalDevice physicalDevice,
-    const std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
+    std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
     const std::vector<const char*>& requiredExtensions
-) 
+)
 {
     assert(physicalDevice != nullptr);
 
-    std::vector<vk::DeviceQueueCreateInfo> deviceQueueInfos = {queueInfos.first};
-    if (queueInfos.first.queueFamilyIndex != queueInfos.second.queueFamilyIndex) {
-        deviceQueueInfos.push_back(queueInfos.second);
-    }
+    std::vector<vk::DeviceQueueCreateInfo> deviceQueueInfos;
+    
+    //fix
+    std::apply([&deviceQueueInfos](auto&&... queueInfo) {
+        (..., (deviceQueueInfos.find(queueInfo) == deviceQueueInfos.end()
+            ? deviceQueueInfos.push_back(queueInfo)
+            : void()));
+        }, queueInfos);
 
     vk::PhysicalDeviceFeatures deviceFeatures{};
 
     vk::PhysicalDeviceFeatures supportedFeatures = physicalDevice.getFeatures();
     if (supportedFeatures.samplerAnisotropy) deviceFeatures.samplerAnisotropy = VK_TRUE;
 
-    vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueInfos, nullptr, requiredExtensions, &deviceFeatures);
+    vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueInfosVec, nullptr, requiredExtensions, &deviceFeatures);
     return physicalDevice.createDevice(deviceCreateInfo);
 }
 

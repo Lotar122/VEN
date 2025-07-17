@@ -43,8 +43,12 @@ namespace nihil::graphics
 
         vk::Queue presentQueue;
         vk::Queue renderQueue;
+        vk::Queue transferQueue;
         uint32_t presentQueueIndex;
         uint32_t renderQueueIndex;
+        uint32_t transferQueueIndex;
+
+        vk::Fence transferFence;
 
         Resource<vk::SurfaceKHR> surface;
 
@@ -109,12 +113,12 @@ namespace nihil::graphics
         static vk::PhysicalDevice PickPhysicalDevice(vk::Instance _instance, PhysicalDevicePreferences& prefs);
         static vk::SurfaceKHR GetSurfaceKHR(App* _app, vk::Instance _instance);
 
-        static std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> CreateVKQueueInfo(
+        static std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> Engine::CreateVKQueueInfo(
             vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
-        ); 
+        );
         static vk::Device CreateVKLogicalDevice(
             vk::PhysicalDevice physicalDevice,
-            const std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
+            const std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
             const std::vector<const char*>& requiredExtensions
         );
         static std::pair<std::pair<vk::Queue, vk::Queue>, std::pair<uint32_t, uint32_t>> GetVKQueues(
