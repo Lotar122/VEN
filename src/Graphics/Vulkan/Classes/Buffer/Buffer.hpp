@@ -5,6 +5,20 @@
 
 namespace nihil::graphics
 {
+    static uint32_t findMemoryTypeIndex(vk::PhysicalDeviceMemoryProperties memProperties, vk::MemoryRequirements memRequirements, vk::MemoryPropertyFlags memFlags)
+    {
+        uint32_t memoryTypeIndex = uint32_t(-1);
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+            if (
+                (memRequirements.memoryTypeBits & (1 << i)) &&
+                (memProperties.memoryTypes[i].propertyFlags & memFlags)
+            )
+            {
+                memoryTypeIndex = i;
+                break;
+            }
+        }
+    }
     template<typename T, vk::BufferUsageFlagBits usageT>
     class Buffer
     {
@@ -15,11 +29,13 @@ namespace nihil::graphics
         vk::BufferUsageFlagBits usage = usageT;
 
         vk::MemoryRequirements memRequirements;
+        vk::MemoryRequirements stagingMemRequirements;
         vk::PhysicalDeviceMemoryProperties memProperties;
 
-        uint32_t memoryTypeIndex = uint32_t(-1);
+        uint32_t memoryTypeIndex = uint32_t(-1), stagingMemoryTypeIndex = uint32_t(-1);
 
         Resource<vk::Buffer> buffer;
+        Resource<vk::Buffer> stagingBuffer;
         vk::DeviceMemory memory;
 
         bool onGPU = false;
@@ -34,7 +50,7 @@ namespace nihil::graphics
 
         inline const Engine* _engine() const { return engine; };
 
-        Buffer(const std::vector<T>& _data, Engine* _engine)
+        Buffer(const std::vector<T>& _data, Engine* _engine, vk::MemoryPropertyFlags memPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal)
         {
             assert(_data.size() != 0);
             assert(_engine != nullptr);
@@ -58,17 +74,21 @@ namespace nihil::graphics
             // Step 2: Get memory requirements
             memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
 
-            // Step 3: Allocate memory
+            vk::BufferCreateInfo stagingBufferCreateInfo{
+                {},
+                bufferSize,
+                vk::BufferUsageFlagBits::eTransferSrc,
+                vk::SharingMode::eExclusive
+            };
+
+            stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
+
+            stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
+
             memProperties = engine->_physicalDevice().getMemoryProperties();
 
-            for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-                if ((memRequirements.memoryTypeBits & (1 << i)) &&
-                    (memProperties.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eHostVisible) &&
-                    (memProperties.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-                    memoryTypeIndex = i;
-                    break;
-                }
-            }
+            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, memPropertyFlags);
+            stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
             if (memoryTypeIndex == uint32_t(-1)) {
                 Logger::Exception("Failed to find suitable memory type to create buffer");

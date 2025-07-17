@@ -60,8 +60,6 @@ namespace nihil
 
             pointers.clear();
 
-            //* block->data = memory + block->realtivePointer;
-
             while(block != nullptr)
             {
                 block->data = memory + block->realtivePointer;
@@ -78,15 +76,15 @@ namespace nihil
             size = _startSize;
             greed = _greed;
 
-            memory = (byte*)malloc(size);
+            memory = (byte*)std::malloc(size);
 
-            blocks.reserve(size / 2);
-            freeList.reserve(size / 2);
+            blocks.reserve(size);
+            freeList.reserve(size);
         }
 
         ~ShortHeap()
         {
-            free(memory);
+            std::free(memory);
         }
 
         template<typename T>
@@ -119,7 +117,7 @@ namespace nihil
                 size_t increase = greed;
                 while(increase <= _size) increase += greed;
 
-                memory = (byte*)realloc(memory, size + increase);
+                memory = (byte*)std::realloc(memory, size + increase);
                 size += increase;
 
                 if(firstBlock)

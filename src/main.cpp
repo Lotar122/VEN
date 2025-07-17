@@ -23,8 +23,6 @@
 #include "OBJLoader.hpp"
 #include "Semaphores.hpp"
 
-
-
 int main()
 {
     nihil::App app("nihil based app", 800, 800);
@@ -43,21 +41,26 @@ int main()
 
     nihil::graphics::Engine engine(&app, eArgs);
 
-    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eFifo, (uint8_t)3, &engine);
+    vk::SampleCountFlagBits maxSampleCount = engine.getMaxSampleCount<vk::SampleCountFlagBits>();
+    std::cout << "Max Sample Count: " << (uint64_t)maxSampleCount << '\n';
+
+    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eFifo, (uint8_t)3, (uint64_t)maxSampleCount, &engine);
 
     std::vector<nihil::graphics::RenderPassAttachment> renderPassAttachments = {
         nihil::graphics::RenderPassAttachment(
             nihil::graphics::RenderPassAttachmentType::ColorAttachment,
+            maxSampleCount,
             vk::AttachmentLoadOp::eClear,
-            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentStoreOp::eDontCare,
             vk::AttachmentLoadOp::eDontCare,
             vk::AttachmentStoreOp::eDontCare,
             vk::ImageLayout::eUndefined,
-            vk::ImageLayout::ePresentSrcKHR,
+            vk::ImageLayout::eColorAttachmentOptimal,
             0
         ),
         nihil::graphics::RenderPassAttachment(
             nihil::graphics::RenderPassAttachmentType::DepthAttachment,
+            maxSampleCount,
             vk::AttachmentLoadOp::eClear,
             vk::AttachmentStoreOp::eDontCare,
             vk::AttachmentLoadOp::eDontCare,
@@ -65,7 +68,18 @@ int main()
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eDepthStencilAttachmentOptimal,
             1
-        )
+        ),
+        nihil::graphics::RenderPassAttachment(
+            nihil::graphics::RenderPassAttachmentType::ColorAttachment,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eDontCare,
+            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eDontCare,
+            vk::AttachmentStoreOp::eDontCare,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::ePresentSrcKHR,
+            2
+        ),
     };
     nihil::graphics::RenderPass renderPass(renderPassAttachments, &swapchain, engine._device());
 
@@ -115,6 +129,8 @@ int main()
         pipelineInfo1.polygonMode = vk::PolygonMode::eFill;
         pipelineInfo1.frontFace = vk::FrontFace::eCounterClockwise;
 
+        pipelineInfo1.rasterizationSampleCount = maxSampleCount;
+
         basicPipeline.create(pipelineInfo1, &renderPass);
 
         uint32_t vertexSize21 = sizeof(float) * 8;
@@ -147,33 +163,19 @@ int main()
         pipelineInfo2.polygonMode = vk::PolygonMode::eFill;
         pipelineInfo2.frontFace = vk::FrontFace::eCounterClockwise;
 
+        pipelineInfo2.rasterizationSampleCount = maxSampleCount;
+
         instancedPipeline.create(pipelineInfo2, &renderPass);
     }
 
     nihil::graphics::Model cubeModel("./Resources/Models/cube.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
-    nihil::graphics::Model pyramidModel("./Resources/Models/pyramid.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
-    
-    std::vector<nihil::graphics::Object> objects =
-    {
-        
-    };
 
-    int z = 0;
-    for (int i = 0; i < 100; i++)
-    {
-        for (int j = 0; j < 100; j++)
-        {
-            size_t index = objects.size();
-            objects.push_back(nihil::graphics::Object(&cubeModel, &engine));
-            objects[index].move(glm::vec3(2.0f * i, 0.0f, 2.0f * j));
-            z++;
-        }
-    }
+    nihil::graphics::Object cube(&cubeModel, &engine);
 
     nihil::graphics::Scene scene(&engine);
 
     //* Add objects here
-    scene.addObjects(objects);
+    scene.addObject(&cube);
 
     //moves all of the models onto the GPU
     scene.use();
@@ -196,18 +198,12 @@ int main()
     app.userPointer = reinterpret_cast<void*>(&userData);
 
     app.onResize = [](nihil::App* app, void* userPointer) {
-        UserPointer userData = *reinterpret_cast<UserPointer*>(userPointer);
-
-        //? Now event driven
-        ////userData.camera->onResize();
-        ////userData.swapchain->recreate();
+        UserPointer* userData = reinterpret_cast<UserPointer*>(userPointer);
 
         //this is user defined behavoiur
     };
 
     nihil::Keyboard keyboard(&app);
-
-    std::cout << "Max Sample Count: " << engine.getMaxUsableSampleCount<uint64_t>() << '\n';
 
     while(!app.shouldExit)
     {
@@ -224,11 +220,6 @@ int main()
         if (keyboard.getKey(nihil::Key::ArrowRight)) camera.rotate(-0.1f, 0.0f, 0.1f);
         if (keyboard.getKey(nihil::Key::ArrowUp)) camera.rotate(0.0f, 0.1f, 0.1f);
         if (keyboard.getKey(nihil::Key::ArrowDown)) camera.rotate(0.0f, -0.1f, 0.1f);
-
-        for(nihil::graphics::Object& o : objects)
-        {
-            o.rotate(glm::vec3(0.0f, 0.5f, 0.0f));
-        }
 
         engine._renderer()->Render(&renderPass, &scene, &camera);
     }

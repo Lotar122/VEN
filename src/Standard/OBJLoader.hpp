@@ -44,6 +44,8 @@ static std::pair<std::vector<float>, std::vector<uint32_t>> readOBJFile(std::str
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
 
+    if (!file.is_open() || !file.good()) throw std::runtime_error(std::string("Failed to open the file:") + path);
+
     std::streamsize size = file.tellg(); // Get file size
     file.seekg(0, std::ios::beg);        // Seek back to beginning
 

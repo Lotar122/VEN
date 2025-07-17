@@ -20,8 +20,11 @@ namespace nihil::graphics
 
     public:
         struct Frame {
-            vk::Image image;
-            vk::ImageView view;
+            vk::Image resolved;
+            vk::ImageView resolvedView;
+            vk::Image multisampled;
+            vk::DeviceMemory multisampledImageMemory;
+            vk::ImageView multisampledView;
             vk::Framebuffer frameBuffer;
             vk::CommandPool commandPool;
             vk::CommandBuffer commandBuffer;
@@ -52,12 +55,14 @@ namespace nihil::graphics
         uint8_t prefferedImageCount = 0;
         uint8_t frameIndex = 0;
 
+        uint64_t sampleCount = 0;
+
         vk::PresentModeKHR presentMode;
 
         vk::SurfaceTransformFlagBitsKHR transform;
         vk::CompositeAlphaFlagBitsKHR alpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
 
-        Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _prefferedImageCount, Engine* _engine);
+        Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _prefferedImageCount, uint64_t _sampleCount, Engine* _engine);
 
         Resource<vk::SwapchainKHR> swapchain;
 

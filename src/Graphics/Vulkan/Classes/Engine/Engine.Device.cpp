@@ -223,6 +223,9 @@ vk::Device Engine::CreateVKLogicalDevice(
 
     vk::PhysicalDeviceFeatures deviceFeatures{};
 
+    vk::PhysicalDeviceFeatures supportedFeatures = physicalDevice.getFeatures();
+    if (supportedFeatures.samplerAnisotropy) deviceFeatures.samplerAnisotropy = VK_TRUE;
+
     vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueInfos, nullptr, requiredExtensions, &deviceFeatures);
     return physicalDevice.createDevice(deviceCreateInfo);
 }
@@ -247,12 +250,12 @@ std::pair<std::pair<vk::Queue, vk::Queue>, std::pair<uint32_t, uint32_t>> Engine
     );
 }
 
-vk::SurfaceKHR Engine::GetSurfaceKHR(App* _app)
+vk::SurfaceKHR Engine::GetSurfaceKHR(App* _app, vk::Instance _instance)
 {
     assert(_app != nullptr);
 
     VkSurfaceKHR cSurface;
-    if(glfwCreateWindowSurface(static_cast<VkInstance>(instance.getRes()), _app->window, nullptr, &cSurface) != 0)
+    if(glfwCreateWindowSurface(static_cast<VkInstance>(_instance), _app->window, nullptr, &cSurface) != 0)
     {
         Logger::Exception("Failed to create a vk::SurfaceKHR. Make sure that you picked the right platform in the \"Platform\" file");
     }

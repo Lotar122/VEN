@@ -20,7 +20,7 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 		vk::AttachmentDescription attachment(
 			{},
 			format,
-			vk::SampleCountFlagBits::e1,
+			a.sampleCount,
 			a.loadOp,
 			a.storeOp,
 			a.stencilLoadOp,
@@ -43,13 +43,17 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 		1, 
 		vk::ImageLayout::eDepthStencilAttachmentOptimal
 	);
+	vk::AttachmentReference resolveAttachmentRef(
+		2,
+		vk::ImageLayout::eColorAttachmentOptimal
+	);
 
 	vk::SubpassDescription subpass(
 		{}, // Flags
 		vk::PipelineBindPoint::eGraphics, // Graphics pipeline
 		0, nullptr, // Input attachments
 		1, &colorAttachmentRef, // Color attachments
-		nullptr, // Resolve attachments
+		&resolveAttachmentRef, // Resolve attachments
 		&depthAttachmentRef // Depth-stencil attachment
 	);
 
@@ -62,13 +66,14 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 	);
 
 	std::vector<vk::AttachmentDescription> attachments;
-	attachments.resize(2);
+	attachments.resize(3);
 	attachments[0] = colorAttachmentDescriptors[0];
 	attachments[1] = depthAttachmentDescriptors[0];
+	attachments[2] = colorAttachmentDescriptors[1];
 
 	vk::RenderPassCreateInfo renderPassInfo(
 		{}, // Flags
-		2, attachments.data(), // Attachments
+		3, attachments.data(), // Attachments
 		1, &subpass, // Subpasses
 		1, &dependency // Dependencies
 	);

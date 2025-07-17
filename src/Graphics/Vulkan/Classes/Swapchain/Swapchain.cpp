@@ -5,7 +5,7 @@
 
 using namespace nihil::graphics;
 
-Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _prefferedImageCount, Engine* _engine)
+Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _prefferedImageCount, uint64_t _sampleCount, Engine* _engine)
 {
 	assert(_app != nullptr);
 	assert(_engine != nullptr);
@@ -17,6 +17,8 @@ Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _preffe
 	engine = _engine;
 	presentMode = _presentMode;
 	prefferedImageCount = _prefferedImageCount;
+
+	sampleCount = _sampleCount;
 
 	extent.width = app->width;
 	extent.height = app->height;
@@ -109,6 +111,18 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 	assert(_basicRenderPass != nullptr);
 	assert(engine->_device() != nullptr);
 
+	assert(
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e1 ||
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e2 ||
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e4 ||
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e8 ||
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e16 ||
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e32 ||
+		static_cast<vk::SampleCountFlagBits>(sampleCount) == vk::SampleCountFlagBits::e64
+	);
+
+	vk::SampleCountFlagBits typedSampleCount = static_cast<vk::SampleCountFlagBits>(sampleCount);
+
 	app->access();
 
 	extent.width = app->width;
@@ -189,11 +203,11 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 	{
 		Frame& frame = frames[i];
 
-		frame.image = images[i];
+		frame.resolved = images[i];
 
-		vk::ImageViewCreateInfo viewCreateInfo(
+		vk::ImageViewCreateInfo resolvedViewCreateInfo(
 			{},                      // flags
-			frame.image,                   // image
+			frame.resolved,                   // image
 			vk::ImageViewType::e2D,  // type
 			imageFormat,    // format
 			{},                      // component mapping (default identity)
@@ -205,8 +219,42 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 		);
 
 		// Create image view
-		vk::ImageView imageView = engine->_device().createImageView(viewCreateInfo);
-		frame.view = imageView;
+		vk::ImageView resolvedView = engine->_device().createImageView(resolvedViewCreateInfo);
+		frame.resolvedView = resolvedView;
+
+		vk::ImageCreateInfo multisampledImageCreateInfo = {
+			{}, vk::ImageType::e2D, imageFormat,
+			{extent.width, extent.height, 1},
+			1, 1, typedSampleCount,
+			vk::ImageTiling::eOptimal,
+			vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,
+			vk::SharingMode::eExclusive,
+			{}, vk::ImageLayout::eUndefined
+		};
+
+		frame.multisampled = engine->_device().createImage(multisampledImageCreateInfo);
+		
+		vk::MemoryRequirements multisampledMemRequirements = engine->_device().getImageMemoryRequirements(frame.multisampled);
+		vk::MemoryAllocateInfo multisampledMemoryAllocInfo(multisampledMemRequirements.size, findMemoryType(engine->_physicalDevice(), multisampledMemRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
+		frame.multisampledImageMemory = engine->_device().allocateMemory(multisampledMemoryAllocInfo);
+		engine->_device().bindImageMemory(frame.multisampled, frame.multisampledImageMemory, 0);
+
+		vk::ImageViewCreateInfo multisampledViewCreateInfo(
+			{},                      // flags
+			frame.multisampled,                   // image
+			vk::ImageViewType::e2D,  // type
+			imageFormat,    // format
+			{},                      // component mapping (default identity)
+			{                        // subresource range
+				vk::ImageAspectFlagBits::eColor, // aspect mask (color for swapchain)
+				0, 1,  // baseMipLevel, levelCount
+				0, 1   // baseArrayLayer, layerCount
+			}
+		);
+
+		// Create multisampledImage view
+		vk::ImageView multisampledView = engine->_device().createImageView(multisampledViewCreateInfo);
+		frame.multisampledView = multisampledView;
 
 		// Rest of the frame setup, (DONE! framebuffer), depthubffer, depthview, depthmemory, (DONE! commandBuffers), (DONE! commandPools)
 
@@ -218,7 +266,7 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 			vk::Extent3D(extent.width, extent.height, 1),  // extent
 			1,                                           // mipLevels
 			1,                                           // arrayLayers
-			vk::SampleCountFlagBits::e1,                 // samples
+			typedSampleCount,                 // samples
 			vk::ImageTiling::eOptimal,                   // tiling
 			vk::ImageUsageFlagBits::eDepthStencilAttachment,  // usage
 			vk::SharingMode::eExclusive,                 // sharingMode
@@ -252,12 +300,12 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 		frame.depthBufferView = engine->_device().createImageView(depthImageViewCreateInfo);
 
 		//FrameBuffer
-		std::array<vk::ImageView, 2> views = {frame.view, frame.depthBufferView};
+		std::array<vk::ImageView, 3> views = {frame.multisampledView, frame.depthBufferView, frame.resolvedView};
 
 		vk::FramebufferCreateInfo framebufferInfo(
 			{},                                // No special flags
 			basicRenderPass->_renderPass(),                   // ✅ Render pass this framebuffer is compatible with
-			2,                                 // ✅ Number of attachments (e.g., one for color and one for depth)
+			3,                                 // ✅ Number of attachments (e.g., one for color and one for depth)
 			views.data(),                   // ✅ Attachments (array of vk::ImageView)
 			extent.width,             // ✅ Framebuffer width
 			extent.height,            // ✅ Framebuffer height
@@ -299,7 +347,7 @@ void Swapchain::recreate()
 
 	for(Frame& f : frames)
 	{
-		engine->_device().destroyImageView(f.view);
+		engine->_device().destroyImageView(f.resolvedView);
 		engine->_device().destroyFramebuffer(f.frameBuffer);
 		engine->_device().freeCommandBuffers(f.commandPool, f.commandBuffer);
 		engine->_device().destroyCommandPool(f.commandPool);
@@ -310,6 +358,10 @@ void Swapchain::recreate()
 		engine->_device().destroyImageView(f.depthBufferView);
 		engine->_device().destroyImage(f.depthBuffer);
 		engine->_device().freeMemory(f.depthBufferMemory);
+
+		engine->_device().destroyImageView(f.multisampledView);
+		engine->_device().destroyImage(f.multisampled);
+		engine->_device().freeMemory(f.multisampledImageMemory);
 	}
 
 	//create new swapchain
@@ -325,9 +377,9 @@ void Swapchain::onResize()
 
 Swapchain::~Swapchain()
 {
-	for(Frame& f : frames)
+	for (Frame& f : frames)
 	{
-		engine->_device().destroyImageView(f.view);
+		engine->_device().destroyImageView(f.resolvedView);
 		engine->_device().destroyFramebuffer(f.frameBuffer);
 		engine->_device().freeCommandBuffers(f.commandPool, f.commandBuffer);
 		engine->_device().destroyCommandPool(f.commandPool);
@@ -338,5 +390,9 @@ Swapchain::~Swapchain()
 		engine->_device().destroyImageView(f.depthBufferView);
 		engine->_device().destroyImage(f.depthBuffer);
 		engine->_device().freeMemory(f.depthBufferMemory);
+
+		engine->_device().destroyImageView(f.multisampledView);
+		engine->_device().destroyImage(f.multisampled);
+		engine->_device().freeMemory(f.multisampledImageMemory);
 	}
 }

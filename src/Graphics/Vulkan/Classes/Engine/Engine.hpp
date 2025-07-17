@@ -50,6 +50,9 @@ namespace nihil::graphics
 
         Resource<vk::Device> device;
 
+        vk::CommandPool mainCommandPool;
+        vk::CommandBuffer mainCommandBuffer;
+
         App* app = nullptr;
         Swapchain* swapchain = nullptr;
         Renderer* renderer = nullptr;
@@ -63,7 +66,7 @@ namespace nihil::graphics
         inline uint64_t requestAssetId() { return lastAssetId++; };
         template<typename ReturnT>
         requires(Integer<ReturnT> || (std::is_enum_v<ReturnT> && Integer<std::underlying_type_t<ReturnT>>))
-        ReturnT getMaxUsableSampleCount()
+        ReturnT getMaxSampleCount()
         {
             auto props = physicalDevice.getProperties();
             auto colorSampleCounts = props.limits.framebufferColorSampleCounts;
@@ -84,6 +87,9 @@ namespace nihil::graphics
         inline vk::SurfaceKHR _surfaceKHR() { return surface.getRes(); };
         inline vk::Device _device() { return device.getRes(); };
 
+        inline vk::CommandPool _mainCommandPool() const { return mainCommandPool; };
+        inline vk::CommandBuffer _mainCommandBuffer() const { return mainCommandBuffer; };
+
         inline uint32_t _renderQueueIndex() const { return renderQueueIndex; };
         inline uint32_t _presentQueueIndex() const { return presentQueueIndex; };
         inline vk::Queue _renderQueue() const { return renderQueue; };
@@ -99,22 +105,24 @@ namespace nihil::graphics
 
         void createRenderer();
     private:
-        vk::Instance CreateVKInstance(EngineArgs& args, Platform platform);
-        vk::PhysicalDevice PickPhysicalDevice(vk::Instance _instance, PhysicalDevicePreferences& prefs);
-        vk::SurfaceKHR GetSurfaceKHR(App* _app);
+        static vk::Instance CreateVKInstance(EngineArgs& args, Platform platform);
+        static vk::PhysicalDevice PickPhysicalDevice(vk::Instance _instance, PhysicalDevicePreferences& prefs);
+        static vk::SurfaceKHR GetSurfaceKHR(App* _app, vk::Instance _instance);
 
-        std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> CreateVKQueueInfo(
+        static std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo> CreateVKQueueInfo(
             vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface
         ); 
-        vk::Device CreateVKLogicalDevice(
+        static vk::Device CreateVKLogicalDevice(
             vk::PhysicalDevice physicalDevice,
             const std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos,
             const std::vector<const char*>& requiredExtensions
         );
-        std::pair<std::pair<vk::Queue, vk::Queue>, std::pair<uint32_t, uint32_t>> GetVKQueues(
+        static std::pair<std::pair<vk::Queue, vk::Queue>, std::pair<uint32_t, uint32_t>> GetVKQueues(
             vk::Device _device, 
             const std::pair<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo>& queueInfos
         ); 
+        static vk::CommandPool CreateVKCommandPool(vk::Device _device, uint32_t _renderQueueIndex);
+        static vk::CommandBuffer CreateVKCommandBuffer(vk::Device _device, vk::CommandPool commandPool);
     
         //? Empty for now
         void onResize() final override {};

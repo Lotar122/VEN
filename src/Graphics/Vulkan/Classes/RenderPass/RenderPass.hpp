@@ -16,7 +16,7 @@ namespace nihil::graphics
     {
         RenderPassAttachmentType type;
 
-        //sample count
+        vk::SampleCountFlagBits sampleCount;
         vk::AttachmentLoadOp loadOp;
         vk::AttachmentStoreOp storeOp;
 
