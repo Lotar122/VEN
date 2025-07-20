@@ -78,6 +78,9 @@ namespace nihil::graphics
 
         void recreate();
 
+        template<typename ReturnT = vk::SampleCountFlagBits>
+        requires(Integer<ReturnT> || (std::is_enum_v<ReturnT> && Integer<std::underlying_type_t<ReturnT>>))
+        inline ReturnT _sampleCount() { return static_cast<ReturnT>(sampleCount); };
     private:
         void onResize() final override;
     };

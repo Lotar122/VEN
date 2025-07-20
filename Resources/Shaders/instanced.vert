@@ -10,6 +10,9 @@ layout(location = 5) in vec4 m2;
 layout(location = 6) in vec4 m3;
 layout(location = 7) in vec4 m4;
 
+layout(location = 8) out vec3 vNormal;
+layout(location = 9) out vec3 vPosition;
+
 mat4 model = mat4(
     m1, m2, m3, m4
 );
@@ -23,8 +26,8 @@ void main() {
     //magic color ;) (nihil blue) (RGB: 66, 99, 245)
     color = vec3(0.2588, 0.3882, 0.9608);
 
-    //a different color to see which is instanced
-    color = vec3(tc.x, tc.y, 1.0);
+    vNormal = mat3(pushConstants.model) * nc;
+    vPosition = (pushConstants.model * vec4(vc, 1.0f)).xyz;
 
     gl_Position = pushConstants.vp * model * vec4(vc, 1.0);
 }

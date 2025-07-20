@@ -70,7 +70,7 @@ namespace nihil::graphics
         ~Engine();
 
         inline uint64_t requestAssetId() { return lastAssetId++; };
-        template<typename ReturnT>
+        template<typename ReturnT = vk::SampleCountFlagBits>
         requires(Integer<ReturnT> || (std::is_enum_v<ReturnT> && Integer<std::underlying_type_t<ReturnT>>))
         ReturnT getMaxSampleCount()
         {

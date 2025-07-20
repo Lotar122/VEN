@@ -8,13 +8,15 @@
 
 #include "Classes/Buffer/Buffer.hpp"
 
+#include "Classes/Asset/Asset.hpp"
+
 namespace nihil::graphics
 {
     class Engine;
 
     using byte = unsigned char;
 
-    class Model
+    class Model : public Asset
     {
         Engine* engine = nullptr;
         Pipeline* pipeline = nullptr;
@@ -30,7 +32,11 @@ namespace nihil::graphics
         alignas(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) byte vertexBufferMemory[sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>)];
         alignas(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>) byte indexBufferMemory[sizeof(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>)];
     public:
-        Model(const std::string& _path, Engine* _engine, Pipeline* _pipeline = nullptr, Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr, glm::mat4 _model = glm::mat4(1.0f))
+        Model(
+            const std::string& _path, Engine* _engine, Pipeline* _pipeline = nullptr, 
+            Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr, 
+            glm::mat4 _model = glm::mat4(1.0f)
+        ) : Asset(_engine)
         {
             path = _path;
             model = _model;
@@ -83,6 +89,8 @@ namespace nihil::graphics
             vertexBuffer->freeFromGPU();
             indexBuffer->freeFromGPU();
         }
+
+        inline glm::mat4& _deafultTransform() { return model; };
 
         ~Model()
         {

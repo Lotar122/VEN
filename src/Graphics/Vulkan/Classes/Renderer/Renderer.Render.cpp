@@ -55,6 +55,10 @@ void Renderer::Render(
 
 	commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     
+	//Wait for transfers before starting recording commands
+	vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+
+	//record commands from the scene
     scene->recordCommands(commandBuffer, camera);
 
 	commandBuffer.endRenderPass();
@@ -73,8 +77,7 @@ void Renderer::Render(
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = engine->_swapchain()->_frames()[frameIndex].renderFinished.getResP();
 
-	//vk::Result discardResult = engine->_device().resetFences(1, &frame.inFlightFence);
-	vk::Result discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);
+	discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);
 
 	engine->swapchain->presentFrame(frame, imageIndex);
 }

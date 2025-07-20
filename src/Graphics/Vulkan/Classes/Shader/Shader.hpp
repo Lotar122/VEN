@@ -9,9 +9,11 @@
 
 #include "Classes/Engine/Engine.hpp"
 
+#include "Classes/Asset/Asset.hpp"
+
 namespace nihil::graphics
 {
-    class Shader
+    class Shader : public Asset
     {
         Engine* engine = nullptr;
     public:

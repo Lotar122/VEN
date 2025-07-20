@@ -215,13 +215,13 @@ static std::pair<std::vector<float>, std::vector<uint32_t>> readOBJFile(std::str
 
                             switch(ii) {
                                 case 0:
-                                p.vi = std::stoi(std::string(pointBegin + begi[ii], endi[ii] - begi[ii] == 0 ? 1 : endi[ii] - begi[ii]));
+                                p.vi = std::stoi(std::string(pointBegin + begi[ii], endi[ii] - begi[ii] == 0 ? 1 : endi[ii] - begi[ii] + 1));
                                 break;
                                 case 1:
-                                p.ti = std::stoi(std::string(pointBegin + begi[ii], endi[ii] - begi[ii] == 0 ? 1 : endi[ii] - begi[ii]));
+                                p.ti = std::stoi(std::string(pointBegin + begi[ii], endi[ii] - begi[ii] == 0 ? 1 : endi[ii] - begi[ii] + 1));
                                 break;
                                 case 2:
-                                p.ni = std::stoi(std::string(pointBegin + begi[ii], endi[ii] - begi[ii] == 0 ? 1 : endi[ii] - begi[ii]));
+                                p.ni = std::stoi(std::string(pointBegin + begi[ii], endi[ii] - begi[ii] == 0 ? 1 : endi[ii] - begi[ii] + 1));
                                 break;
                             }
 
@@ -279,7 +279,8 @@ static std::pair<std::vector<float>, std::vector<uint32_t>> readOBJFile(std::str
             auto it = points.find(std::to_string(p.vi) + '/' + std::to_string(p.ti) + '/' + std::to_string(p.ni));
             if(it == points.end())
             {
-                throw std::runtime_error("Something went kaboom! This is an absolutely random Error. your .obj model file might be cooked.");
+                it = points.find(std::to_string(p.vi) + ' ' + std::to_string(p.ti) + ' ' + std::to_string(p.ni));
+                if(it == points.end()) throw std::runtime_error("Something went kaboom! This is an absolutely random Error. your .obj model file might be cooked.");
             }
 
             iBuffer.push_back(it->second.second);

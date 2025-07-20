@@ -9,11 +9,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "Classes/Asset/Asset.hpp"
+
 namespace nihil::graphics
 {
     class Scene;
 
-    class Object
+    class Object : public Asset
     {
         friend class Scene;
     public:
@@ -32,7 +34,7 @@ namespace nihil::graphics
         glm::vec3 rotation = glm::vec3(0.0f);
         glm::mat4 modelMatrix = glm::mat4(1.0f);
 
-        inline Model* _model() { return model; };
+        inline Model* _model() const { return model; };
         inline const glm::vec3& _position() { return position; };
         inline const glm::vec3& _rotation() { return rotation; };
         inline const glm::mat4& _modelMatrix() { return modelMatrix; };
@@ -54,7 +56,7 @@ namespace nihil::graphics
         inline void setPosition(const glm::vec3& _position) { position = _position; recalculateModelMatrix(); }; 
         inline void setRotation(const glm::vec3& _rotation) { rotation = _rotation; recalculateModelMatrix(); }; 
 
-        Object(Model* _model, Engine* _engine)
+        Object(Model* _model, Engine* _engine) : Asset(_engine)
         {
             assert(_model != nullptr);
             assert(_engine != nullptr);
@@ -72,6 +74,8 @@ namespace nihil::graphics
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+            modelMatrix *= model->_deafultTransform();
         }
 
         //TODO: Physics integration later
