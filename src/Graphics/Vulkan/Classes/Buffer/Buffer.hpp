@@ -22,7 +22,7 @@ namespace nihil::graphics
 
         return memoryTypeIndex;
     }
-    template<typename T, vk::BufferUsageFlagBits usageT>
+    template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
     class Buffer
     {
         Engine* engine = nullptr;
@@ -30,7 +30,8 @@ namespace nihil::graphics
 
         size_t size = 0;
         std::vector<T> data;
-        vk::BufferUsageFlagBits usage = usageT;
+        static constexpr vk::BufferUsageFlags usage = static_cast<vk::BufferUsageFlags>(usageT);
+        static constexpr vk::MemoryPropertyFlags properties = static_cast<vk::MemoryPropertyFlags>(propertiesT);
 
         vk::MemoryRequirements memRequirements;
         vk::MemoryRequirements stagingMemRequirements;
@@ -44,6 +45,8 @@ namespace nihil::graphics
         vk::DeviceMemory stagingMemory;
 
         bool onGPU = false;
+
+        static constexpr bool CPUAccessible = (properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
 
         bool destroyed = false;
     public:
@@ -79,7 +82,7 @@ namespace nihil::graphics
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
         }
 
-        Buffer(const std::vector<T>& _data, Engine* _engine, vk::MemoryPropertyFlags memPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal)
+        Buffer(const std::vector<T>& _data, Engine* _engine)
         {
             assert(_data.size() != 0);
             assert(_engine != nullptr);
@@ -92,7 +95,8 @@ namespace nihil::graphics
 
             size = data.size() * sizeof(T);
 
-            // Step 1: Create buffer
+            memProperties = engine->_physicalDevice().getMemoryProperties();
+
             vk::BufferCreateInfo bufferCreateInfo(
                 {},                      // Flags (default: none)
                 size,              // Size of the buffer
@@ -102,26 +106,35 @@ namespace nihil::graphics
 
             buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
 
-            // Step 2: Get memory requirements
             memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
 
-            vk::BufferCreateInfo stagingBufferCreateInfo{
-                {},
-                size,
-                vk::BufferUsageFlagBits::eTransferSrc,
-                vk::SharingMode::eExclusive
-            };
+            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
 
-            stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
 
-            stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
+                vk::BufferCreateInfo stagingBufferCreateInfo{
+                    {},
+                    size,
+                    vk::BufferUsageFlagBits::eTransferSrc,
+                    vk::SharingMode::eExclusive
+                };
 
-            memProperties = engine->_physicalDevice().getMemoryProperties();
+                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
 
-            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, memPropertyFlags);
-            stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
 
-            if (memoryTypeIndex == uint32_t(-1)) {
+                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+                if (stagingMemoryTypeIndex == uint32_t(-1))
+                {
+                    Logger::Exception("Failed to find the memory type to create a staging buffer");
+                }
+            }
+
+            if (memoryTypeIndex == uint32_t(-1)) 
+            {
                 Logger::Exception("Failed to find suitable memory type to create buffer");
             }     
         }
@@ -141,25 +154,39 @@ namespace nihil::graphics
                 memoryTypeIndex          // Memory type index
             );
 
-            vk::MemoryAllocateInfo stagingAllocInfo(
-                memRequirements.size,    // Allocation size
-                stagingMemoryTypeIndex          // Memory type index
-            );
-
             memory = engine->_device().allocateMemory(allocInfo);
-            stagingMemory = engine->_device().allocateMemory(stagingAllocInfo);
 
-            void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-            T* dataTyped = reinterpret_cast<T*>(dataRaw);
-            //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
-            std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-            engine->_device().unmapMemory(stagingMemory);
-
-            // Step 4: Bind buffer to memory
             engine->_device().bindBufferMemory(buffer.getRes(), memory, 0);
-            engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
 
-            copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Using a staging buffer");
+
+                vk::MemoryAllocateInfo stagingAllocInfo(
+                    memRequirements.size,    // Allocation size
+                    stagingMemoryTypeIndex          // Memory type index
+                );
+
+                stagingMemory = engine->_device().allocateMemory(stagingAllocInfo);
+
+                engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
+
+                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(stagingMemory);
+
+                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+            }
+            else
+            {
+                Logger::Log("Using a direct copy");
+
+                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(memory);
+            }
         }
 
         inline void freeFromGPU()
@@ -173,7 +200,7 @@ namespace nihil::graphics
             engine->_device().waitIdle();
 
             engine->_device().freeMemory(memory);
-            engine->_device().freeMemory(stagingMemory);
+            if constexpr (!CPUAccessible) engine->_device().freeMemory(stagingMemory);
         }
 
         void update(const std::vector<T>& _data)
@@ -186,13 +213,26 @@ namespace nihil::graphics
 
             moveToGPU();
 
-            void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-            T* dataTyped = reinterpret_cast<T*>(dataRaw);
-            //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
-            std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-            engine->_device().unmapMemory(stagingMemory);
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Using a staging buffer");
 
-            copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(stagingMemory);
+
+                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+            }
+            else
+            {
+                Logger::Log("Using a direct copy");
+
+                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(memory);
+            }
 
             if(!wasOnGPU) freeFromGPU();
         }
@@ -207,13 +247,26 @@ namespace nihil::graphics
 
             moveToGPU();
 
-            void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-            T* dataTyped = reinterpret_cast<T*>(dataRaw);
-            //dum dum. we are copying bytes. not floats. although i wonder if copying via the correct typed pointer would give a speed benefit.
-            std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-            engine->_device().unmapMemory(stagingMemory);
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Using a staging buffer");
 
-            copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(stagingMemory);
+
+                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+            }
+            else
+            {
+                Logger::Log("Using a direct copy");
+
+                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(memory);
+            }
 
             if(!wasOnGPU) freeFromGPU();
         }
@@ -229,6 +282,7 @@ namespace nihil::graphics
             freeFromGPU();
 
             buffer.destroy();
+            stagingBuffer.destroy();
         }
 
         inline ~Buffer()

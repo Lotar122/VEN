@@ -12,7 +12,7 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 	attachments = _attachments;
 	for(auto& a : attachments)
 	{
-		vk::Format format;
+		vk::Format format = vk::Format::eUndefined;
 
 		if(a.type == RenderPassAttachmentType::ColorAttachment) format = swapchain->imageFormat;
 		else if(a.type == RenderPassAttachmentType::DepthAttachment) format = swapchain->depthFormat;

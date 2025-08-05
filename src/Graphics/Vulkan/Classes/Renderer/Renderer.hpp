@@ -14,7 +14,7 @@ namespace nihil::graphics
     class Engine;
     class Pipeline;
     class RenderPass;
-    template<typename T, vk::BufferUsageFlagBits usageT>
+    template<typename T, auto usageT, auto propertiesT>
     class Buffer;
     class Scene;
 

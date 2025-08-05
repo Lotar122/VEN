@@ -1,7 +1,8 @@
 #pragma once
 
 //? Moved to CMakeLists.txt
-// #define ENABLE_LOGGING
+#define ENABLE_LOGGING
+#define ENABLE_WARNINGS
 
 #include <iostream>
 
@@ -28,7 +29,9 @@ namespace nihil
         }
         inline static void Warn(std::string what)
         {
-            std::cout<<what<<'\n';
+            #ifdef ENABLE_WARNINGS
+                std::cout<<what<<'\n';
+            #endif
         }
     };
 }
