@@ -44,25 +44,35 @@ void Scene::addObjects(std::vector<Object>& newObjects)
     }
 }
 
-void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
+//TODO
+//change the key in the hashmap to the modelMaterialEncoded
+//allocate descriptor sets if a texture is present (add color only capabilities in the material class)
+//get the pipeline from material and not model
+//remember to remove pipelines and the renderpass from the Model class
+
+void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, DescriptorAllocator* descriptorAllocator)
 {
     instancedDraws.clear();
     normalDraws.clear();
+
+    /*instancedDraws.reserve(objects.size());
+    normalDraws.reserve(objects.size());*/
     
     for(Object* o : objects)
     {
         if(o->_model()->_instancedPipeline())
         {
-            auto it = instancedDraws.find(o->_model());
+            auto it = instancedDraws.find(o->_modelMaterialEncoded());
             if(it != instancedDraws.end())
             {
                 it->second.push_back(o);
             }
             else 
             {
-                instancedDraws.insert(std::make_pair(o->_model(), std::vector<Object*>()));
-                instancedDraws[o->_model()].reserve(64);
-                instancedDraws[o->_model()].push_back(o);
+                //put the vectors in a pool and reuse across frames
+                instancedDraws.insert(std::make_pair(o->_modelMaterialEncoded(), std::vector<Object*>()));
+                instancedDraws[o->_modelMaterialEncoded()].reserve(64);
+                instancedDraws[o->_modelMaterialEncoded()].push_back(o);
             }
         }
         else
@@ -74,12 +84,23 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
     {
         if(it.second.size() > 1)
         {
+            if (descriptorAllocator)
+            {
+                commandBuffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    it.second[0]->_model()->_instancedPipeline()->_layout(),
+                    0,
+                    descriptorAllocator->staticDescriptorSet,
+                    {}
+                );
+            }
+
             //Push Constants
             //Model component of the push constants is unused
-            commandBuffer.pushConstants(it.first->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
+            commandBuffer.pushConstants(it.second[0]->_model()->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
 
             //Draw
-            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.first->_instancedPipeline()->_pipeline());
+            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_model()->_instancedPipeline()->_pipeline());
 
             //Create or reuse the instance buffer
             constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
@@ -150,7 +171,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
             assert(instanceBuffer != nullptr);
 
             std::array<vk::Buffer, 2> vertexBuffers = {
-                it.first->_vertexBuffer()._buffer(),
+                it.second[0]->_model()->_vertexBuffer()._buffer(),
                 instanceBuffer->_buffer()
 
             };
@@ -160,10 +181,10 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
             };
             commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexBufferOffsets);
 
-            commandBuffer.bindIndexBuffer(it.first->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
+            commandBuffer.bindIndexBuffer(it.second[0]->_model()->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
 
             //std::cout << it.first->_indexBuffer()._typedSize() << " " << it.second.size() << '\n';
-            commandBuffer.drawIndexed(static_cast<uint32_t>(it.first->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
+            commandBuffer.drawIndexed(static_cast<uint32_t>(it.second[0]->_model()->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
         }
         else if(it.second.size() == 1)
         {
@@ -173,8 +194,19 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera)
 
     for(Object* o : normalDraws)
     {
+        if (descriptorAllocator)
+        {
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                o->_model()->_pipeline()->_layout(),
+                0,
+                descriptorAllocator->staticDescriptorSet,
+                {}
+            );
+        }
+
         //Push Constants
-        commandBuffer.pushConstants(o->model->_pipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
+        commandBuffer.pushConstants(o->_model()->_pipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
 
         //Draw
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, o->model->_pipeline()->_pipeline());

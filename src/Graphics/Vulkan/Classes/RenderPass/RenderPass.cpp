@@ -10,12 +10,22 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 	swapchain = _swapchain;
 	device = _device;
 	attachments = _attachments;
+
+	std::vector<vk::AttachmentReference> colorAttachmentRefs;
+	std::vector<vk::AttachmentReference> depthAttachmentRefs;
+	std::vector<vk::AttachmentReference> resolveAttachmentRefs;
+
+	std::vector<vk::AttachmentDescription> attachmentsTransformed;
+	attachmentsTransformed.reserve(attachments.size());
+
+	uint64_t attachmentIndex = 0;
 	for(auto& a : attachments)
 	{
 		vk::Format format = vk::Format::eUndefined;
 
-		if(a.type == RenderPassAttachmentType::ColorAttachment) format = swapchain->imageFormat;
-		else if(a.type == RenderPassAttachmentType::DepthAttachment) format = swapchain->depthFormat;
+		if (a.type == RenderPassAttachmentType::ColorAttachment) format = swapchain->imageFormat;
+		else if (a.type == RenderPassAttachmentType::DepthAttachment) format = swapchain->depthFormat;
+		else if (a.type == RenderPassAttachmentType::ResolveAttachment) format = swapchain->imageFormat;
 
 		vk::AttachmentDescription attachment(
 			{},
@@ -29,32 +39,42 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 			a.finalImageLayout
 		);
 
-		if(a.type == RenderPassAttachmentType::ColorAttachment) colorAttachmentDescriptors.push_back(attachment);
-		else if(a.type == RenderPassAttachmentType::DepthAttachment) depthAttachmentDescriptors.push_back(attachment);
+		if (a.type == RenderPassAttachmentType::ColorAttachment)
+		{
+			vk::AttachmentReference attachmentRef(
+				attachmentIndex,
+				vk::ImageLayout::eColorAttachmentOptimal
+			);
+			colorAttachmentRefs.push_back(attachmentRef);
+		}
+		else if (a.type == RenderPassAttachmentType::DepthAttachment)
+		{
+			vk::AttachmentReference attachmentRef(
+				attachmentIndex,
+				vk::ImageLayout::eDepthStencilAttachmentOptimal
+			);
+			depthAttachmentRefs.push_back(attachmentRef);
+		}
+		else if (a.type == RenderPassAttachmentType::ResolveAttachment)
+		{
+			vk::AttachmentReference attachmentRef(
+				attachmentIndex,
+				vk::ImageLayout::eColorAttachmentOptimal
+			);
+			resolveAttachmentRefs.push_back(attachmentRef);
+		}
+
+		attachmentsTransformed.push_back(attachment);
+		attachmentIndex++;
 	}
-
-	//manual for now, change later
-	vk::AttachmentReference colorAttachmentRef(
-		0, 
-		vk::ImageLayout::eColorAttachmentOptimal
-	);
-
-	vk::AttachmentReference depthAttachmentRef(
-		1, 
-		vk::ImageLayout::eDepthStencilAttachmentOptimal
-	);
-	vk::AttachmentReference resolveAttachmentRef(
-		2,
-		vk::ImageLayout::eColorAttachmentOptimal
-	);
 
 	vk::SubpassDescription subpass(
 		{}, // Flags
 		vk::PipelineBindPoint::eGraphics, // Graphics pipeline
 		0, nullptr, // Input attachments
-		1, &colorAttachmentRef, // Color attachments
-		&resolveAttachmentRef, // Resolve attachments
-		&depthAttachmentRef // Depth-stencil attachment
+		colorAttachmentRefs.size(), colorAttachmentRefs.data(), // Color attachments
+		resolveAttachmentRefs.data(), // Resolve attachments
+		depthAttachmentRefs.data() // Depth-stencil attachments
 	);
 
 	vk::SubpassDependency dependency(
@@ -65,15 +85,9 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 		vk::AccessFlagBits::eColorAttachmentWrite // Ensure color writes are visible
 	);
 
-	std::vector<vk::AttachmentDescription> attachments;
-	attachments.resize(3);
-	attachments[0] = colorAttachmentDescriptors[0];
-	attachments[1] = depthAttachmentDescriptors[0];
-	attachments[2] = colorAttachmentDescriptors[1];
-
 	vk::RenderPassCreateInfo renderPassInfo(
 		{}, // Flags
-		3, attachments.data(), // Attachments
+		attachmentsTransformed.size(), attachmentsTransformed.data(), // Attachments
 		1, &subpass, // Subpasses
 		1, &dependency // Dependencies
 	);

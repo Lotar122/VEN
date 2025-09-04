@@ -23,7 +23,7 @@ namespace nihil
         Resource() {Logger::Log("The specialized constructor for vk::Framebuffer called.");};
         void destroy() override
         {
-            if(destroyed) return;
+            if (destroyed || !assigned) return;
             device.destroyFramebuffer(res);
             destroyed = true;
 

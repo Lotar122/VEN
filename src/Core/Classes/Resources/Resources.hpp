@@ -20,5 +20,7 @@
 #include "Image.hpp"
 #include "ImageView.hpp"
 #include "FrameBuffer.hpp"
+#include "Sampler.hpp"
+#include "DescriptorSetLayout.hpp"
 
 #include "SwapchainKHR.hpp"

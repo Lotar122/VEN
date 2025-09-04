@@ -6,6 +6,7 @@
 #include "Classes/RenderPass/RenderPass.hpp"
 #include "Classes/Buffer/Buffer.hpp"
 #include "Classes/Scene/Scene.hpp"
+#include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 
 #include <thread>
 #include <chrono>
@@ -15,7 +16,8 @@ using namespace nihil::graphics;
 void Renderer::Render(
 	RenderPass* renderPass, 
 	Scene* scene,
-	Camera* camera
+	Camera* camera,
+	DescriptorAllocator* descriptorAllocator
 )
 {
 	uint32_t imageIndex = 0, frameIndex = 0;
@@ -59,7 +61,7 @@ void Renderer::Render(
 	vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
 
 	//record commands from the scene
-    scene->recordCommands(commandBuffer, camera);
+    scene->recordCommands(commandBuffer, camera, descriptorAllocator);
 
 	commandBuffer.endRenderPass();
 

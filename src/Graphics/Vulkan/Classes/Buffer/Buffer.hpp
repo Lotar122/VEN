@@ -46,7 +46,8 @@ namespace nihil::graphics
 
         bool onGPU = false;
 
-        static constexpr bool CPUAccessible = (properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
+        static constexpr bool CPUAccessible = 
+            (properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
 
         bool destroyed = false;
     public:
@@ -137,6 +138,123 @@ namespace nihil::graphics
             {
                 Logger::Exception("Failed to find suitable memory type to create buffer");
             }     
+        }
+
+        Buffer(const std::vector<T>&& _data, Engine* _engine)
+        {
+            assert(_data.size() != 0);
+            assert(_engine != nullptr);
+            assert(_engine->_transferFence() != nullptr);
+
+            engine = _engine;
+            transferFence = engine->_transferFence();
+
+            data = std::move(_data);
+
+            size = data.size() * sizeof(T);
+
+            memProperties = engine->_physicalDevice().getMemoryProperties();
+
+            vk::BufferCreateInfo bufferCreateInfo(
+                {},                      // Flags (default: none)
+                size,              // Size of the buffer
+                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
+                vk::SharingMode::eExclusive // Sharing mode
+            );
+
+            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
+
+            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
+
+            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
+
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
+
+                vk::BufferCreateInfo stagingBufferCreateInfo{
+                    {},
+                    size,
+                    vk::BufferUsageFlagBits::eTransferSrc,
+                    vk::SharingMode::eExclusive
+                };
+
+                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
+
+                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
+
+                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+                if (stagingMemoryTypeIndex == uint32_t(-1))
+                {
+                    Logger::Exception("Failed to find the memory type to create a staging buffer");
+                }
+            }
+
+            if (memoryTypeIndex == uint32_t(-1))
+            {
+                Logger::Exception("Failed to find suitable memory type to create buffer");
+            }
+        }
+
+        Buffer(const T* _data, size_t _size, Engine* _engine)
+        {
+            assert(_size != 0);
+            assert(_data != nullptr);
+            assert(_engine != nullptr);
+            assert(_engine->_transferFence() != nullptr);
+
+            engine = _engine;
+            transferFence = engine->_transferFence();
+
+            size = _size;
+
+            data.resize(size);
+
+            std::memcpy(data.data(), _data, size);
+
+            memProperties = engine->_physicalDevice().getMemoryProperties();
+
+            vk::BufferCreateInfo bufferCreateInfo(
+                {},                      // Flags (default: none)
+                size,              // Size of the buffer
+                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
+                vk::SharingMode::eExclusive // Sharing mode
+            );
+
+            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
+
+            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
+
+            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
+
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
+
+                vk::BufferCreateInfo stagingBufferCreateInfo{
+                    {},
+                    size,
+                    vk::BufferUsageFlagBits::eTransferSrc,
+                    vk::SharingMode::eExclusive
+                };
+
+                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
+
+                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
+
+                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+                if (stagingMemoryTypeIndex == uint32_t(-1))
+                {
+                    Logger::Exception("Failed to find the memory type to create a staging buffer");
+                }
+            }
+
+            if (memoryTypeIndex == uint32_t(-1))
+            {
+                Logger::Exception("Failed to find suitable memory type to create buffer");
+            }
         }
 
         void moveToGPU()
@@ -271,6 +389,40 @@ namespace nihil::graphics
             if(!wasOnGPU) freeFromGPU();
         }
 
+        void update(const T* _data, size_t _size)
+        {
+            assert(data.size() == _size);
+
+            std::memcpy(data.data(), _data, data.size());
+
+            bool wasOnGPU = onGPU;
+
+            moveToGPU();
+
+            if constexpr (!CPUAccessible)
+            {
+                Logger::Log("Using a staging buffer");
+
+                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(stagingMemory);
+
+                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+            }
+            else
+            {
+                Logger::Log("Using a direct copy");
+
+                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+                T* dataTyped = reinterpret_cast<T*>(dataRaw);
+                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                engine->_device().unmapMemory(memory);
+            }
+
+            if (!wasOnGPU) freeFromGPU();
+        }
+
         void destroy()
         {
             assert(!destroyed);
@@ -282,7 +434,10 @@ namespace nihil::graphics
             freeFromGPU();
 
             buffer.destroy();
-            stagingBuffer.destroy();
+            if constexpr (!CPUAccessible)
+            {
+                stagingBuffer.destroy();
+            }
         }
 
         inline ~Buffer()

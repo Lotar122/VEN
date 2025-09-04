@@ -21,7 +21,7 @@ namespace nihil
         Resource() {Logger::Log("The specialized constructor for vk::Instance called.");};
         void destroy() override
         {
-            if(destroyed) return;
+            if (destroyed || !assigned) return;
             res.destroy();
             destroyed = true;
 

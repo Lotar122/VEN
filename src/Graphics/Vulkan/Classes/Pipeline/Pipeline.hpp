@@ -4,6 +4,8 @@
 #include "Classes/RenderPass/RenderPass.hpp"
 #include "Classes/Swapchain/Swapchain.hpp"
 #include "Classes/Resources/Resources.hpp"
+#include "Classes/AssetUsage/AssetUsage.hpp"
+#include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 #include <vulkan/vulkan.hpp>
 #include "Logger.hpp"
 
@@ -16,6 +18,8 @@ namespace nihil::graphics
     {
         std::vector<vk::VertexInputBindingDescription>& bindingDesc;
         std::vector<vk::VertexInputAttributeDescription>& attributeDesc;
+
+        std::vector<DescriptorSetLayoutBinding>& descriptorSetLayoutBindings;
 
         vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;
 
@@ -46,8 +50,8 @@ namespace nihil::graphics
         bool destroyed = false;
 
     public:
-        inline vk::Pipeline _pipeline() { return pipeline.getRes(); };
-        inline vk::PipelineLayout _layout() {return layout.getRes(); };
+        inline vk::Pipeline _pipeline() { return pipeline; };
+        inline vk::PipelineLayout _layout() {return layout; };
         inline RenderPass* _baseRenderPass() { return baseRenderPass; };
 
         Pipeline(Engine* _engine);
@@ -55,6 +59,6 @@ namespace nihil::graphics
 
         void destroy();
 
-        void create(PipelineCreateInfo& info, RenderPass* _renderPass);
+        void create(PipelineCreateInfo& info, RenderPass* _renderPass, DescriptorAllocator* descriptorAllocator = nullptr);
     };
 }

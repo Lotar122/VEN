@@ -19,7 +19,7 @@ namespace nihil
         Resource() {Logger::Log("The specialized constructor for vk::SurfaceKHR called.");};
         void destroy() override
         {
-            if(destroyed) return;
+            if (destroyed || !assigned) return;
             instance.destroySurfaceKHR(res);
             destroyed = true;
 

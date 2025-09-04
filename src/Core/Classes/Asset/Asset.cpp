@@ -4,8 +4,7 @@
 
 using namespace nihil;
 
-Asset::Asset(graphics::Engine* engine)
+Asset::Asset(AssetUsage _assetUsage, graphics::Engine* engine) : assetId(engine->requestAssetId()), assetUsage(_assetUsage)
 {
     assert(engine != nullptr);
-    assetId = engine->requestAssetId();
 }

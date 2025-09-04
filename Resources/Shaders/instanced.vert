@@ -10,8 +10,9 @@ layout(location = 5) in vec4 m2;
 layout(location = 6) in vec4 m3;
 layout(location = 7) in vec4 m4;
 
-layout(location = 8) out vec3 vNormal;
-layout(location = 9) out vec3 vPosition;
+layout(location = 8) out vec2 tCoord;
+layout(location = 9) out vec3 vNormal;
+layout(location = 10) out vec3 vPosition;
 
 mat4 model = mat4(
     m1, m2, m3, m4

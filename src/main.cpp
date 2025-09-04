@@ -12,6 +12,8 @@
 #include "Classes/Object/Object.hpp"
 #include "Classes/Scene/Scene.hpp"
 #include "Classes/Keyboard/Keyboard.hpp"
+#include "Classes/Texture/Texture.hpp"
+#include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 
 #include "Logger.hpp"
 
@@ -70,7 +72,7 @@ int main()
             1
         ),
         nihil::graphics::RenderPassAttachment(
-            nihil::graphics::RenderPassAttachmentType::ColorAttachment,
+            nihil::graphics::RenderPassAttachmentType::ResolveAttachment,
             vk::SampleCountFlagBits::e1,
             vk::AttachmentLoadOp::eDontCare,
             vk::AttachmentStoreOp::eStore,
@@ -106,6 +108,27 @@ int main()
     nihil::graphics::Pipeline basicPipeline(&engine);
     nihil::graphics::Pipeline instancedPipeline(&engine);
 
+    nihil::graphics::Texture texture("./Resources/Textures/marble.png", nihil::AssetUsage::Static, &engine);
+    nihil::graphics::Sampler sampler(nihil::AssetUsage::Static, &engine);
+    nihil::graphics::Texture dynamicTexture("./Resources/Textures/black16x16.png", nihil::AssetUsage::Dynamic, &engine);
+
+    sampler.create();
+
+    nihil::graphics::Material material(
+        &texture, &sampler,
+        &basicVertexShader, &basicFragmentShader, &instancedVertexShader, &instancedFragmentShader,
+        &basicPipeline, &instancedPipeline,
+        &renderPass,
+        &engine
+    );
+
+    nihil::graphics::DescriptorAllocator descriptorAllocator;
+
+    descriptorAllocator.createStaticDescriptorSet(
+        { { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, { &sampler, vk::ShaderStageFlagBits::eFragment, 1 } }, 
+        &engine
+    );
+
     //*Pipeline creation
     {
         uint32_t vertexSize1 = sizeof(float) * 8;
@@ -118,8 +141,11 @@ int main()
 
         std::vector<vk::VertexInputBindingDescription> bindingDesc1 = { binding11 };
         std::vector<vk::VertexInputAttributeDescription> attributeDesc1 = { attribute11, attribute12, attribute13 };
+        std::vector<nihil::graphics::DescriptorSetLayoutBinding> descriptorSets1 = {
+            { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, { &sampler, vk::ShaderStageFlagBits::eFragment, 1 }, { &dynamicTexture, vk::ShaderStageFlagBits::eFragment, 0 }
+        };
 
-        nihil::graphics::PipelineCreateInfo pipelineInfo1 = { bindingDesc1, attributeDesc1 };
+        nihil::graphics::PipelineCreateInfo pipelineInfo1 = { bindingDesc1, attributeDesc1, descriptorSets1 };
 
         pipelineInfo1.vertexShader = basicVertexShader._ptr();
         pipelineInfo1.fragmentShader = basicFragmentShader._ptr();
@@ -131,7 +157,7 @@ int main()
 
         pipelineInfo1.rasterizationSampleCount = maxSampleCount;
 
-        basicPipeline.create(pipelineInfo1, &renderPass);
+        basicPipeline.create(pipelineInfo1, &renderPass, &descriptorAllocator);
 
         uint32_t vertexSize21 = sizeof(float) * 8;
         uint32_t vertexSize22 = sizeof(float) * 16;
@@ -152,54 +178,35 @@ int main()
         std::vector<vk::VertexInputAttributeDescription> attributeDesc2 = {
             attribute21, attribute22, attribute23, attribute24, attribute25, attribute26, attribute27
         };
+        std::vector<nihil::graphics::DescriptorSetLayoutBinding> descriptorSets2 = {
+            { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, { &sampler, vk::ShaderStageFlagBits::eFragment, 1 }
+        };
 
-        nihil::graphics::PipelineCreateInfo pipelineInfo2 = { bindingDesc2, attributeDesc2 };
+        nihil::graphics::PipelineCreateInfo pipelineInfo2 = { bindingDesc2, attributeDesc2, descriptorSets2 };
 
         pipelineInfo2.vertexShader = instancedVertexShader._ptr();
         pipelineInfo2.fragmentShader = instancedFragmentShader._ptr();
 
-        //to visualize the mesh
-        pipelineInfo2.cullingMode = vk::CullModeFlagBits::eBack;
-        pipelineInfo2.polygonMode = vk::PolygonMode::eFill;
+        //to differ from basicPipeline use eLine
+        pipelineInfo2.cullingMode = vk::CullModeFlagBits::eNone;
+        pipelineInfo2.polygonMode = vk::PolygonMode::eLine;
         pipelineInfo2.frontFace = vk::FrontFace::eClockwise;
 
         pipelineInfo2.rasterizationSampleCount = maxSampleCount;
 
-        instancedPipeline.create(pipelineInfo2, &renderPass);
+        instancedPipeline.create(pipelineInfo2, &renderPass, &descriptorAllocator);
     }
 
     nihil::graphics::Model cubeModel("./Resources/Models/cube.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass);
     nihil::graphics::Model teapotModel("./Resources/Models/teapot.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass, glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-    // nihil::graphics::Model bunnyModel("./Resources/Models/bunny.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass, glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-    // nihil::graphics::Model dragonModel("./Resources/Models/dragon.obj", &engine, &basicPipeline, &instancedPipeline, &renderPass, glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 
-    nihil::graphics::Object cube(&cubeModel, &engine);
-    nihil::graphics::Object teapot(&teapotModel, &engine);
-    // nihil::graphics::Object bunny(&bunnyModel, &engine);
-    // nihil::graphics::Object dragon(&dragonModel, &engine);
+    nihil::graphics::Object cube(&cubeModel, &material, &engine);
+    nihil::graphics::Object teapot(&teapotModel, &material, &engine);
 
     nihil::graphics::Scene scene(&engine);
 
-    // std::vector<nihil::graphics::Object> objects;
-
-    // constexpr int cubeGridSide = 500;
-    // int z = 0;
-    // for(int x = 0; x < cubeGridSide; x++)
-    // {
-    //     for(int y = 0; y < cubeGridSide; y++)
-    //     {
-    //         objects.push_back(nihil::graphics::Object(&cubeModel, &engine));
-    //         objects[z].setPosition(glm::vec3(x * 2.0f, 0.0f, y * 2.0f + 1.0f));
-    //         z++;
-    //     }
-    // }
-
-    //* Add objects here
-    //scene.addObject(&cube);
     scene.addObject(&teapot);
-    // scene.addObject(&bunny);
-    // scene.addObject(&dragon);
-    //scene.addObjects(objects);
+    //scene.addObject(&cube);
 
     //moves all of the models onto the GPU
     scene.use();
@@ -208,8 +215,7 @@ int main()
     cameraInfo.app = &app;
     nihil::graphics::Camera camera(cameraInfo);
 
-    camera.move(glm::vec3(2.0f, -5.0f, -1.5f));
-    camera.rotate(0.1f, 0.0f, 10.0f);
+    camera.move(glm::vec3(0.0, -5.0f, -50.0f));
 
     camera.setLookAt(glm::vec3(0.0f, 0.0f, 100.0f));
 
@@ -248,7 +254,9 @@ int main()
         if (keyboard.getKey(nihil::Key::ArrowUp)) camera.rotate(0.0f, 0.1f, 0.1f);
         if (keyboard.getKey(nihil::Key::ArrowDown)) camera.rotate(0.0f, -0.1f, 0.1f);
 
-        engine._renderer()->Render(&renderPass, &scene, &camera);
+        teapot.rotate(glm::vec3(0.0f, 0.25f, 0.0f));
+
+        engine._renderer()->Render(&renderPass, &scene, &camera, &descriptorAllocator);
     }
 
     return 0;
