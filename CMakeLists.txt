@@ -7,11 +7,29 @@ if(WIN32)
 	set(glfw3_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows-static/share/glfw3/") 
 endif()
 
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;NativeRelease" CACHE STRING "" FORCE)
+
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+if(LINUX)
+	set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+	set(CMAKE_C_FLAGS_RELEASE "-O2")
+
+	set(CMAKE_CXX_FLAGS_NATIVERELEASE "-O2 -march=native")
+	set(CMAKE_C_FLAGS_NATIVERELEASE "-O2 -march=native")
+endif()
+
 # Find Vulkan and GLFW
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
-find_path(STB_INCLUDE_DIRS "stb_image.h")
+if(LINUX)
+	find_path(STB_INCLUDE_DIRS "stb/stb_image.h"
+		PATHS /usr/include
+	)
+else()
+	find_path(STB_INCLUDE_DIRS "stb_image.h")
+endif()
 
 file(GLOB_RECURSE SOURCES 
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"

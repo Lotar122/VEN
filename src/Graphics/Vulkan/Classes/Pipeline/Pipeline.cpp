@@ -185,7 +185,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	}
 	else
 	{
-		descriptorSetLayouts = { descriptorAllocator->staticDescriptorSetLayout, dynamicDescriptorSetLayout };
+		descriptorSetLayouts = { descriptorAllocator->staticDescriptorSetLayout/*, dynamicDescriptorSetLayout*/ };
 		//for now 1 since there are no dynamic descriptors
 		layoutInfo.setLayoutCount = 1;
 		layoutInfo.pSetLayouts = descriptorSetLayouts.data();
