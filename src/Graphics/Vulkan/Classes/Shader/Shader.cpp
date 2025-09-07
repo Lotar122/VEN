@@ -32,7 +32,7 @@ void Shader::LoadFromSource(const std::string& path)
     Logger::Exception("It doesn't work for now, precompile your shaders please!");
 }
 
-Shader::Shader(Engine* _engine) : Asset(_engine)
+Shader::Shader(Engine* _engine) : Asset(AssetUsage::Undefined, _engine)
 {
     assert(_engine != nullptr);
 

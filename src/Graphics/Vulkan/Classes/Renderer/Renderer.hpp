@@ -17,6 +17,7 @@ namespace nihil::graphics
     template<typename T, auto usageT, auto propertiesT>
     class Buffer;
     class Scene;
+    class DescriptorAllocator;
 
     class Renderer : public onResizeListener
     {   
@@ -40,7 +41,8 @@ namespace nihil::graphics
         void Render(
             RenderPass* renderPass, 
             Scene* scene,
-            Camera* camera
+            Camera* camera,
+            DescriptorAllocator* descriptorAllocator = nullptr
         );
 
     private:

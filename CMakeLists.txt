@@ -4,18 +4,39 @@ project ("VEN")
 
 # Manually set the glfw3 installed directory. Only on windows. Couldn't get it to work another way.
 if(WIN32) 
-	set(glfw3_DIR "./vcpkg_installed/x64-windows-static/share/glfw3/") 
+	set(glfw3_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows-static/share/glfw3/") 
+endif()
+
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;NativeRelease" CACHE STRING "" FORCE)
+
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+if(LINUX)
+	set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+	set(CMAKE_C_FLAGS_RELEASE "-O2")
+
+	set(CMAKE_CXX_FLAGS_NATIVERELEASE "-O2 -march=native")
+	set(CMAKE_C_FLAGS_NATIVERELEASE "-O2 -march=native")
 endif()
 
 # Find Vulkan and GLFW
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
+if(LINUX)
+	find_path(STB_INCLUDE_DIRS "stb/stb_image.h"
+		PATHS /usr/include
+	)
+else()
+	find_path(STB_INCLUDE_DIRS "stb_image.h")
+endif()
+
 file(GLOB_RECURSE SOURCES 
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-add_executable(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
+#add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
+add_executable(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/stb-imlp.cpp")
 
 target_include_directories(VEN 
 	PUBLIC
@@ -29,8 +50,7 @@ target_include_directories(VEN
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Core
 )
 
-#link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lib)
-# link_directories(${CMAKE_CURRENT_SOURCE_DIR}/nstd)
+target_include_directories(VEN PRIVATE ${Stb_INCLUDE_DIR})
 
 target_link_libraries(VEN PUBLIC
 	Vulkan::Vulkan

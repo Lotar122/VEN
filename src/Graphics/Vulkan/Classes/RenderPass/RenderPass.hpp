@@ -8,6 +8,7 @@ namespace nihil::graphics
     enum class RenderPassAttachmentType
     {
         ColorAttachment,
+        ResolveAttachment,
         DepthAttachment
     };
 
@@ -34,6 +35,7 @@ namespace nihil::graphics
         std::vector<RenderPassAttachment> attachments;
         std::vector<vk::SubpassDescription> subpasses;
         std::vector<vk::AttachmentDescription> colorAttachmentDescriptors;
+        std::vector<vk::AttachmentDescription> resolveAttachmentDescriptos;
         std::vector<vk::AttachmentDescription> depthAttachmentDescriptors;
 
         Swapchain* swapchain = nullptr;

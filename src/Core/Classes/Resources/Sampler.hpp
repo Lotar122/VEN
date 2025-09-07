@@ -7,41 +7,41 @@
 namespace nihil
 {
     template <>
-    class Resource<vk::Semaphore> : public ResourceAbstract<vk::Semaphore>
+    class Resource<vk::Sampler> : public ResourceAbstract<vk::Sampler>
     {
     protected:
         vk::Device device;
     public:
-        Resource(vk::Semaphore _res, vk::Device _device)
+        Resource(vk::Sampler _res, vk::Device _device)
         {
             res = _res;
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::Semaphore called.");
+            Logger::Log("The specialized constructor for vk::Sampler called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::Semaphore called.");};
+        Resource() { Logger::Log("The specialized constructor for vk::Sampler called."); };
         void destroy() override
         {
             if (destroyed || !assigned) return;
-            device.destroySemaphore(res);
+            device.destroySampler(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::Semaphore");
+            Logger::Log("Destroying vk::Sampler");
         }
-        ~Resource() override 
+        ~Resource() override
         {
-            if(!destroyed) Logger::Warn("A vk::Semaphore has gone out of scope without being destroyed, destroying automatically.");
+            if (!destroyed) Logger::Warn("A vk::Sampler has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
-        virtual void assignRes(vk::Semaphore _res, vk::Device _device)
+        virtual void assignRes(vk::Sampler _res, vk::Device _device)
         {
-            if(!assigned)
+            if (!assigned)
             {
                 device = _device;
                 res = _res;
-                
+
                 assigned = true;
             }
             else

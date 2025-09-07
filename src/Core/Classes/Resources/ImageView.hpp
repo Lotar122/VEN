@@ -23,7 +23,7 @@ namespace nihil
         Resource() {Logger::Log("The specialized constructor for vk::ImageView called.");};
         void destroy() override
         {
-            if(destroyed) return;
+            if (destroyed || !assigned) return;
             device.destroyImageView(res);
             destroyed = true;
 

@@ -25,13 +25,46 @@ Pipeline::~Pipeline()
 	if(!destroyed) destroy();
 }
 
-void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass)
+void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, DescriptorAllocator* descriptorAllocator)
 {
 	assert(_renderPass != nullptr);
 	assert(info.vertexShader != nullptr);
 	assert(info.fragmentShader != nullptr);
 
 	baseRenderPass = _renderPass;
+
+	assert(info.descriptorSetLayoutBindings.size() == 0 || descriptorAllocator != nullptr);
+
+	std::vector<vk::DescriptorSetLayoutBinding> dynamicDescriptors;
+	dynamicDescriptors.reserve(info.descriptorSetLayoutBindings.size());
+
+	std::vector<vk::DescriptorSetLayoutBinding> staticDescriptors;
+	staticDescriptors.reserve(info.descriptorSetLayoutBindings.size());
+
+	for(const DescriptorSetLayoutBinding& dsb : info.descriptorSetLayoutBindings)
+	{
+		if (dsb.usage == AssetUsage::Static)
+		{
+			auto it = descriptorAllocator->staticDescriptors.find(dsb.layoutBinding.binding);
+			if (it == descriptorAllocator->staticDescriptors.end())
+			{
+				Logger::Exception(std::format("The static descriptor (binding = {}) passed to the pipeline is not present in the descriptor set", dsb.layoutBinding.binding));
+			}
+			if (it->second.descriptorType != dsb.layoutBinding.descriptorType)
+			{
+				Logger::Exception(std::format("The static descriptor (binding = {}) passed to the pipeline is of the wrong type", dsb.layoutBinding.binding));
+			}
+
+			staticDescriptors.push_back(dsb.layoutBinding);
+		}
+		else dynamicDescriptors.push_back(dsb.layoutBinding);
+	}
+
+	
+
+	
+
+	//?Pipeline creation
 
 	vk::GraphicsPipelineCreateInfo pipelineInfo = {};
 	pipelineInfo.flags = vk::PipelineCreateFlags();
@@ -84,17 +117,6 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass)
 	pipelineInfo.pViewportState = &viewportInfo;
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
 
-	/*
-		TODO: 
-		Rasterization, Fragment shader, Multisampling, Color blending, Depth (Future), Push Constants
-
-		!
-		Remember, make EVERYTHING customizable through the PipelineInfo struct, make most of the stuff deafult to sth
-
-		?
-		Remember that the renderers' sole purpose is to store the viewport and scissor (for now)
-	*/
-
 	//Rasterization
 	vk::PipelineRasterizationStateCreateInfo rasterizationInfo = {};
 	rasterizationInfo.flags = vk::PipelineRasterizationStateCreateFlags();
@@ -142,7 +164,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass)
 	colorBlendingInfo.blendConstants[3] = 0.0f;
 	pipelineInfo.pColorBlendState = &colorBlendingInfo;
 
-	//Depth (Future)
+	//Depth
 	vk::PipelineDepthStencilStateCreateInfo depthInfo = {};
 	depthInfo.depthTestEnable = VK_TRUE;
 	depthInfo.depthWriteEnable = VK_TRUE;
@@ -155,6 +177,19 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass)
 	layoutInfo.flags = vk::PipelineLayoutCreateFlags();
 	layoutInfo.setLayoutCount = 0;
 	layoutInfo.pushConstantRangeCount = 1;
+	std::array<vk::DescriptorSetLayout, 2> descriptorSetLayouts;
+	if (!descriptorAllocator)
+	{
+		layoutInfo.setLayoutCount = 0;
+		layoutInfo.pSetLayouts = nullptr;
+	}
+	else
+	{
+		descriptorSetLayouts = { descriptorAllocator->staticDescriptorSetLayout/*, dynamicDescriptorSetLayout*/ };
+		//for now 1 since there are no dynamic descriptors
+		layoutInfo.setLayoutCount = 1;
+		layoutInfo.pSetLayouts = descriptorSetLayouts.data();
+	}
 
 	vk::PushConstantRange pushConstantInfo = {};
 	pushConstantInfo.offset = 0;

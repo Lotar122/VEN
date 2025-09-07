@@ -8,6 +8,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include "Classes/Object/Object.hpp"
+#include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 
 namespace nihil::graphics
 {
@@ -20,12 +21,13 @@ namespace nihil::graphics
         Engine* engine = nullptr;
         ShortHeap bufferHeap = ShortHeap(1024, 1024);
 
-        std::unordered_map<Model*, std::vector<Object*>> instancedDraws;
+        std::unordered_map<uint64_t, std::vector<Object*>> instancedDraws;
         std::vector<Object*> normalDraws;
 
         std::vector<Object*> objects;
 
-        std::unordered_map<Model*, Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
+        //instead of Model* use two asset ids (model, material) packed into a uint64_t
+        std::unordered_map<uint64_t, Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
     public:
 
         inline void addObject(Object* object) { objects.push_back(object); };
@@ -37,13 +39,7 @@ namespace nihil::graphics
         inline void use() { for (Object* o : objects) { o->use(); } };
         inline void unuse() { for (Object* o : objects) { o->unuse(); } };
 
-        //* CONTROL FLOW
-        //When rendering find all the instanced draws, using the method in the SceneOld
-        //find the corresponding models buffer for each instanced draw
-        //if the object was not modified then do not modify the buffer.
-        //if an object was modified modify just its data in the buffer.
-
-        void recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera);
+        void recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, DescriptorAllocator* descriptorAllocator = nullptr);
 
         Scene(Engine* _engine)
         {

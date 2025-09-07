@@ -63,13 +63,13 @@ namespace nihil::graphics
         Swapchain* swapchain = nullptr;
         Renderer* renderer = nullptr;
 
-        uint64_t lastAssetId = 0;
+        uint32_t lastAssetId = 0;
 
     public:
         Engine(App* _app, EngineArgs& args);
         ~Engine();
 
-        inline uint64_t requestAssetId() { return lastAssetId++; };
+        inline uint32_t requestAssetId() { return lastAssetId++; };
         template<typename ReturnT = vk::SampleCountFlagBits>
         requires(Integer<ReturnT> || (std::is_enum_v<ReturnT> && Integer<std::underlying_type_t<ReturnT>>))
         ReturnT getMaxSampleCount()

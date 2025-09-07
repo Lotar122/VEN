@@ -10,6 +10,8 @@
 
 #include "Classes/Asset/Asset.hpp"
 
+//TODO: remove all the pipeline and renderpass stuff
+
 namespace nihil::graphics
 {
     class Engine;
@@ -36,7 +38,7 @@ namespace nihil::graphics
             const std::string& _path, Engine* _engine, Pipeline* _pipeline = nullptr, 
             Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr, 
             glm::mat4 _model = glm::mat4(1.0f)
-        ) : Asset(_engine)
+        ) : Asset(AssetUsage::Undefined, _engine)
         {
             path = _path;
             model = _model;

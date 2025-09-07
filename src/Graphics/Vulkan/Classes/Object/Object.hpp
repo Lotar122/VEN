@@ -3,6 +3,7 @@
 #include "Classes/Model/Model.hpp"
 #include "Classes/Buffer/Buffer.hpp"
 #include "Classes/Engine/Engine.hpp"
+#include "Classes/Material/Material.hpp"
 
 #include "Classes/Camera/Camera.hpp"
 
@@ -28,7 +29,10 @@ namespace nihil::graphics
 
         //TODO: allow multiple models in one object
         Model* model = nullptr;
+        Material* material = nullptr;
         Engine* engine = nullptr;
+
+        uint64_t modelMaterialEncoded = 0;
 
         glm::vec3 position = glm::vec3(0.0f);
         glm::vec3 rotation = glm::vec3(0.0f);
@@ -38,6 +42,8 @@ namespace nihil::graphics
         inline const glm::vec3& _position() { return position; };
         inline const glm::vec3& _rotation() { return rotation; };
         inline const glm::mat4& _modelMatrix() { return modelMatrix; };
+
+        inline uint64_t _modelMaterialEncoded() { return modelMaterialEncoded; };
 
         inline const PushConstants* _pushConstants(Camera* camera) 
         {
@@ -56,15 +62,19 @@ namespace nihil::graphics
         inline void setPosition(const glm::vec3& _position) { position = _position; recalculateModelMatrix(); }; 
         inline void setRotation(const glm::vec3& _rotation) { rotation = _rotation; recalculateModelMatrix(); }; 
 
-        Object(Model* _model, Engine* _engine) : Asset(_engine)
+        Object(Model* _model, Material* _material, Engine* _engine) : Asset(AssetUsage::Undefined, _engine)
         {
             assert(_model != nullptr);
+            assert(_material != nullptr);
             assert(_engine != nullptr);
 
             model = _model;
+            material = _material;
             engine = _engine;
 
             recalculateModelMatrix();
+
+            modelMaterialEncoded = (static_cast<uint64_t>(model->_getAssetId()) << 32) + material->_getAssetId();
         }
 
         inline void recalculateModelMatrix()

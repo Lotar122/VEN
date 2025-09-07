@@ -7,41 +7,41 @@
 namespace nihil
 {
     template <>
-    class Resource<vk::Semaphore> : public ResourceAbstract<vk::Semaphore>
+    class Resource<vk::DescriptorSetLayout> : public ResourceAbstract<vk::DescriptorSetLayout>
     {
     protected:
         vk::Device device;
     public:
-        Resource(vk::Semaphore _res, vk::Device _device)
+        Resource(vk::DescriptorSetLayout _res, vk::Device _device)
         {
             res = _res;
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::Semaphore called.");
+            Logger::Log("The specialized constructor for vk::DescriptorSetLayout called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::Semaphore called.");};
+        Resource() { Logger::Log("The specialized constructor for vk::DescriptorSetLayout called."); };
         void destroy() override
         {
             if (destroyed || !assigned) return;
-            device.destroySemaphore(res);
+            device.destroyDescriptorSetLayout(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::Semaphore");
+            Logger::Log("Destroying vk::DescriptorSetLayout");
         }
-        ~Resource() override 
+        ~Resource() override
         {
-            if(!destroyed) Logger::Warn("A vk::Semaphore has gone out of scope without being destroyed, destroying automatically.");
+            if (!destroyed) Logger::Warn("A vk::DescriptorSetLayout has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
-        virtual void assignRes(vk::Semaphore _res, vk::Device _device)
+        virtual void assignRes(vk::DescriptorSetLayout _res, vk::Device _device)
         {
-            if(!assigned)
+            if (!assigned)
             {
                 device = _device;
                 res = _res;
-                
+
                 assigned = true;
             }
             else

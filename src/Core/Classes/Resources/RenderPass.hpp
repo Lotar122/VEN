@@ -21,7 +21,7 @@ namespace nihil
         Resource() {Logger::Log("The specialized constructor for vk::RenderPass called.");};
         void destroy() override
         {
-            if(destroyed) return;
+            if (destroyed || !assigned) return;
             device.destroyRenderPass(res);
             destroyed = true;
 
