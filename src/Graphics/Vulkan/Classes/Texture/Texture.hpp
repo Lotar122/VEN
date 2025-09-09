@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stb/stb_image.h>
+#include <stb_image.h>
 
 #include <cstdint>
 
@@ -41,14 +41,13 @@ namespace nihil::graphics
 		vk::MemoryRequirements imageMemoryRequirements;
 		vk::MemoryAllocateInfo imageMemoryAllocInfo;
 
-		//overload the constructor to accept a const char*
 		Texture(const std::string& path, AssetUsage _assetUsage, Engine* _engine, uint8_t desiredChannels = 4) : Asset(_assetUsage, _engine)
 		{
 			assert(_engine != nullptr);
 			engine = _engine;
 
 			int _width, _height, _channels;
-			imageData = stbi_load(path.c_str(), &_width, &_height, &_channels, desiredChannels);
+			unsigned char* temp = stbi_load(path.c_str(), &_width, &_height, &_channels, desiredChannels);
 
 			width = _width;
 			height = _height;
@@ -56,10 +55,15 @@ namespace nihil::graphics
 
 			if (channels != desiredChannels)
 			{
-				Logger::Warn(std::format("Stb had loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors. File: {}", path));
+				Logger::Warn("Stb had loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors. File: {}", path);
 			}
 
 			size = width * height * desiredChannels;
+
+			imageData = new unsigned char[size];
+
+			std::memcpy(imageData, temp, size);
+			stbi_image_free(temp);
 
 			if (!imageData) Logger::Exception("Failed to load image to create texture.");
 
@@ -82,6 +86,60 @@ namespace nihil::graphics
 			imageMemoryRequirements = engine->_device().getImageMemoryRequirements(image);
 			imageMemoryAllocInfo = vk::MemoryAllocateInfo(imageMemoryRequirements.size, findMemoryTypeIndex(engine->_physicalDevice().getMemoryProperties(), imageMemoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
 		
+			moveToGPU();
+
+			vk::ImageViewCreateInfo imageViewCreateInfo(
+				{}, image, vk::ImageViewType::e2D,
+				vk::Format::eR8G8B8A8Srgb, {},
+				{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
+			);
+
+			imageView.assignRes(engine->_device().createImageView(imageViewCreateInfo), engine->_device());
+
+			//freeFromGPU();
+		}
+
+		Texture(const char* data, size_t _width, size_t _height, uint8_t _channels, AssetUsage _assetUsage, Engine* _engine, uint8_t desiredChannels = 4) : Asset(_assetUsage, _engine)
+		{
+			assert(_engine != nullptr);
+			engine = _engine;
+
+			width = _width;
+			height = _height;
+			channels = _channels;
+
+			if (channels != desiredChannels)
+			{
+				Logger::Warn("Loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors or crashes. File: [Loaded from memory, {}]", reinterpret_cast<void*>(imageData));
+			}
+
+			size = width * height * desiredChannels;
+
+			imageData = new unsigned char[size];
+
+			std::memcpy(imageData, data, size);
+
+			if (!imageData) Logger::Exception("Failed to load image to create texture.");
+
+			stagingBuffer = new (stagingBufferMemory) Buffer<
+				unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+			>(imageData, size, engine);
+
+			vk::ImageCreateInfo textureImageCreateInfo = {
+				{}, vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb,
+				{ (uint32_t)width, (uint32_t)height, 1 },
+				1, 1, vk::SampleCountFlagBits::e1,
+				vk::ImageTiling::eOptimal,
+				vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+				vk::SharingMode::eExclusive,
+				{}, vk::ImageLayout::eUndefined
+			};
+
+			image.assignRes(engine->_device().createImage(textureImageCreateInfo), engine->_device());
+
+			imageMemoryRequirements = engine->_device().getImageMemoryRequirements(image);
+			imageMemoryAllocInfo = vk::MemoryAllocateInfo(imageMemoryRequirements.size, findMemoryTypeIndex(engine->_physicalDevice().getMemoryProperties(), imageMemoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
+
 			moveToGPU();
 
 			vk::ImageViewCreateInfo imageViewCreateInfo(
@@ -365,7 +423,7 @@ namespace nihil::graphics
 
 		~Texture()
 		{
-			stbi_image_free(imageData);
+			delete[] imageData;
 			stagingBuffer->~Buffer();
 
 			if(onGPU) engine->_device().freeMemory(imageMemory);

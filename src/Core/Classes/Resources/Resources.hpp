@@ -21,6 +21,8 @@
 #include "ImageView.hpp"
 #include "FrameBuffer.hpp"
 #include "Sampler.hpp"
+#include "DescriptorPool.hpp"
+#include "DescriptorSet.hpp"
 #include "DescriptorSetLayout.hpp"
 
 #include "SwapchainKHR.hpp"

@@ -25,10 +25,12 @@ layout(push_constant) uniform PushConstantBlock {
 
 void main() {
     //magic color ;) (nihil blue) (RGB: 66, 99, 245)
-    color = vec3(0.2588, 0.3882, 0.9608);
+    //color = vec3(0.2588, 0.3882, 0.9608);
 
-    vNormal = mat3(pushConstants.model) * nc;
-    vPosition = (pushConstants.model * vec4(vc, 1.0f)).xyz;
+    tCoord = tc;
+
+    vNormal = mat3(model) * nc;
+    vPosition = (model * vec4(vc, 1.0f)).xyz;
 
     gl_Position = pushConstants.vp * model * vec4(vc, 1.0);
 }

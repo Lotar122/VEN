@@ -18,7 +18,7 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 	std::vector<vk::AttachmentDescription> attachmentsTransformed;
 	attachmentsTransformed.reserve(attachments.size());
 
-	uint64_t attachmentIndex = 0;
+	uint32_t attachmentIndex = 0;
 	for(auto& a : attachments)
 	{
 		vk::Format format = vk::Format::eUndefined;
@@ -72,7 +72,7 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 		{}, // Flags
 		vk::PipelineBindPoint::eGraphics, // Graphics pipeline
 		0, nullptr, // Input attachments
-		colorAttachmentRefs.size(), colorAttachmentRefs.data(), // Color attachments
+		static_cast<uint32_t>(colorAttachmentRefs.size()), colorAttachmentRefs.data(), // Color attachments
 		resolveAttachmentRefs.data(), // Resolve attachments
 		depthAttachmentRefs.data() // Depth-stencil attachments
 	);
@@ -87,7 +87,7 @@ RenderPass::RenderPass(std::vector<RenderPassAttachment>& _attachments, Swapchai
 
 	vk::RenderPassCreateInfo renderPassInfo(
 		{}, // Flags
-		attachmentsTransformed.size(), attachmentsTransformed.data(), // Attachments
+		static_cast<uint32_t>(attachmentsTransformed.size()), attachmentsTransformed.data(), // Attachments
 		1, &subpass, // Subpasses
 		1, &dependency // Dependencies
 	);

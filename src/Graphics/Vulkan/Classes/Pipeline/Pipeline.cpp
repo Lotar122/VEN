@@ -73,9 +73,9 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	//Vertex Input
 	vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.flags = vk::PipelineVertexInputStateCreateFlags();
-	vertexInputInfo.vertexBindingDescriptionCount = info.bindingDesc.size();
+	vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(info.bindingDesc.size());
 	vertexInputInfo.pVertexBindingDescriptions = info.bindingDesc.data();
-	vertexInputInfo.vertexAttributeDescriptionCount = info.attributeDesc.size();
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(info.attributeDesc.size());
 	vertexInputInfo.pVertexAttributeDescriptions = info.attributeDesc.data();
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 
@@ -110,7 +110,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	// Create pipeline dynamic state info
 	vk::PipelineDynamicStateCreateInfo dynamicStateInfo(
 		vk::PipelineDynamicStateCreateFlags(),
-		dynamicStates.size(),
+		static_cast<uint32_t>(dynamicStates.size()),
 		dynamicStates.data()
 	);
 
@@ -138,7 +138,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	shaderStages.push_back(fragmentShaderInfo);
 
 	//Set shaders
-	pipelineInfo.stageCount = shaderStages.size();
+	pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineInfo.pStages = shaderStages.data();
 
 	//Multisampling

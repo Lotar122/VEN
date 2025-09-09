@@ -46,8 +46,8 @@ vk::Instance Engine::CreateVKInstance(EngineArgs& args, Platform platform)
 	vk::InstanceCreateInfo instanceCreateInfo(
         {},
         &appInfo,
-        layers.size(), layers.data(),
-        extensions.size(), extensions.data()  //Extensions
+        static_cast<uint32_t>(layers.size()), layers.data(),
+        static_cast<uint32_t>(extensions.size()), extensions.data()  //Extensions
     );
 
 	vk::Instance instance;

@@ -46,7 +46,7 @@ int main()
     vk::SampleCountFlagBits maxSampleCount = engine.getMaxSampleCount<vk::SampleCountFlagBits>();
     std::cout << "Max Sample Count: " << (uint64_t)maxSampleCount << '\n';
 
-    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eFifo, (uint8_t)3, (uint64_t)maxSampleCount, &engine);
+    nihil::graphics::Swapchain swapchain(&app, vk::PresentModeKHR::eMailbox, (uint8_t)3, (uint64_t)maxSampleCount, &engine);
 
     std::vector<nihil::graphics::RenderPassAttachment> renderPassAttachments = {
         nihil::graphics::RenderPassAttachment(
@@ -188,8 +188,8 @@ int main()
         pipelineInfo2.fragmentShader = instancedFragmentShader._ptr();
 
         //to differ from basicPipeline use eLine
-        pipelineInfo2.cullingMode = vk::CullModeFlagBits::eNone;
-        pipelineInfo2.polygonMode = vk::PolygonMode::eLine;
+        pipelineInfo2.cullingMode = vk::CullModeFlagBits::eBack;
+        pipelineInfo2.polygonMode = vk::PolygonMode::eFill;
         pipelineInfo2.frontFace = vk::FrontFace::eClockwise;
 
         pipelineInfo2.rasterizationSampleCount = maxSampleCount;
@@ -203,10 +203,22 @@ int main()
     nihil::graphics::Object cube(&cubeModel, &material, &engine);
     nihil::graphics::Object teapot(&teapotModel, &material, &engine);
 
+    std::vector<nihil::graphics::Object> objects;
+    objects.reserve(10000);
+
+    for (int i = 0; i < 10000; i++)
+    {
+        objects.emplace_back(&teapotModel, &material, &engine);
+        objects[i].move(glm::vec3(10.0f * i, 0.0f, 0.0f));
+    }
+
     nihil::graphics::Scene scene(&engine);
 
-    scene.addObject(&teapot);
+    //scene.addObject(&teapot);
+    
     //scene.addObject(&cube);
+
+    scene.addObjects(objects);
 
     //moves all of the models onto the GPU
     scene.use();

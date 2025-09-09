@@ -196,7 +196,7 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 
 	std::vector<vk::Image> images = engine->_device().getSwapchainImagesKHR(swapchain.getRes());
 
-	imageCount = images.size();
+	imageCount = static_cast<uint8_t>(images.size());
 	frames.resize(imageCount);
 
 	for(int i = 0; i < imageCount; i++)

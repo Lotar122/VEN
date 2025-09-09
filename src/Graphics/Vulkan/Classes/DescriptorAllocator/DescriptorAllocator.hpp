@@ -68,8 +68,8 @@ namespace nihil::graphics
 		Engine* engine = nullptr;
 		std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> staticDescriptors;
 		Resource<vk::DescriptorSetLayout> staticDescriptorSetLayout;
-		vk::DescriptorPool staticDescriptorPool;
-		vk::DescriptorSet staticDescriptorSet;
+		Resource<vk::DescriptorPool> staticDescriptorPool;
+		Resource<vk::DescriptorSet> staticDescriptorSet;
 		bool createdStaticDescriptorSet = false;
 
 		DescriptorAllocator() {};
@@ -109,15 +109,15 @@ namespace nihil::graphics
 				}
 			}
 
-			vk::DescriptorSetLayoutCreateInfo descriptorLayoutInfo({}, descriptorSetLayoutBindings.size(), descriptorSetLayoutBindings.data());
+			vk::DescriptorSetLayoutCreateInfo descriptorLayoutInfo({}, static_cast<uint32_t>(descriptorSetLayoutBindings.size()), descriptorSetLayoutBindings.data());
 			staticDescriptorSetLayout.assignRes(engine->_device().createDescriptorSetLayout(descriptorLayoutInfo), engine->_device());
 
 			vk::DescriptorPoolCreateInfo descriptorPoolInfo{};
 			descriptorPoolInfo.maxSets = 1;   // we just need 1 static set
-			descriptorPoolInfo.poolSizeCount = descriptorPoolSizes.size();
+			descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());
 			descriptorPoolInfo.pPoolSizes = descriptorPoolSizes.data();
 
-			staticDescriptorPool = engine->_device().createDescriptorPool(descriptorPoolInfo);
+			staticDescriptorPool.assignRes(engine->_device().createDescriptorPool(descriptorPoolInfo), engine->_device());
 
 			vk::DescriptorSetAllocateInfo allocInfo{
 				staticDescriptorPool,
@@ -125,9 +125,7 @@ namespace nihil::graphics
 				staticDescriptorSetLayout.getResP()
 			};
 
-			staticDescriptorSet = engine->_device().allocateDescriptorSets(allocInfo)[0];
-
-			//TODO: make Resource for all new types (vk::DescriptorSet, vk::DescriptorPool)
+			staticDescriptorSet.assignRes(engine->_device().allocateDescriptorSets(allocInfo)[0], engine->_device());
 
 			for (const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
 			{
@@ -146,9 +144,6 @@ namespace nihil::graphics
 			}
 
 			engine->_device().updateDescriptorSets(descriptorWrites, {});
-
-			//update descriptor sets. use the descriptor set info for the info. 
-			//iterate through the std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings; to construct the writes vector;
 		}
 
 		void createDynamicDescriptorSet(std::vector<vk::DescriptorSetLayoutBinding>& dynamicDescriptors)

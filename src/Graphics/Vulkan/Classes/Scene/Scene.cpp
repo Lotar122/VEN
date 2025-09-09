@@ -90,7 +90,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                     vk::PipelineBindPoint::eGraphics,
                     it.second[0]->_model()->_instancedPipeline()->_layout(),
                     0,
-                    descriptorAllocator->staticDescriptorSet,
+                    descriptorAllocator->staticDescriptorSet.getRes(),
                     {}
                 );
             }
@@ -200,7 +200,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                 vk::PipelineBindPoint::eGraphics,
                 o->_model()->_pipeline()->_layout(),
                 0,
-                descriptorAllocator->staticDescriptorSet,
+                descriptorAllocator->staticDescriptorSet.getRes(),
                 {}
             );
         }

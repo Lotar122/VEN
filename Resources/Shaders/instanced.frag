@@ -20,6 +20,6 @@ void main() {
 
     vec3 diffuse = lightColor * max(vec3(0), dot(lNormalized, nNormalized));
     
-    vec4 result = vec4(diffuse, 1.0f) * texture(sampler2D(uTexture, uSampler), tCoord);
+    vec4 result = vec4(diffuse, 1.0f) * (texture(sampler2D(uTexture, uSampler), tCoord) * 1.2);
     FragColor = result;
 }

@@ -11,12 +11,76 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release;NativeRelease" CACHE STRING "" FORC
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-if(LINUX)
-	set(CMAKE_CXX_FLAGS_RELEASE "-O2")
-	set(CMAKE_C_FLAGS_RELEASE "-O2")
+if(MSVC)
+    # Basic optimization flags for MSVC
+    set(MSVC_FLAGS "/O2 /GL /EHsc /MD")
 
-	set(CMAKE_CXX_FLAGS_NATIVERELEASE "-O2 -march=native")
-	set(CMAKE_C_FLAGS_NATIVERELEASE "-O2 -march=native")
+    # Detect architecture
+    # CMAKE_SYSTEM_PROCESSOR is 'AMD64', 'ARM64', etc.
+    # CMAKE_VS_PLATFORM_NAME is 'x64', 'Win32', 'ARM64', etc. (Visual Studio only)
+    string(TOUPPER "${CMAKE_SYSTEM_PROCESSOR}" SYSTEM_ARCH)
+    message(STATUS "MSVC target architecture: ${SYSTEM_ARCH}")
+
+    set(MSVC_ARCH_FLAGS "")
+
+    if(SYSTEM_ARCH MATCHES "AMD64" OR SYSTEM_ARCH MATCHES "X64")
+        set(MSVC_ARCH_FLAGS "/arch:AVX2")
+    elseif(SYSTEM_ARCH MATCHES "ARM64")
+        message(STATUS "MSVC ARM64 target detected — skipping /arch: flags")
+    elseif(SYSTEM_ARCH MATCHES "X86" OR SYSTEM_ARCH MATCHES "WIN32")
+        set(MSVC_ARCH_FLAGS "/arch:SSE2")  # SSE2 is default but explicit is fine
+    else()
+        message(WARNING "Unknown MSVC architecture: ${SYSTEM_ARCH}")
+    endif()
+
+    # Combine and set flags
+    set(CMAKE_CXX_FLAGS_RELEASE "${MSVC_FLAGS} ${MSVC_ARCH_FLAGS}")
+    set(CMAKE_C_FLAGS_RELEASE "${MSVC_FLAGS} ${MSVC_ARCH_FLAGS}")
+
+    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    set(CMAKE_C_FLAGS_NATIVERELEASE "${CMAKE_C_FLAGS_RELEASE}")
+
+    set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
+endif()
+
+if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	set(GNU_FLAGS "-O2 -flto=full -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized")
+	set(CMAKE_CXX_FLAGS_RELEASE "${GNU_FLAGS}")
+	set(CMAKE_C_FLAGS_RELEASE "${GNU_FLAGS}")
+
+	set(CMAKE_CXX_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native")
+	set(CMAKE_C_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native")
+
+    set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
+endif()
+
+if((LINUX OR WIN32) AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "ClangCl"))
+    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -fipa-pta -pthread -Rpass=loop-vectorize")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CLANG_FLAGS}")
+    set(CMAKE_C_FLAGS_RELEASE "${CLANG_FLAGS}")
+
+    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${CLANG_FLAGS} -march=native")
+    set(CMAKE_C_FLAGS_NATIVERELEASE "${CLANG_FLAGS} -march=native")
+
+    set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
+endif()
+
+if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # Apple Clang has more restrictions and lags behind mainline Clang
+    set(APPLE_CLANG_FLAGS "-O2 -flto -fstrict-aliasing -pthread")
+    set(CMAKE_CXX_FLAGS_RELEASE "${APPLE_CLANG_FLAGS}")
+    set(CMAKE_C_FLAGS_RELEASE "${APPLE_CLANG_FLAGS}")
+
+    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${APPLE_CLANG_FLAGS} -march=native")
+    set(CMAKE_C_FLAGS_NATIVERELEASE "${APPLE_CLANG_FLAGS} -march=native")
+
+    set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("Compiler flags are: ${CMAKE_CXX_FLAGS_RELEASE}")
+elseif(CMAKE_BUILD_TYPE STREQUAL "NativeRelease")
+    message("Compiler flags are: ${CMAKE_CXX_FLAGS_NATIVERELEASE}")
 endif()
 
 # Find Vulkan and GLFW
@@ -24,9 +88,10 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
 if(LINUX)
-	find_path(STB_INCLUDE_DIRS "stb/stb_image.h"
-		PATHS /usr/include
-	)
+	find_path(STB_INCLUDE_DIRS "stb_image.h"
+	PATH_SUFFIXES stb
+	PATHS /usr/include
+)
 else()
 	find_path(STB_INCLUDE_DIRS "stb_image.h")
 endif()
@@ -35,8 +100,13 @@ file(GLOB_RECURSE SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-#add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
-add_executable(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/stb-imlp.cpp")
+set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or Lib")
+
+if(COMPILE_TARGET STREQUAL "Lib")
+	add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
+elseif(COMPILE_TARGET STREQUAL "Executable")
+	add_executable(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/stb-imlp.cpp")
+endif()
 
 target_include_directories(VEN 
 	PUBLIC
