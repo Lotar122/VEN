@@ -44,35 +44,35 @@ if(MSVC)
 endif()
 
 if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	set(GNU_FLAGS "-O2 -flto=full -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized")
+	set(GNU_FLAGS "-O2 -flto=full -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize")
 	set(CMAKE_CXX_FLAGS_RELEASE "${GNU_FLAGS}")
 	set(CMAKE_C_FLAGS_RELEASE "${GNU_FLAGS}")
 
-	set(CMAKE_CXX_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native")
-	set(CMAKE_C_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native")
+	set(CMAKE_CXX_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native -mtune=native")
+	set(CMAKE_C_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native =mtune=native")
 
     set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
 endif()
 
 if((LINUX OR WIN32) AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "ClangCl"))
-    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -fipa-pta -pthread -Rpass=loop-vectorize")
+    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -fipa-pta -pthread -Rpass=loop-vectorize -fomit-frame-pointer -fslp-vectorize")
     set(CMAKE_CXX_FLAGS_RELEASE "${CLANG_FLAGS}")
     set(CMAKE_C_FLAGS_RELEASE "${CLANG_FLAGS}")
 
-    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${CLANG_FLAGS} -march=native")
-    set(CMAKE_C_FLAGS_NATIVERELEASE "${CLANG_FLAGS} -march=native")
+    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${CLANG_FLAGS} -march=native -mtune=native")
+    set(CMAKE_C_FLAGS_NATIVERELEASE "${CLANG_FLAGS} -march=native -mtune=native")
 
     set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
 endif()
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Apple Clang has more restrictions and lags behind mainline Clang
-    set(APPLE_CLANG_FLAGS "-O2 -flto -fstrict-aliasing -pthread")
+    set(APPLE_CLANG_FLAGS "-O2 -flto -fstrict-aliasing -pthread -fomit-frame-pointer -fslp-vectorize")
     set(CMAKE_CXX_FLAGS_RELEASE "${APPLE_CLANG_FLAGS}")
     set(CMAKE_C_FLAGS_RELEASE "${APPLE_CLANG_FLAGS}")
 
-    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${APPLE_CLANG_FLAGS} -march=native")
-    set(CMAKE_C_FLAGS_NATIVERELEASE "${APPLE_CLANG_FLAGS} -march=native")
+    set(CMAKE_CXX_FLAGS_NATIVERELEASE "${APPLE_CLANG_FLAGS} -march=native -mtune=native")
+    set(CMAKE_C_FLAGS_NATIVERELEASE "${APPLE_CLANG_FLAGS} -march=native -mtune=native")
 
     set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
 endif()
