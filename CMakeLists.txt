@@ -92,10 +92,10 @@ if(LINUX)
         PATH_SUFFIXES stb
         PATHS /usr/include
     )
+
+    set(STB_INCLUDE_DIR "${STB_INCLUDE_DIR}/stb")
 else()
 	find_path(STB_INCLUDE_DIRS "stb_image.h")
-
-    get_filename_component(STB_INCLUDE_DIR "${STB_INCLUDE_DIR}" DIRECTORY)
 endif()
 
 message("Using C++ compiler: ${CMAKE_CXX_COMPILER}\nUsing C compiler: ${CMAKE_C_COMPILER}")
