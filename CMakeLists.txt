@@ -92,12 +92,11 @@ if(LINUX)
         PATH_SUFFIXES stb
         PATHS /usr/include
     )
-
-    set(STB_INCLUDE_DIR "${STB_INCLUDE_DIR}/stb")
 else()
 	find_path(STB_INCLUDE_DIRS "stb_image.h")
 endif()
 
+message("Stb at: ${STB_INCLUDE_DIR}")
 message("Using C++ compiler: ${CMAKE_CXX_COMPILER}\nUsing C compiler: ${CMAKE_C_COMPILER}")
 
 file(GLOB_RECURSE SOURCES 
