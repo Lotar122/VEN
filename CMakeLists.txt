@@ -13,7 +13,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 if(MSVC)
     # Basic optimization flags for MSVC
-    set(MSVC_FLAGS "/O2 /GL /EHsc /MD")
+    set(MSVC_FLAGS "/O2 /GL /LTCG /EHsc /MD")
 
     # Detect architecture
     # CMAKE_SYSTEM_PROCESSOR is 'AMD64', 'ARM64', etc.
@@ -44,7 +44,7 @@ if(MSVC)
 endif()
 
 if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	set(GNU_FLAGS "-O2 -flto=full -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize")
+	set(GNU_FLAGS "-O2 -flto -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize")
 	set(CMAKE_CXX_FLAGS_RELEASE "${GNU_FLAGS}")
 	set(CMAKE_C_FLAGS_RELEASE "${GNU_FLAGS}")
 
@@ -55,7 +55,7 @@ if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 if((LINUX OR WIN32) AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "ClangCl"))
-    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -fipa-pta -pthread -Rpass=loop-vectorize -fomit-frame-pointer -fslp-vectorize")
+    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -pthread -Rpass=loop-vectorize -fomit-frame-pointer -fslp-vectorize")
     set(CMAKE_CXX_FLAGS_RELEASE "${CLANG_FLAGS}")
     set(CMAKE_C_FLAGS_RELEASE "${CLANG_FLAGS}")
 
@@ -88,13 +88,17 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
 if(LINUX)
-	find_path(STB_INCLUDE_DIRS "stb_image.h"
-	PATH_SUFFIXES stb
-	PATHS /usr/include
-)
+	find_path(STB_INCLUDE_DIR "stb_image.h"
+        PATH_SUFFIXES stb
+        PATHS /usr/include
+    )
 else()
 	find_path(STB_INCLUDE_DIRS "stb_image.h")
+
+    get_filename_component(STB_INCLUDE_DIR "${STB_INCLUDE_DIR}" DIRECTORY)
 endif()
+
+message("Using C++ compiler: ${CMAKE_CXX_COMPILER}\nUsing C compiler: ${CMAKE_C_COMPILER}")
 
 file(GLOB_RECURSE SOURCES 
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"

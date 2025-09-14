@@ -204,9 +204,9 @@ int main()
     nihil::graphics::Object teapot(&teapotModel, &material, &engine);
 
     std::vector<nihil::graphics::Object> objects;
-    objects.reserve(10000);
+    objects.reserve(100);
 
-    for (int i = 0; i < 10000; i++)
+    for (int i = 0; i < 100; i++)
     {
         objects.emplace_back(&teapotModel, &material, &engine);
         objects[i].move(glm::vec3(10.0f * i, 0.0f, 0.0f));
