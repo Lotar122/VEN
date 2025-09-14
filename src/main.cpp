@@ -203,22 +203,22 @@ int main()
     nihil::graphics::Object cube(&cubeModel, &material, &engine);
     nihil::graphics::Object teapot(&teapotModel, &material, &engine);
 
-    std::vector<nihil::graphics::Object> objects;
+    /*std::vector<nihil::graphics::Object> objects;
     objects.reserve(100);
 
     for (int i = 0; i < 100; i++)
     {
         objects.emplace_back(&teapotModel, &material, &engine);
         objects[i].move(glm::vec3(10.0f * i, 0.0f, 0.0f));
-    }
+    }*/
 
     nihil::graphics::Scene scene(&engine);
 
-    //scene.addObject(&teapot);
+    scene.addObject(&teapot);
     
     //scene.addObject(&cube);
 
-    scene.addObjects(objects);
+    //scene.addObjects(objects);
 
     //moves all of the models onto the GPU
     scene.use();

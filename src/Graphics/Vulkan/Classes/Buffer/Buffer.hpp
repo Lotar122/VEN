@@ -2,26 +2,12 @@
 
 #include "Classes/Engine/Engine.hpp"
 #include "Classes/Resources/Resources.hpp"
+#include "UniformBuffer.hpp"
+#include "StorageBuffer.hpp"
+#include "FindMemoryTypeIndex.hpp"
 
 namespace nihil::graphics
 {
-    static uint32_t findMemoryTypeIndex(vk::PhysicalDeviceMemoryProperties memProperties, vk::MemoryRequirements memRequirements, vk::MemoryPropertyFlags memFlags)
-    {
-        uint32_t memoryTypeIndex = uint32_t(-1);
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) 
-        {
-            if (
-                (memRequirements.memoryTypeBits & (1 << i)) &&
-                (memProperties.memoryTypes[i].propertyFlags & memFlags)
-            )
-            {
-                memoryTypeIndex = i;
-                break;
-            }
-        }
-
-        return memoryTypeIndex;
-    }
     template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
     class Buffer
     {
@@ -81,6 +67,51 @@ namespace nihil::graphics
             submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+        }
+
+        vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
+        {
+            if constexpr (
+                usageT == vk::BufferUsageFlagBits::eStorageBuffer || 
+                usageT == vk::BufferUsageFlagBits::eUniformBuffer
+            )
+            {
+                vk::DescriptorSetLayoutBinding bufferBinding{};
+                bufferBinding.binding = binding;
+                /*samplerBinding.descriptorType = vk::DescriptorType::;*/
+                if constexpr (usageT == vk::BufferUsageFlagBits::eStorageBuffer) bufferBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+                else if constexpr (usageT == vk::BufferUsageFlagBits::eUniformBuffer) bufferBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
+                bufferBinding.descriptorCount = 1;
+                bufferBinding.stageFlags = shaderStage;
+                bufferBinding.pImmutableSamplers = nullptr;
+
+                return bufferBinding;
+            }
+            else
+            {
+                Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
+            }
+        }
+
+        vk::DescriptorImageInfo getDescriptorInfo()
+        {
+            if constexpr (
+                usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
+                usageT == vk::BufferUsageFlagBits::eUniformBuffer
+            )
+            {
+                vk::DescriptorBufferInfo bufferInfo{
+                buffer,
+                0,
+                size
+                };
+
+                return bufferInfo;
+            }
+            else
+            {
+                Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
+            }
         }
 
         Buffer(const std::vector<T>& _data, Engine* _engine)
