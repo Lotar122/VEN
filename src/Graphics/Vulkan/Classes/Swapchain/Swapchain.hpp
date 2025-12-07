@@ -4,6 +4,7 @@
 
 #include "Classes/Engine/Engine.hpp"
 
+#include "Classes/Listeners/onSwapchainRecreation.hpp"
 #include "Classes/Resources/Resources.hpp"
 #include "Classes/Listeners/Listeners.hpp"
 
@@ -44,7 +45,13 @@ namespace nihil::graphics
         RenderPass* basicRenderPass = nullptr;
         std::pair<uint32_t, uint32_t> queueFamilyIndices;
 
+        std::vector<onSwapchainRecreationListener*> onSwapchainRecreationListeners;
+
+        inline void fixedOnRecreation();
     public:
+        template<typename T>
+        void addEventListener(T* listener, Listeners type);
+
         const inline vk::Extent2D _extent() { return extent; };
         const inline uint16_t _width() { return extent.width; };
         const inline uint16_t _height() { return extent.height; };
@@ -85,3 +92,5 @@ namespace nihil::graphics
         void onResize() final override;
     };
 }
+
+#include "Swapchain.tpp"

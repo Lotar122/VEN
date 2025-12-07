@@ -2,148 +2,70 @@
 
 #include <unordered_map>
 #include "Classes/Engine/Engine.hpp"
+#include "Classes/Listeners/Listeners.hpp"
+#include "Classes/Listeners/onSwapchainRecreation.hpp"
+#include "Classes/Resource/Resource.hpp"
 #include "Classes/Sampler/Sampler.hpp"
 #include "Classes/Texture/Texture.hpp"
 #include "Classes/Asset/Asset.hpp"
 #include "Classes/Resources/Resources.hpp"
+#include "Classes/DescriptorSet/DescriptorSet.hpp"
+#include "Classes/Swapchain/Swapchain.hpp"
 #include <vulkan/vulkan.hpp>
 #include <ranges>
 
+/*
+The pools are all created with a size of 128. if a pool is depleeted a new one is created.
+At swapchain recreation the pools are recreated (in the sense that the per frame ones are). they are not merged since it would need to recreate all sets
+*/
+
 namespace nihil::graphics
 {
-	struct DescriptorInfo
+	class DescriptorAllocator : public onSwapchainRecreationListener
 	{
-		enum class Type
+	private:
+		inline Resource<vk::DescriptorPool>& dynamicPoolsView(size_t x, size_t y)
 		{
-			DescriptorBufferInfo,
-			DescriptorImageInfo,
-			BufferViewInfo
-		};
-
-		union Data
-		{
-			vk::DescriptorBufferInfo bufferInfo;
-			vk::DescriptorImageInfo imageInfo;
-			vk::BufferView bufferView;
-
-			Data(vk::DescriptorBufferInfo _bufferInfo) : bufferInfo(_bufferInfo) {}
-			Data(vk::DescriptorImageInfo _imageInfo) : imageInfo(_imageInfo) {}
-			Data(vk::BufferView _bufferView) : bufferView(_bufferView) {}
-			Data() {};
-		};
-
-		Data data;
-		Type type;
-
-		template<typename T>
-		requires requires(T t) { t.getDescriptorInfo(); }
-		DescriptorInfo(T* resourcePointer)
-		{
-			if constexpr (std::is_same_v<T, Texture>) type = Type::DescriptorImageInfo;
-			else if constexpr (std::is_same_v<T, Sampler>) type = Type::DescriptorImageInfo;
-
-			data = resourcePointer->getDescriptorInfo();
+			return dynamicPools[x * frameCount + y];
 		}
-
-		inline vk::DescriptorBufferInfo& _getBufferInfo() { return data.bufferInfo; };
-		inline vk::DescriptorImageInfo& _getImageInfo() { return data.imageInfo; };
-		inline vk::BufferView& _getBufferView() { return data.bufferView; };
-	};
-
-	struct DescriptorSetLayoutBinding
-	{
-		vk::DescriptorSetLayoutBinding layoutBinding;
-		AssetUsage usage;
-		DescriptorInfo descriptorInfo;
-
-		template<typename T>
-		requires requires(T t) { t.getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits::eAll, 0); }
-		DescriptorSetLayoutBinding(T* resourcePointer, vk::ShaderStageFlagBits shaderStage, uint32_t binding) :
-			layoutBinding(resourcePointer->getDescriptorSetLayoutBinding(shaderStage, binding)), usage(resourcePointer->_getAssetUsage()), descriptorInfo(resourcePointer) {};
-	};
-
-	class DescriptorAllocator
-	{
 	public:
 		Engine* engine = nullptr;
-		std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> staticDescriptors;
-		Resource<vk::DescriptorSetLayout> staticDescriptorSetLayout;
-		Resource<vk::DescriptorPool> staticDescriptorPool;
-		Resource<vk::DescriptorSet> staticDescriptorSet;
+		DescriptorSet staticDescriptorSet;
 		bool createdStaticDescriptorSet = false;
 
-		DescriptorAllocator() {};
+		size_t prevFrameCount = 0;
+		size_t frameCount = 0;
 
-		void createStaticDescriptorSet(const std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings, Engine* _engine)
+		std::vector<Resource<vk::DescriptorPool>> staticPools;
+		std::vector<Resource<vk::DescriptorPool>> dynamicPools;
+
+		std::vector<size_t> staticPoolSizes;
+		std::vector<size_t> dynamicPoolSizes;
+
+		DescriptorAllocator(Engine* _engine) 
 		{
-			if (createdStaticDescriptorSet) Logger::Exception("Cannot recreate the static descriptor set.");
-
 			assert(_engine != nullptr);
 
 			engine = _engine;
 
-			std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
+			engine->_swapchain()->addEventListener(this, Listeners::onSwapchainRecreation);
 
-			std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
-			descriptorSetLayoutBindings.reserve(_descriptorSetLayoutBindings.size());
+			frameCount = engine->_swapchain()->imageCount;
+			prevFrameCount = frameCount;
+		}
 
-			std::vector<vk::WriteDescriptorSet> descriptorWrites;
-			descriptorWrites.reserve(descriptorSetLayoutBindings.size());
+		void onSwapchainRecreation() final override
+		{
+			frameCount = engine->_swapchain()->imageCount;
 
-			for (const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
-			{
-				descriptorSetLayoutBindings.push_back(dsb.layoutBinding);
-				staticDescriptors.emplace(dsb.layoutBinding.binding, dsb.layoutBinding);
+			Logger::Log("Swapchain Recreation Event in DescriptorAllocator");
+		}
 
-				auto it = std::find_if(descriptorPoolSizes.begin(), descriptorPoolSizes.end(), [&dsb](const vk::DescriptorPoolSize& a) {
-					return a.type == dsb.layoutBinding.descriptorType; 
-				});
+		void createStaticDescriptorSet(const std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings)
+		{
+			if (createdStaticDescriptorSet) Logger::Exception("Cannot recreate the static descriptor set.");
 
-				if(it != descriptorPoolSizes.end())
-				{
-					it->descriptorCount++;
-				}
-				else
-				{
-					descriptorPoolSizes.emplace_back(dsb.layoutBinding.descriptorType, 1);
-				}
-			}
-
-			vk::DescriptorSetLayoutCreateInfo descriptorLayoutInfo({}, static_cast<uint32_t>(descriptorSetLayoutBindings.size()), descriptorSetLayoutBindings.data());
-			staticDescriptorSetLayout.assignRes(engine->_device().createDescriptorSetLayout(descriptorLayoutInfo), engine->_device());
-
-			vk::DescriptorPoolCreateInfo descriptorPoolInfo{};
-			descriptorPoolInfo.maxSets = 1;   // we just need 1 static set
-			descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());
-			descriptorPoolInfo.pPoolSizes = descriptorPoolSizes.data();
-
-			staticDescriptorPool.assignRes(engine->_device().createDescriptorPool(descriptorPoolInfo), engine->_device());
-
-			vk::DescriptorSetAllocateInfo allocInfo{
-				staticDescriptorPool,
-				1,
-				staticDescriptorSetLayout.getResP()
-			};
-
-			staticDescriptorSet.assignRes(engine->_device().allocateDescriptorSets(allocInfo)[0], engine->_device());
-
-			for (const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
-			{
-				switch (dsb.descriptorInfo.type)
-				{
-					case DescriptorInfo::Type::DescriptorImageInfo:
-						descriptorWrites.emplace_back(staticDescriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, &dsb.descriptorInfo.data.imageInfo);
-						break;
-					case DescriptorInfo::Type::DescriptorBufferInfo:
-						descriptorWrites.emplace_back(staticDescriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, nullptr, &dsb.descriptorInfo.data.bufferInfo);
-						break;
-					case DescriptorInfo::Type::BufferViewInfo:
-						descriptorWrites.emplace_back(staticDescriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, nullptr, nullptr, &dsb.descriptorInfo.data.bufferView);
-						break;
-				}
-			}
-
-			engine->_device().updateDescriptorSets(descriptorWrites, {});
+			staticDescriptorSet.create(_descriptorSetLayoutBindings, engine);
 		}
 
 		void createDynamicDescriptorSet(std::vector<vk::DescriptorSetLayoutBinding>& dynamicDescriptors)
@@ -152,7 +74,7 @@ namespace nihil::graphics
 			dynamicDescriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(dynamicDescriptors.size());
 			dynamicDescriptorSetLayoutInfo.pBindings = dynamicDescriptors.data();
 
-
+			//return engine->_device().createDescriptorSetLayout(dynamicDescriptorSetLayoutInfo);
 		}
 
 		void requestDynamicDescriptorSet()

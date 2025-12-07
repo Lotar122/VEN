@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Classes/DescriptorSet/DescriptorSet.hpp"
 #include "Classes/PushConstants/PushConstants.hpp"
 #include "Classes/RenderPass/RenderPass.hpp"
 #include "Classes/Swapchain/Swapchain.hpp"
@@ -48,6 +49,8 @@ namespace nihil::graphics
         Engine* engine = nullptr;
 
         bool destroyed = false;
+
+        DescriptorSet dynamicDescriptorSet;
 
     public:
         inline vk::Pipeline _pipeline() { return pipeline; };

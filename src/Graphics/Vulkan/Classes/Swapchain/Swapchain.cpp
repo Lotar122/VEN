@@ -342,9 +342,11 @@ void Swapchain::recreate()
 {
 	engine->_device().waitIdle();
 	engine->_renderQueue().waitIdle();
+	engine->_presentQueue().waitIdle();
 
 	for(Frame& f : frames)
 	{
+		vk::Result discardResult = engine->_device().waitForFences(f.inFlightFence.getResR(), true, UINT64_MAX);
 		f.commandBuffer.destroy();
 		f.commandPool.destroy();
 	}
@@ -355,11 +357,21 @@ void Swapchain::recreate()
 	create(queueFamilyIndices, basicRenderPass, true);
 
 	frameIndex = 0;
+
+	fixedOnRecreation();
 }
 
 void Swapchain::onResize()
 {
 	recreate();
+}
+
+void Swapchain::fixedOnRecreation()
+{
+    for (auto l : onSwapchainRecreationListeners)
+    {
+        l->onSwapchainRecreation();
+    }
 }
 
 Swapchain::~Swapchain()

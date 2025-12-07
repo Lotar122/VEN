@@ -22,8 +22,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 //!
-#include "OBJLoader.hpp"
-#include "Semaphores.hpp"
 
 int main()
 {
@@ -112,6 +110,28 @@ int main()
     nihil::graphics::Sampler sampler(nihil::AssetUsage::Static, &engine);
     nihil::graphics::Texture dynamicTexture("./Resources/Textures/black16x16.png", nihil::AssetUsage::Dynamic, &engine);
 
+    struct SSBO 
+    {
+        glm::vec4 lightColor;
+        glm::vec4 lightDir;
+        glm::vec4 lightPos;
+        alignas(glm::vec4) float lenght;
+        alignas(glm::vec4) float radius;
+    };
+
+    nihil::graphics::Buffer<SSBO, vk::BufferUsageFlagBits::eStorageBuffer> lightInfo(
+        SSBO{
+            glm::normalize(glm::vec4(255.0f, 220.0f, 220.0f, 1.0f)),
+            glm::vec4(0.0f, 0.0f, -1.0f, 1.0f),
+            glm::vec4(0.0f, 0.0f, -100.0f, 1.0f),
+            10.0f,
+            100.0f
+        },
+        &engine
+    );
+
+    lightInfo.moveToGPU();
+
     sampler.create();
 
     nihil::graphics::Material material(
@@ -122,11 +142,12 @@ int main()
         &engine
     );
 
-    nihil::graphics::DescriptorAllocator descriptorAllocator;
+    nihil::graphics::DescriptorAllocator descriptorAllocator(&engine);
 
     descriptorAllocator.createStaticDescriptorSet(
-        { { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, { &sampler, vk::ShaderStageFlagBits::eFragment, 1 } }, 
-        &engine
+        { { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, 
+        { &sampler, vk::ShaderStageFlagBits::eFragment, 1 }, 
+        { &lightInfo, vk::ShaderStageFlagBits::eFragment, 2 } }
     );
 
     //*Pipeline creation
@@ -142,7 +163,10 @@ int main()
         std::vector<vk::VertexInputBindingDescription> bindingDesc1 = { binding11 };
         std::vector<vk::VertexInputAttributeDescription> attributeDesc1 = { attribute11, attribute12, attribute13 };
         std::vector<nihil::graphics::DescriptorSetLayoutBinding> descriptorSets1 = {
-            { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, { &sampler, vk::ShaderStageFlagBits::eFragment, 1 }, { &dynamicTexture, vk::ShaderStageFlagBits::eFragment, 0 }
+            { &texture, vk::ShaderStageFlagBits::eFragment, 0 }, 
+            { &sampler, vk::ShaderStageFlagBits::eFragment, 1 }, 
+            { &dynamicTexture, vk::ShaderStageFlagBits::eFragment, 0 },
+            { &lightInfo, vk::ShaderStageFlagBits::eFragment, 2 }
         };
 
         nihil::graphics::PipelineCreateInfo pipelineInfo1 = { bindingDesc1, attributeDesc1, descriptorSets1 };
