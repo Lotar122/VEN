@@ -78,9 +78,9 @@ if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    message("Compiler flags are: ${CMAKE_CXX_FLAGS_RELEASE}")
+    message("Compiler flags [VEN] are: ${CMAKE_CXX_FLAGS_RELEASE}")
 elseif(CMAKE_BUILD_TYPE STREQUAL "NativeRelease")
-    message("Compiler flags are: ${CMAKE_CXX_FLAGS_NATIVERELEASE}")
+    message("Compiler flags [VEN] are: ${CMAKE_CXX_FLAGS_NATIVERELEASE}")
 endif()
 
 # Find Vulkan and GLFW
