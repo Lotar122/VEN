@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Classes/Resource/Resource.hpp"
 #include "vulkan/vulkan.hpp"
 #include "Classes/Resources/Resources.hpp"
 #include "Standard/Logger.hpp"
@@ -10,6 +11,7 @@
 
 namespace nihil::graphics
 {
+	class DescriptorAllocator;
     struct DescriptorInfo
 	{
 		enum class Type
@@ -62,139 +64,29 @@ namespace nihil::graphics
 			layoutBinding(resourcePointer->getDescriptorSetLayoutBinding(shaderStage, binding)), usage(resourcePointer->_getAssetUsage()), descriptorInfo(resourcePointer) {};
 	};
 
-    class DescriptorSet
+	template<AssetUsage usageT>
+    class DescriptorSetAbstract
     {
     public:
         Engine* engine = nullptr;
-		AssetUsage usage;
-        Resource<vk::DescriptorSetLayout> descriptorSetLayout;
-        Resource<vk::DescriptorPool> descriptorPool;
-		Resource<vk::DescriptorSet> descriptorSet;
+		DescriptorAllocator* descriptorAllocator = nullptr;
+		AssetUsage usage = usageT;
+        
+		Resource<vk::DescriptorSetLayout> layout;
+		Resource<vk::DescriptorSet> set;
 
-        bool created = false;
+		std::unordered_map<uint32_t, DescriptorSetLayoutBinding> descriptors;
 
-        std::unordered_map<uint32_t, DescriptorSetLayoutBinding> descriptors;
-
-        DescriptorSet() {};
-
-        inline DescriptorSet(const std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings, Engine* _engine, AssetUsage _usage = AssetUsage::Static) : usage(_usage)
-        {
-            create(_descriptorSetLayoutBindings, _engine, usage);
-        }
-
-        void create(const std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings, Engine* _engine, AssetUsage _usage = AssetUsage::Static)
-        {
-            if(created) Logger::Exception("The descriptor set has already been created.");
-            created = true;
-            assert(_engine != nullptr);
-			assert(_usage != AssetUsage::Undefined);
-
-			engine = _engine;
-			usage = _usage;
-
-			std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
-
-			std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
-			descriptorSetLayoutBindings.reserve(_descriptorSetLayoutBindings.size());
-
-			std::vector<vk::WriteDescriptorSet> descriptorWrites;
-			descriptorWrites.reserve(descriptorSetLayoutBindings.size());
-
-			for (const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
-			{
-				descriptorSetLayoutBindings.push_back(dsb.layoutBinding);
-				descriptors.emplace(dsb.layoutBinding.binding, dsb);
-
-				auto it = std::find_if(descriptorPoolSizes.begin(), descriptorPoolSizes.end(), [&dsb](const vk::DescriptorPoolSize& a) {
-					return a.type == dsb.layoutBinding.descriptorType; 
-				});
-
-				if(it != descriptorPoolSizes.end())
-				{
-					it->descriptorCount++;
-				}
-				else
-				{
-					descriptorPoolSizes.emplace_back(dsb.layoutBinding.descriptorType, 1);
-				}
-			}
-
-			vk::DescriptorSetLayoutCreateInfo descriptorLayoutInfo({}, static_cast<uint32_t>(descriptorSetLayoutBindings.size()), descriptorSetLayoutBindings.data());
-			descriptorSetLayout.assignRes(engine->_device().createDescriptorSetLayout(descriptorLayoutInfo), engine->_device());
-
-			vk::DescriptorPoolCreateInfo descriptorPoolInfo{};
-			descriptorPoolInfo.maxSets = 1;   // we just need 1 static set
-			descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());
-			descriptorPoolInfo.pPoolSizes = descriptorPoolSizes.data();
-
-			descriptorPool.assignRes(engine->_device().createDescriptorPool(descriptorPoolInfo), engine->_device());
-
-			vk::DescriptorSetAllocateInfo allocInfo{
-				descriptorPool,
-				1,
-				descriptorSetLayout.getResP()
-			};
-
-			descriptorSet.assignRes(engine->_device().allocateDescriptorSets(allocInfo)[0], engine->_device());
-
-			for (const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
-			{
-				switch (dsb.descriptorInfo.type)
-				{
-					case DescriptorInfo::Type::DescriptorImageInfo:
-						descriptorWrites.emplace_back(descriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, &dsb.descriptorInfo.data.imageInfo);
-						break;
-					case DescriptorInfo::Type::DescriptorBufferInfo:
-						descriptorWrites.emplace_back(descriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, nullptr, &dsb.descriptorInfo.data.bufferInfo);
-						break;
-					case DescriptorInfo::Type::BufferViewInfo:
-						descriptorWrites.emplace_back(descriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, nullptr, nullptr, &dsb.descriptorInfo.data.bufferView);
-						break;
-				}
-			}
-
-			engine->_device().updateDescriptorSets(descriptorWrites, {});
-        }
-
-        //You can disable checks if you wish for that tiny bit of performace. Although it is not advised as it may result in driver errors of memory corruption
-        template<bool checks = true>
-        void update(const std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings)
-        {
-            if(_descriptorSetLayoutBindings.size() == 0) return;
-            if constexpr (checks)
-            {
-                for(const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
-                {
-                    auto it = descriptors.find(dsb.layoutBinding.binding);
-                    if(it != descriptors.end())
-                    {
-                        if(it->second.descriptorInfo.type == dsb.descriptorInfo.type) continue;
-                        else Logger::Exception("Type mismatch between the descriptor to be written and the descriptor residing at binding: {}", dsb.layoutBinding.binding);
-                    }
-                    else Logger::Exception("The descriptors binding: {} does not point to a valid descriptor in this set.", dsb.layoutBinding.binding);
-                }
-            }
-
-            std::vector<vk::WriteDescriptorSet> descriptorWrites;
-			descriptorWrites.reserve(_descriptorSetLayoutBindings.size());
-
-            for (const DescriptorSetLayoutBinding& dsb : _descriptorSetLayoutBindings)
-			{
-				switch (dsb.descriptorInfo.type)
-				{
-					case DescriptorInfo::Type::DescriptorImageInfo:
-						descriptorWrites.emplace_back(descriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, &dsb.descriptorInfo.data.imageInfo);
-						break;
-					case DescriptorInfo::Type::DescriptorBufferInfo:
-						descriptorWrites.emplace_back(descriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, nullptr, &dsb.descriptorInfo.data.bufferInfo);
-						break;
-					case DescriptorInfo::Type::BufferViewInfo:
-						descriptorWrites.emplace_back(descriptorSet, dsb.layoutBinding.binding, 0, 1, dsb.layoutBinding.descriptorType, nullptr, nullptr, &dsb.descriptorInfo.data.bufferView);
-						break;
-				}
-			}
-
-			engine->_device().updateDescriptorSets(descriptorWrites, {});
-        }
+		virtual void create(std::vector<DescriptorSetLayoutBinding>&& _descriptorSetLayoutBindings, DescriptorAllocator* _descriptorAllocator, Engine* _engine) = 0;
     };
+
+	template<AssetUsage usageT>
+	class DescriptorSet : public DescriptorSetAbstract<usageT> { };
+
+	template<>
+	class DescriptorSet<AssetUsage::Static> : public DescriptorSetAbstract<AssetUsage::Static>
+	{
+	public:
+		virtual void create(std::vector<DescriptorSetLayoutBinding>&& _descriptorSetLayoutBindings, DescriptorAllocator* _descriptorAllocator, Engine* _engine) final override;
+	};
 }

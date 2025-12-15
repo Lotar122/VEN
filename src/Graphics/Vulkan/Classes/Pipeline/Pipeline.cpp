@@ -46,8 +46,8 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	{
 		if (dsb.usage == AssetUsage::Static)
 		{
-			auto it = descriptorAllocator->staticDescriptorSet.descriptors.find(dsb.layoutBinding.binding);
-			if (it == descriptorAllocator->staticDescriptorSet.descriptors.end())
+			auto it = descriptorAllocator->globalDescriptorSet->descriptors.find(dsb.layoutBinding.binding);
+			if (it == descriptorAllocator->globalDescriptorSet->descriptors.end())
 			{
 				Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is not present in the descriptor set", dsb.layoutBinding.binding);
 			}
@@ -186,7 +186,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	else
 	{
 		//the last element is ignored since the size is set to 1
-		descriptorSetLayouts = { descriptorAllocator->staticDescriptorSet.descriptorSetLayout };
+		descriptorSetLayouts = { descriptorAllocator->globalDescriptorSet->layout };
 		//for now 1 since there are no dynamic descriptors
 		layoutInfo.setLayoutCount = 1;
 		layoutInfo.pSetLayouts = descriptorSetLayouts.data();

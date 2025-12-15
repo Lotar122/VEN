@@ -50,7 +50,7 @@ namespace nihil::graphics
 
         bool destroyed = false;
 
-        DescriptorSet dynamicDescriptorSet;
+        DescriptorSet<AssetUsage::Static> dynamicDescriptorSet;
 
     public:
         inline vk::Pipeline _pipeline() { return pipeline; };
