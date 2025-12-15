@@ -1,14 +1,15 @@
 #pragma once
 
-#include <Vulkan/vulkan.hpp>
+#include <vulkan/vulkan.hpp>
 #include "Concepts/HasFlag.hpp"
 #include "FindMemoryTypeIndex.hpp"
+#include "Classes/Asset/Asset.hpp"
 
 namespace nihil::graphics
 {
 	template<typename T, auto usageT, auto propertiesT>
 	requires HasFlag<usageT, vk::BufferUsageFlagBits::eStorageBuffer>
-	class Buffer<T, usageT, propertiesT>
+	class Buffer<T, usageT, propertiesT> : public Asset
 	{
         Engine* engine = nullptr;
         vk::Fence transferFence = nullptr;
@@ -68,7 +69,7 @@ namespace nihil::graphics
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
         }
 
-        vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
+        vk::DescriptorSetLayoutBinding getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
         {
             if constexpr (
                 usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
@@ -78,8 +79,8 @@ namespace nihil::graphics
                 vk::DescriptorSetLayoutBinding bufferBinding{};
                 bufferBinding.binding = binding;
                 /*samplerBinding.descriptorType = vk::DescriptorType::;*/
-                if constexpr (usageT == vk::BufferUsageFlagBits::eStorageBuffer) bufferBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
-                else if constexpr (usageT == vk::BufferUsageFlagBits::eUniformBuffer) bufferBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
+                if constexpr (usageT == vk::BufferUsageFlagBits::eStorageBuffer) bufferBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
+                else if constexpr (usageT == vk::BufferUsageFlagBits::eUniformBuffer) bufferBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
                 bufferBinding.descriptorCount = 1;
                 bufferBinding.stageFlags = shaderStage;
                 bufferBinding.pImmutableSamplers = nullptr;
@@ -92,7 +93,7 @@ namespace nihil::graphics
             }
         }
 
-        vk::DescriptorImageInfo getDescriptorInfo()
+        vk::DescriptorBufferInfo getDescriptorInfo()
         {
             if constexpr (
                 usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
@@ -113,7 +114,7 @@ namespace nihil::graphics
             }
         }
 
-        Buffer(const T& _data, Engine* _engine)
+        Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
             assert(_engine != nullptr);
             assert(_engine->_transferFence() != nullptr);
@@ -166,7 +167,7 @@ namespace nihil::graphics
                 Logger::Exception("Failed to find suitable memory type to create buffer");
             }
         }
-        Buffer(const T&& _data, Engine* _engine)
+        Buffer(const T&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
             assert(_engine != nullptr);
             assert(_engine->_transferFence() != nullptr);
@@ -219,7 +220,7 @@ namespace nihil::graphics
                 Logger::Exception("Failed to find suitable memory type to create buffer");
             }
         }
-        Buffer(const T* _data, Engine* _engine)
+        Buffer(const T* _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
             assert(_engine != nullptr);
             assert(_engine->_transferFence() != nullptr);

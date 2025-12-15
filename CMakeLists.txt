@@ -105,11 +105,7 @@ file(GLOB_RECURSE SOURCES
 
 set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or Lib")
 
-if(COMPILE_TARGET STREQUAL "Lib")
-	add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
-elseif(COMPILE_TARGET STREQUAL "Executable")
-	add_executable(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/stb-imlp.cpp")
-endif()
+add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
 
 target_include_directories(VEN 
 	PUBLIC

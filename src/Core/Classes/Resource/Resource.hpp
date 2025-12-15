@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Logger.hpp"
+
 namespace nihil
 {
     template <typename T>

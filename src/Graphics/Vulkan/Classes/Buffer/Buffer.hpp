@@ -2,14 +2,14 @@
 
 #include "Classes/Engine/Engine.hpp"
 #include "Classes/Resources/Resources.hpp"
-#include "UniformBuffer.hpp"
-#include "StorageBuffer.hpp"
+#include "StorageAndUniformBuffer.hpp"
 #include "FindMemoryTypeIndex.hpp"
+#include "Classes/Asset/Asset.hpp"
 
 namespace nihil::graphics
 {
     template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
-    class Buffer
+    class Buffer : public Asset
     {
         Engine* engine = nullptr;
         vk::Fence transferFence = nullptr;
@@ -93,7 +93,7 @@ namespace nihil::graphics
             }
         }
 
-        vk::DescriptorImageInfo getDescriptorInfo()
+        vk::DescriptorBufferInfo getDescriptorInfo()
         {
             if constexpr (
                 usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
@@ -114,7 +114,7 @@ namespace nihil::graphics
             }
         }
 
-        Buffer(const std::vector<T>& _data, Engine* _engine)
+        Buffer(const std::vector<T>& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             assert(_data.size() != 0);
             assert(_engine != nullptr);
@@ -171,7 +171,7 @@ namespace nihil::graphics
             }     
         }
 
-        Buffer(const std::vector<T>&& _data, Engine* _engine)
+        Buffer(const std::vector<T>&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             assert(_data.size() != 0);
             assert(_engine != nullptr);
@@ -228,7 +228,7 @@ namespace nihil::graphics
             }
         }
 
-        Buffer(const T* _data, size_t _size, Engine* _engine)
+        Buffer(const T* _data, size_t _size, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             assert(_size != 0);
             assert(_data != nullptr);

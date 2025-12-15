@@ -36,58 +36,12 @@ namespace nihil::graphics
 
 		Resource<vk::Sampler> sampler;
 
-		Sampler(AssetUsage assetUsage, Engine* _engine) : Asset(assetUsage, _engine)
-		{
-			assert(_engine != nullptr);
+		Sampler(AssetUsage assetUsage, Engine* _engine);
 
-			engine = _engine;
-		}
+		void create();
 
-		void create()
-		{
-			vk::SamplerCreateInfo samplerInfo{};
-			samplerInfo.magFilter = magFilter;
-			samplerInfo.minFilter = minFilter;
+		vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding);
 
-			samplerInfo.mipmapMode = mipMapMode;
-			samplerInfo.minLod = minLod;
-			samplerInfo.maxLod = maxLod;
-			samplerInfo.mipLodBias = mipLodBias;
-			samplerInfo.mipmapMode = mipMapMode;
-
-			samplerInfo.addressModeU = addressModeU;
-			samplerInfo.addressModeV = addressModeV;
-			samplerInfo.addressModeW = addressModeW;
-			samplerInfo.unnormalizedCoordinates = unnnormalizedUVs;
-
-			samplerInfo.anisotropyEnable = anistropyEnable;
-			samplerInfo.maxAnisotropy = maxAnistropy;
-
-			samplerInfo.borderColor = borderColor;
-
-			sampler.assignRes(engine->_device().createSampler(samplerInfo), engine->_device());
-		}
-
-		vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
-		{
-			vk::DescriptorSetLayoutBinding samplerBinding{};
-			samplerBinding.binding = binding;
-			samplerBinding.descriptorType = vk::DescriptorType::eSampler;
-			samplerBinding.descriptorCount = 1;
-			samplerBinding.stageFlags = shaderStage;
-			samplerBinding.pImmutableSamplers = nullptr;
-
-			return samplerBinding;
-		}
-
-		vk::DescriptorImageInfo getDescriptorInfo()
-		{
-			vk::DescriptorImageInfo samplerInfo{
-				sampler,      // vk::Sampler (or {} if not needed)
-				{},    // vk::ImageView (or {} if not needed)
-			};
-
-			return samplerInfo;
-		}
+		vk::DescriptorImageInfo getDescriptorInfo();
 	};
 }

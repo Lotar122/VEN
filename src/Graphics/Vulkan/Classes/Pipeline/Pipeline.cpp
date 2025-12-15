@@ -1,4 +1,5 @@
 #include "Pipeline.hpp"
+#include "Classes/DescriptorSet/DescriptorSet.hpp"
 
 using namespace nihil::graphics;
 
@@ -35,34 +36,33 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 
 	assert(info.descriptorSetLayoutBindings.size() == 0 || descriptorAllocator != nullptr);
 
-	std::vector<vk::DescriptorSetLayoutBinding> dynamicDescriptors;
+	std::vector<const DescriptorSetLayoutBinding*> dynamicDescriptors;
 	dynamicDescriptors.reserve(info.descriptorSetLayoutBindings.size());
 
-	std::vector<vk::DescriptorSetLayoutBinding> staticDescriptors;
+	std::vector<const DescriptorSetLayoutBinding*> staticDescriptors;
 	staticDescriptors.reserve(info.descriptorSetLayoutBindings.size());
 
 	for(const DescriptorSetLayoutBinding& dsb : info.descriptorSetLayoutBindings)
 	{
 		if (dsb.usage == AssetUsage::Static)
 		{
-			auto it = descriptorAllocator->staticDescriptors.find(dsb.layoutBinding.binding);
-			if (it == descriptorAllocator->staticDescriptors.end())
+			auto it = descriptorAllocator->globalDescriptorSet->descriptors.find(dsb.layoutBinding.binding);
+			if (it == descriptorAllocator->globalDescriptorSet->descriptors.end())
 			{
-				Logger::Exception(std::format("The static descriptor (binding = {}) passed to the pipeline is not present in the descriptor set", dsb.layoutBinding.binding));
+				Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is not present in the descriptor set", dsb.layoutBinding.binding);
 			}
-			if (it->second.descriptorType != dsb.layoutBinding.descriptorType)
+			if (it->second.descriptorInfo.type != dsb.descriptorInfo.type)
 			{
-				Logger::Exception(std::format("The static descriptor (binding = {}) passed to the pipeline is of the wrong type", dsb.layoutBinding.binding));
+				Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is of the wrong type", dsb.layoutBinding.binding);
 			}
 
-			staticDescriptors.push_back(dsb.layoutBinding);
+			staticDescriptors.push_back(&dsb);
 		}
-		else dynamicDescriptors.push_back(dsb.layoutBinding);
+		else dynamicDescriptors.push_back(&dsb);
 	}
 
-	
+	//Dynamic Descriptor set
 
-	
 
 	//?Pipeline creation
 
@@ -177,7 +177,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	layoutInfo.flags = vk::PipelineLayoutCreateFlags();
 	layoutInfo.setLayoutCount = 0;
 	layoutInfo.pushConstantRangeCount = 1;
-	std::array<vk::DescriptorSetLayout, 2> descriptorSetLayouts;
+	std::array<vk::DescriptorSetLayout, 1> descriptorSetLayouts;
 	if (!descriptorAllocator)
 	{
 		layoutInfo.setLayoutCount = 0;
@@ -185,7 +185,8 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	}
 	else
 	{
-		descriptorSetLayouts = { descriptorAllocator->staticDescriptorSetLayout/*, dynamicDescriptorSetLayout*/ };
+		//the last element is ignored since the size is set to 1
+		descriptorSetLayouts = { descriptorAllocator->globalDescriptorSet->layout };
 		//for now 1 since there are no dynamic descriptors
 		layoutInfo.setLayoutCount = 1;
 		layoutInfo.pSetLayouts = descriptorSetLayouts.data();
