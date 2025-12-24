@@ -1,8 +1,8 @@
 #pragma once
 
 //? Move to CMakeLists.txt
-#define ENABLE_LOGGING
-#define ENABLE_WARNINGS
+// #define ENABLE_LOGGING
+// #define ENABLE_WARNINGS
 
 #include <iostream>
 #include <format>

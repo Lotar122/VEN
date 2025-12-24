@@ -56,6 +56,50 @@ namespace nihil::graphics
             indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(loadingResult.second, engine);
         }
 
+        template<auto usageT1, auto propertiesT1, auto usageT2, auto propertiesT2>
+        Model(
+            Buffer<float, usageT1, propertiesT1>&& _vertexBuffer, Buffer<uint32_t, usageT2, propertiesT2>&& _indexBuffer,
+            Engine* _engine, Pipeline* _pipeline = nullptr, 
+            Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr, 
+            glm::mat4 _model = glm::mat4(1.0f)
+        ) : Asset(AssetUsage::Undefined, _engine)
+        {
+            path = "";
+            model = _model;
+            pipeline = _pipeline;
+            renderPass = _renderPass;
+            instancedPipeline = _instancedPipeline;
+
+            assert(_engine != nullptr);
+
+            engine = _engine;
+
+            vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(_vertexBuffer);
+            indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(_indexBuffer);
+        }
+
+        template<auto usageT1, auto propertiesT1, auto usageT2, auto propertiesT2>
+        Model(
+            Buffer<float, usageT1, propertiesT1>& _vertexBuffer, Buffer<uint32_t, usageT2, propertiesT2>& _indexBuffer,
+            Engine* _engine, Pipeline* _pipeline = nullptr, 
+            Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr, 
+            glm::mat4 _model = glm::mat4(1.0f)
+        ) : Asset(AssetUsage::Undefined, _engine)
+        {
+            path = "";
+            model = _model;
+            pipeline = _pipeline;
+            renderPass = _renderPass;
+            instancedPipeline = _instancedPipeline;
+
+            assert(_engine != nullptr);
+
+            engine = _engine;
+
+            vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(_vertexBuffer.data, &engine);
+            indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(_indexBuffer.data, &engine);
+        }
+
         inline Pipeline* _pipeline() { return pipeline; };
         inline Pipeline* _instancedPipeline() { return instancedPipeline; };
         inline RenderPass* _renderPass() { return renderPass; };

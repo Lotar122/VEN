@@ -8,9 +8,12 @@
 
 namespace nihil::graphics
 {
+    class Model;
+
     template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
     class Buffer : public Asset
     {
+        friend class Model;
         Engine* engine = nullptr;
         vk::Fence transferFence = nullptr;
 
@@ -56,6 +59,25 @@ namespace nihil::graphics
 
             vk::BufferCopy copyRegion{ 0, 0, size };
             engine->_mainCommandBuffer().copyBuffer(src, dst, copyRegion);
+
+            vk::BufferMemoryBarrier barrier{
+                vk::AccessFlagBits::eTransferWrite,
+                vk::AccessFlagBits::eShaderRead,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                dst,
+                0,
+                size
+            };
+
+            engine->_mainCommandBuffer().pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eVertexShader,
+                {},
+                nullptr,
+                barrier,
+                nullptr
+            );
 
             engine->_mainCommandBuffer().end();
 
@@ -323,6 +345,10 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                
+                vk::MappedMemoryRange range{ stagingMemory, 0, size };
+                engine->_device().flushMappedMemoryRanges(range);
+
                 engine->_device().unmapMemory(stagingMemory);
 
                 copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
@@ -369,6 +395,10 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                
+                vk::MappedMemoryRange range{ stagingMemory, 0, size };
+                engine->_device().flushMappedMemoryRanges(range);
+
                 engine->_device().unmapMemory(stagingMemory);
 
                 copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
@@ -403,6 +433,10 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+
+                vk::MappedMemoryRange range{ stagingMemory, 0, size };
+                engine->_device().flushMappedMemoryRanges(range);
+
                 engine->_device().unmapMemory(stagingMemory);
 
                 copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
@@ -437,6 +471,10 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                
+                vk::MappedMemoryRange range{ stagingMemory, 0, size };
+                engine->_device().flushMappedMemoryRanges(range);
+
                 engine->_device().unmapMemory(stagingMemory);
 
                 copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);

@@ -40,18 +40,18 @@ namespace nihil::graphics
         {
             assert(_engine != nullptr);
 
-            assert(_texture != nullptr);
-            assert(_sampler != nullptr);
+            // assert(_texture != nullptr);
+            // assert(_sampler != nullptr);
 
-            assert(_vertexShader != nullptr);
-            assert(_fragmentShader != nullptr);
-            assert(_instancedVertexShader != nullptr);
-            assert(_instancedFragmentShader != nullptr);
+            // assert(_vertexShader != nullptr);
+            // assert(_fragmentShader != nullptr);
+            // assert(_instancedVertexShader != nullptr);
+            // assert(_instancedFragmentShader != nullptr);
 
-            assert(_pipeline != nullptr);
-            assert(_instancedPipeline != nullptr);
+            // assert(_pipeline != nullptr);
+            // assert(_instancedPipeline != nullptr);
 
-            assert(_renderPass != nullptr);
+            // assert(_renderPass != nullptr);
 
             engine = _engine;
 
