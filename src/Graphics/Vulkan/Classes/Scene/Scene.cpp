@@ -103,10 +103,10 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_model()->_instancedPipeline()->_pipeline());
 
             //Create or reuse the instance buffer
-            constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
+            size_t instanceDataChunkSize = it.second[0]->_instanceData().second;
             size_t instanceDataSize = it.second.size() * instanceDataChunkSize;
 
-            Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
+            Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
 
             auto bufferIT = instanceBuffers.find(it.first);
             if(bufferIT != instanceBuffers.end()) 
@@ -115,19 +115,18 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             }
             else
             {
-                instanceBuffer = bufferHeap.alloc<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>>();
+                instanceBuffer = bufferHeap.alloc<Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>>();
 
-                std::vector<float> instanceData;
+                std::vector<std::byte> instanceData;
 
-                instanceData.resize(instanceDataSize / sizeof(float));
+                instanceData.resize(instanceDataSize);
 
                 for (int i = 0; i < it.second.size(); i++)
                 {
-                    const float* matrixData = glm::value_ptr(it.second[i]->_modelMatrix());
-                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), matrixData, instanceDataChunkSize);
+                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
-                instanceBuffer = new (instanceBuffer) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+                instanceBuffer = new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
 
                 instanceBuffer->moveToGPU();
 
@@ -144,14 +143,13 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             if(bufferIT != instanceBuffers.end() && objectModified)
             {
                 //In the future do this so that it only modifies the matrix of the modified object
-                std::vector<float> instanceData;
+                std::vector<std::byte> instanceData;
 
-                instanceData.resize(instanceDataSize / sizeof(float));
+                instanceData.resize(instanceDataSize);
 
                 for (int i = 0; i < it.second.size(); i++)
                 {
-                    const float* matrixData = glm::value_ptr(it.second[i]->_modelMatrix());
-                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), matrixData, instanceDataChunkSize);
+                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
                 if(instanceDataSize == instanceBuffer->_size())
@@ -164,7 +162,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                     //the buffer is of the wrong size, delete it and make a new one. reuse the same memory location
                     instanceBuffer->~Buffer();
 
-                    instanceBuffer = new (instanceBuffer) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+                    instanceBuffer = new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
                 }
             }
 

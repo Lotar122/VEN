@@ -336,9 +336,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(&data), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -384,9 +381,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(&data), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -420,9 +414,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(&data), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -458,9 +449,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(&data), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -830,9 +818,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -878,9 +863,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -914,9 +896,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -952,9 +931,6 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-                
-                vk::MappedMemoryRange range{ stagingMemory, 0, size };
-                engine->_device().flushMappedMemoryRanges(range);
 
                 engine->_device().unmapMemory(stagingMemory);
 

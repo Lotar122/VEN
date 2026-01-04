@@ -27,7 +27,7 @@ namespace nihil::graphics
         std::vector<Object*> objects;
 
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
-        std::unordered_map<uint64_t, Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
+        std::unordered_map<uint64_t, Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
     public:
 
         inline void addObject(Object* object) { objects.push_back(object); };

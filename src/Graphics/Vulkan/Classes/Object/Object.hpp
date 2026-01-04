@@ -9,6 +9,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "Classes/Asset/Asset.hpp"
 
@@ -25,6 +26,8 @@ namespace nihil::graphics
 
         bool modifiedThisFrame = false;
 
+        bool autoCreatedInstanceData = false;
+
         PushConstants pushConstants;
 
         //TODO: allow multiple models in one object
@@ -34,11 +37,13 @@ namespace nihil::graphics
 
         uint64_t modelMaterialEncoded = 0;
 
-        float scaleFactor = 1.0f;
-
+        glm::vec3 scaleFactor = glm::vec3(1.0f);
         glm::vec3 position = glm::vec3(0.0f);
         glm::vec3 rotation = glm::vec3(0.0f);
         glm::mat4 modelMatrix = glm::mat4(1.0f);
+
+        void* instanceData = nullptr;
+        size_t instanceDataSize = 0;
 
         inline Model* _model() const { return model; };
         inline const glm::vec3& _position() { return position; };
@@ -79,6 +84,42 @@ namespace nihil::graphics
             modelMaterialEncoded = (static_cast<uint64_t>(model->_getAssetId()) << 32) + material->_getAssetId();
         }
 
+        template<bool warn = true>
+        void setInstanceData(void* _instanceData, size_t _instanceDataSize)
+        {
+            if constexpr (warn)
+            {
+                if (instanceData != nullptr) Logger::Warn("You are updating the instance data of Object: {:p}, if the previous instance data wasn't freed this might cause a memory leak. Prevoius data: {:p}.", (void*)this, instanceData);
+            }
+
+            instanceData = _instanceData;
+            instanceDataSize = _instanceDataSize;
+        }
+
+        std::pair<void*, size_t> _instanceData()
+        {
+            const bool hasData = instanceData != nullptr;
+            const bool hasSize = instanceDataSize > 0;
+
+            if(hasData != hasSize) [[unlikely]]
+            {
+                Logger::Exception("Object: {:p}, has invalid instance data: {:p} with size: {}.", (void*)this, instanceData, instanceDataSize);
+            }
+
+            if(hasData)
+            {
+                return std::make_pair(instanceData, instanceDataSize);
+            }
+            else
+            {
+                autoCreatedInstanceData = true;
+                instanceData = glm::value_ptr(modelMatrix);
+                instanceDataSize = 16 * sizeof(float);
+
+                return std::make_pair(instanceData, instanceDataSize);
+            }
+        }
+
         inline void recalculateModelMatrix()
         {
             modelMatrix = glm::mat4(1.0f);
@@ -86,7 +127,7 @@ namespace nihil::graphics
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-            modelMatrix = glm::scale(modelMatrix, glm::vec3(scaleFactor));
+            modelMatrix = glm::scale(modelMatrix, scaleFactor);
 
             modelMatrix *= model->_deafultTransform();
         }
@@ -109,6 +150,14 @@ namespace nihil::graphics
         }
 
         inline void scale(const float _scale)
+        {
+            scaleFactor *= _scale;
+            recalculateModelMatrix();
+
+            modifiedThisFrame = true;
+        }
+
+        inline void scale(const glm::vec3& _scale)
         {
             scaleFactor *= _scale;
             recalculateModelMatrix();
