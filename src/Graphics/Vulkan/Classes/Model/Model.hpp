@@ -136,7 +136,7 @@ namespace nihil::graphics
             indexBuffer->freeFromGPU();
         }
 
-        inline glm::mat4& _deafultTransform() { return model; };
+        inline glm::mat4& _defaultTransform() { return model; };
 
         ~Model()
         {

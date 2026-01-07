@@ -15,6 +15,8 @@ Camera::Camera(const CameraCreateInfo& info)
     near = info.near;
     far = info.far;
 
+    UI = info.UI;
+
     assert(info.app != nullptr);
 
     app = info.app;

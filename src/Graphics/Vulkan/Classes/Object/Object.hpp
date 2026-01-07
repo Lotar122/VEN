@@ -129,7 +129,7 @@ namespace nihil::graphics
             modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
             modelMatrix = glm::scale(modelMatrix, scaleFactor);
 
-            modelMatrix *= model->_deafultTransform();
+            modelMatrix *= model->_defaultTransform();
         }
 
         //TODO: Physics integration later

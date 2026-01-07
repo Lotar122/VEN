@@ -12,6 +12,8 @@ namespace nihil::graphics
 {
     struct CameraCreateInfo
     {
+        App* app = nullptr;
+
         glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
         glm::vec3 lookAt = glm::vec3(0.0f, 0.0f, 1.0f);
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -20,7 +22,7 @@ namespace nihil::graphics
         float near = 0.1f;
         float far = 1000.0f;
 
-        App* app = nullptr;
+        bool UI = false;
     };
 
     class Camera : public onResizeListener
@@ -41,6 +43,8 @@ namespace nihil::graphics
         glm::mat4 projectionMatrix;
 
         glm::mat4 vp;
+
+        bool UI = false;
         
     public:
         Camera(const CameraCreateInfo& info);
@@ -58,9 +62,10 @@ namespace nihil::graphics
 
             float aspect = static_cast<float>(app->width) / static_cast<float>(app->height);
 
-            app->endAccess();
+            if(!UI) projectionMatrix = glm::perspective(fov, aspect, near, far);
+            else projectionMatrix = glm::ortho(0.0f, static_cast<float>(app->width), static_cast<float>(app->height), 0.0f, 0.0f, 1.0f);
 
-            projectionMatrix = glm::perspective(fov, aspect, near, far);
+            app->endAccess();
         }
 
         inline void recalculateViewMatrix()
@@ -70,7 +75,8 @@ namespace nihil::graphics
 
         inline void recalculateVPMatrix()
         {
-            vp = projectionMatrix * viewMatrix;
+            if (!UI) vp = projectionMatrix * viewMatrix;
+            else vp = projectionMatrix;
         }
 
         inline void recalculateLookAt()
