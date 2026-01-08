@@ -45,8 +45,6 @@ void Scene::addObjects(std::vector<Object>& newObjects)
 }
 
 //TODO
-//change the key in the hashmap to the modelMaterialEncoded
-//allocate descriptor sets if a texture is present (add color only capabilities in the material class)
 //get the pipeline from material and not model
 //remember to remove pipelines and the renderpass from the Model class
 
@@ -54,9 +52,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
 {
     instancedDraws.clear();
     normalDraws.clear();
-
-    /*instancedDraws.reserve(objects.size());
-    normalDraws.reserve(objects.size());*/
     
     for(Object* o : objects)
     {

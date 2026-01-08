@@ -5,6 +5,8 @@ using namespace nihil;
 
 App::App(std::string _name, uint16_t _width, uint16_t _height)
 {
+    Logger::Init();
+
     name = _name;
     width = _width;
     height = _height;
