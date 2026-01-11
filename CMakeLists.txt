@@ -13,7 +13,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 if(MSVC)
     # Basic optimization flags for MSVC
-    set(MSVC_FLAGS "/O2 /GL /LTCG /EHsc /MD")
+    set(MSVC_FLAGS "/O2 /GL /LTCG /EHsc /MD /Gw /Gy /Oi /Ot /Zc:inline /fp:fast")
 
     # Detect architecture
     # CMAKE_SYSTEM_PROCESSOR is 'AMD64', 'ARM64', etc.
@@ -44,7 +44,10 @@ if(MSVC)
 endif()
 
 if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	set(GNU_FLAGS "-O2 -flto -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize")
+	set(GNU_FLAGS "
+        -O2 -flto -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized 
+        -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize -fno-math-errno -ffp-contract=fast
+    ")
 	set(CMAKE_CXX_FLAGS_RELEASE "${GNU_FLAGS}")
 	set(CMAKE_C_FLAGS_RELEASE "${GNU_FLAGS}")
 
@@ -55,7 +58,7 @@ if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 if((LINUX OR WIN32) AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "ClangCl"))
-    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -pthread -Rpass=loop-vectorize -fomit-frame-pointer -fslp-vectorize")
+    set(CLANG_FLAGS "-O2 -flto=full -fstrict-aliasing -pthread -Rpass=loop-vectorize -fomit-frame-pointer -fslp-vectorize -fno-math-errno -ffp-contract=fast")
     set(CMAKE_CXX_FLAGS_RELEASE "${CLANG_FLAGS}")
     set(CMAKE_C_FLAGS_RELEASE "${CLANG_FLAGS}")
 
@@ -67,7 +70,7 @@ endif()
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Apple Clang has more restrictions and lags behind mainline Clang
-    set(APPLE_CLANG_FLAGS "-O2 -flto -fstrict-aliasing -pthread -fomit-frame-pointer -fslp-vectorize")
+    set(APPLE_CLANG_FLAGS "-O2 -flto -fstrict-aliasing -pthread -fomit-frame-pointer -fslp-vectorize -fno-math-errno -ffp-contract=fast")
     set(CMAKE_CXX_FLAGS_RELEASE "${APPLE_CLANG_FLAGS}")
     set(CMAKE_C_FLAGS_RELEASE "${APPLE_CLANG_FLAGS}")
 

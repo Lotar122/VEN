@@ -27,9 +27,6 @@ namespace nihil::graphics
         vk::Viewport viewport;
         vk::Rect2D scissor;
 
-        //! REMOVE
-        uint64_t debugCounter = 0;
-
     public:
         const inline vk::Viewport& _viewport() const { return viewport; };
         const inline vk::Rect2D& _scissor() const { return scissor; };

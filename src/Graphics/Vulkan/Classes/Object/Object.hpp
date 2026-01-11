@@ -26,8 +26,6 @@ namespace nihil::graphics
 
         bool modifiedThisFrame = false;
 
-        bool autoCreatedInstanceData = false;
-
         PushConstants pushConstants;
 
         //TODO: allow multiple models in one object
@@ -42,6 +40,7 @@ namespace nihil::graphics
         glm::vec3 rotation = glm::vec3(0.0f);
         glm::mat4 modelMatrix = glm::mat4(1.0f);
 
+        bool autoCreatedInstanceData = false;
         const void* instanceData = nullptr;
         size_t instanceDataSize = 0;
 

@@ -50,14 +50,13 @@ namespace nihil::graphics
         uint32_t renderQueueIndex;
         uint32_t transferQueueIndex;
 
-        Resource<vk::Fence> transferFence;
-
         Resource<vk::SurfaceKHR> surface;
 
-        Resource<vk::Device> device;
+        Resource<vk::Fence> transferFence;
 
-        Resource<vk::CommandPool> mainCommandPool;
+        Resource<vk::Device> device;
         Resource<vk::CommandBuffer> mainCommandBuffer;
+        Resource<vk::CommandPool> mainCommandPool;
 
         App* app = nullptr;
         Swapchain* swapchain = nullptr;
