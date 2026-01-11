@@ -85,36 +85,41 @@ namespace nihil::graphics
         }
 
         template<bool warn = true>
-        void setInstanceData(void* _instanceData, size_t _instanceDataSize)
+        inline void setInstanceData(void* _instanceData, size_t _instanceDataSize)
         {
             if constexpr (warn)
             {
-                if (instanceData != nullptr) Logger::Warn("You are updating the instance data of Object: {:p}, if the previous instance data wasn't freed this might cause a memory leak. Prevoius data: {:p}.", (void*)this, instanceData);
+                if (instanceData != nullptr && !selfCreatedInstanceData) Logger::Warn("Chainging the instance data of object: {:p} ensure that you have deleted the previous instance data: {:p}. Not doing so may cause a memory leak.", static_cast<const void*>(this), instanceData);
             }
 
+            selfCreatedInstanceData = false;
             instanceData = _instanceData;
             instanceDataSize = _instanceDataSize;
         }
 
-        std::pair<void*, size_t> _instanceData()
+        std::pair<const void*, size_t> _instanceData()
         {
             const bool hasData = instanceData != nullptr;
             const bool hasSize = instanceDataSize > 0;
 
-            if(hasData != hasSize) [[unlikely]]
+            if (hasData != hasSize) [[unlikely]]
             {
-                Logger::Exception("Object: {:p}, has invalid instance data: {:p} with size: {}.", (void*)this, instanceData, instanceDataSize);
+                Logger::Exception("The instance data of object: {:p} is invalid", static_cast<const void*>(this));
             }
 
-            if(hasData)
+            if (hasData)
             {
                 return std::make_pair(instanceData, instanceDataSize);
             }
             else
             {
-                autoCreatedInstanceData = true;
-                instanceData = glm::value_ptr(modelMatrix);
-                instanceDataSize = 16 * sizeof(float);
+                //Since no data was provided by the user create the instanceData
+
+                constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
+
+                selfCreatedInstanceData = true;
+                instanceData = reinterpret_cast<const void*>(glm::value_ptr(modelMatrix));
+                instanceDataSize = instanceDataChunkSize;
 
                 return std::make_pair(instanceData, instanceDataSize);
             }
