@@ -14,6 +14,11 @@ namespace nihil::graphics
 {
     class Swapchain : public onResizeListener
     {
+        vk::Extent2D extent;
+        
+        App* app = nullptr;
+        Engine* engine = nullptr;
+
     public:
         struct Frame {
             vk::Image resolved;
@@ -37,15 +42,10 @@ namespace nihil::graphics
     private:
         std::vector<Frame> frames;
 
-        std::vector<onSwapchainRecreationListener*> onSwapchainRecreationListeners;
-
-        vk::Extent2D extent;
-
-        App* app = nullptr;
-        Engine* engine = nullptr;
-
         RenderPass* basicRenderPass = nullptr;
         std::pair<uint32_t, uint32_t> queueFamilyIndices;
+
+        std::vector<onSwapchainRecreationListener*> onSwapchainRecreationListeners;
 
         inline void fixedOnRecreation();
     public:
@@ -57,20 +57,20 @@ namespace nihil::graphics
         const inline uint16_t _height() { return extent.height; };
         inline std::vector<Frame>& _frames() { return frames; };
 
-        uint64_t sampleCount = 0;
-
         vk::SurfaceFormatKHR surfaceFormat;
         vk::Format depthFormat;
         vk::Format imageFormat;
+
+        uint8_t imageCount = 0;
+        uint8_t prefferedImageCount = 0;
+        uint8_t frameIndex = 0;
+
+        uint64_t sampleCount = 0;
 
         vk::PresentModeKHR presentMode;
 
         vk::SurfaceTransformFlagBitsKHR transform;
         vk::CompositeAlphaFlagBitsKHR alpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-
-        uint8_t imageCount = 0;
-        uint8_t prefferedImageCount = 0;
-        uint8_t frameIndex = 0;
 
         Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _prefferedImageCount, uint64_t _sampleCount, Engine* _engine);
 

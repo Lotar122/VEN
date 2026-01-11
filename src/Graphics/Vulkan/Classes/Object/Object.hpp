@@ -21,12 +21,14 @@ namespace nihil::graphics
     {
         friend class Scene;
     public:
-        PushConstants pushConstants;
+        //? used for resource optimization in the future, for now just sits here to remind me of my plans.
+        bool active = true;
 
-        glm::vec3 scaleFactor = glm::vec3(1.0f);
-        glm::vec3 position = glm::vec3(0.0f);
-        glm::vec3 rotation = glm::vec3(0.0f);
-        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        bool modifiedThisFrame = false;
+
+        bool autoCreatedInstanceData = false;
+
+        PushConstants pushConstants;
 
         //TODO: allow multiple models in one object
         Model* model = nullptr;
@@ -35,15 +37,13 @@ namespace nihil::graphics
 
         uint64_t modelMaterialEncoded = 0;
 
+        glm::vec3 scaleFactor = glm::vec3(1.0f);
+        glm::vec3 position = glm::vec3(0.0f);
+        glm::vec3 rotation = glm::vec3(0.0f);
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
+
         const void* instanceData = nullptr;
         size_t instanceDataSize = 0;
-
-        //? used for resource optimization in the future, for now just sits here to remind me of my plans.
-        bool active = true;
-
-        bool modifiedThisFrame = false;
-
-        bool autoCreatedInstanceData = false;
 
         inline Model* _model() const { return model; };
         inline const glm::vec3& _position() { return position; };

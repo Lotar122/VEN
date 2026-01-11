@@ -32,8 +32,6 @@ namespace nihil::graphics
 
     class RenderPass
     {
-        Resource<vk::RenderPass> renderPass;
-
         std::vector<RenderPassAttachment> attachments;
         std::vector<vk::SubpassDescription> subpasses;
         std::vector<vk::AttachmentDescription> colorAttachmentDescriptors;
@@ -42,6 +40,7 @@ namespace nihil::graphics
 
         Swapchain* swapchain = nullptr;
         vk::Device device;
+        Resource<vk::RenderPass> renderPass;
 
     public:
         inline vk::RenderPass _renderPass() { return renderPass.getRes(); };

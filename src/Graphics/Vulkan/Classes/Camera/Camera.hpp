@@ -28,21 +28,21 @@ namespace nihil::graphics
     class Camera : public onResizeListener
     {
     private:
+        App* app = nullptr;
+
         glm::vec3 position;
         glm::vec3 lookAt;
         glm::vec3 up;
         glm::mat4 viewMatrix;
-
-        glm::mat4 projectionMatrix;
-        glm::mat4 vp;
-
-        App* app = nullptr;
 
         float pitch, yaw;
 
         float fov;
         float near;
         float far;
+        glm::mat4 projectionMatrix;
+
+        glm::mat4 vp;
 
         bool UI = false;
         

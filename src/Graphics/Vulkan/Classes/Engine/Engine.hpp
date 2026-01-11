@@ -40,30 +40,30 @@ namespace nihil::graphics
     {
         friend class Renderer;
 
-        Resource<vk::Fence> transferFence;
-
-        Resource<vk::SurfaceKHR> surface;
-
-        Resource<vk::CommandPool> mainCommandPool;
-        Resource<vk::CommandBuffer> mainCommandBuffer;
-
-        Resource<vk::Device> device;
         Resource<vk::Instance> instance;
-
         vk::PhysicalDevice physicalDevice;
 
         vk::Queue presentQueue;
         vk::Queue renderQueue;
         vk::Queue transferQueue;
+        uint32_t presentQueueIndex;
+        uint32_t renderQueueIndex;
+        uint32_t transferQueueIndex;
+
+        Resource<vk::Fence> transferFence;
+
+        Resource<vk::SurfaceKHR> surface;
+
+        Resource<vk::Device> device;
+
+        Resource<vk::CommandPool> mainCommandPool;
+        Resource<vk::CommandBuffer> mainCommandBuffer;
 
         App* app = nullptr;
         Swapchain* swapchain = nullptr;
         Renderer* renderer = nullptr;
 
         uint32_t lastAssetId = 0;
-        uint32_t presentQueueIndex;
-        uint32_t renderQueueIndex;
-        uint32_t transferQueueIndex;
 
     public:
         Engine(App* _app, EngineArgs& args);

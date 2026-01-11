@@ -22,11 +22,13 @@ namespace nihil::graphics
     class Renderer : public onResizeListener
     {   
         friend class Engine;
+        Engine* engine = nullptr;
 
         vk::Viewport viewport;
         vk::Rect2D scissor;
 
-        Engine* engine = nullptr;
+        //! REMOVE
+        uint64_t debugCounter = 0;
 
     public:
         const inline vk::Viewport& _viewport() const { return viewport; };
