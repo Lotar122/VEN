@@ -100,24 +100,25 @@ namespace nihil::graphics
 			}
 		}
 	public:
-		Engine* engine = nullptr;
-		bool createdStaticDescriptorSet = false;
-
-		size_t prevFrameCount = 0;
-		size_t frameCount = 0;
-
 		std::vector<vk::DescriptorPool> staticPools;
 		std::vector<vk::DescriptorPool> dynamicPools;
 
 		std::vector<size_t> staticPoolSizes;
 		std::vector<size_t> dynamicPoolSizes;
 
-		size_t dynamicPoolSize;
-
 		std::vector<DescriptorSet<AssetUsage::Static>*> dynamicSets;
 
 		//Deprecated. Pipelines will store the sets they use.
 		DescriptorSet<AssetUsage::Static>* globalDescriptorSet;
+
+		size_t prevFrameCount = 0;
+		size_t frameCount = 0;
+
+		size_t dynamicPoolSize;
+
+		Engine* engine = nullptr;
+
+		bool createdStaticDescriptorSet = false;
 
 		DescriptorAllocator(Engine* _engine) 
 		{

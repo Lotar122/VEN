@@ -68,14 +68,14 @@ namespace nihil::graphics
     class DescriptorSetAbstract
     {
     public:
-        Engine* engine = nullptr;
-		DescriptorAllocator* descriptorAllocator = nullptr;
-		AssetUsage usage = usageT;
-        
+		std::unordered_map<uint32_t, DescriptorSetLayoutBinding> descriptors;
+
 		Resource<vk::DescriptorSetLayout> layout;
 		Resource<vk::DescriptorSet> set;
 
-		std::unordered_map<uint32_t, DescriptorSetLayoutBinding> descriptors;
+        Engine* engine = nullptr;
+		DescriptorAllocator* descriptorAllocator = nullptr;
+		AssetUsage usage = usageT;
 
 		virtual void create(std::vector<DescriptorSetLayoutBinding>&& _descriptorSetLayoutBindings, DescriptorAllocator* _descriptorAllocator, Engine* _engine) = 0;
     };

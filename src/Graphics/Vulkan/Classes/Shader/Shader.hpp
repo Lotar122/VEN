@@ -15,12 +15,13 @@ namespace nihil::graphics
 {
     class Shader : public Asset
     {
-        Engine* engine = nullptr;
     public:
         Resource<vk::ShaderModule> shaderModule;
 
         std::string name;
-
+    private:
+        Engine* engine = nullptr;
+    public:
         Shader(Engine* _engine);
 
         void LoadFromSource(const std::string& path);

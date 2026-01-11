@@ -20,19 +20,19 @@ namespace nihil::graphics
 
     class Model : public Asset
     {
+        alignas(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) byte vertexBufferMemory[sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>)];
+        alignas(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>) byte indexBufferMemory[sizeof(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>)];
+
+        glm::mat4 model;
+        std::string path;
+
         Engine* engine = nullptr;
         Pipeline* pipeline = nullptr;
         Pipeline* instancedPipeline = nullptr;
         RenderPass* renderPass = nullptr;
-
-        glm::mat4 model;
-        std::string path;
         
         Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* vertexBuffer = nullptr;
         Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* indexBuffer = nullptr;
-
-        alignas(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) byte vertexBufferMemory[sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>)];
-        alignas(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>) byte indexBufferMemory[sizeof(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>)];
     public:
         Model(
             const std::string& _path, Engine* _engine, Pipeline* _pipeline = nullptr, 

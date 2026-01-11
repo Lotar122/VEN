@@ -20,26 +20,33 @@ namespace nihil::graphics
 	class Texture : public Asset
 	{
 	public:
-		Engine* engine = nullptr;
-		bool onGPU = false;
-		unsigned char* imageData = nullptr;
-		size_t width = 0, height = 0, channels = 0;
-		size_t size = 0;
 		alignas(Buffer<
 			unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
 		>) unsigned char stagingBufferMemory[sizeof(Buffer<
 			unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
 		>)];
+
+		Resource<vk::ImageView> imageView;
+		Resource<vk::Image> image;
+
+		vk::MemoryAllocateInfo imageMemoryAllocInfo;
+		vk::MemoryRequirements imageMemoryRequirements;
+
+		Engine* engine = nullptr;
+
+		unsigned char* imageData = nullptr;
+
+		size_t width = 0, height = 0, channels = 0;
+		size_t size = 0;
+
 		Buffer<
 			unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
 		>* stagingBuffer = nullptr;
-		Resource<vk::Image> image;
+
 		vk::DeviceMemory imageMemory;
 		vk::ImageLayout currentLayout = vk::ImageLayout::eUndefined;
-		Resource<vk::ImageView> imageView;
 
-		vk::MemoryRequirements imageMemoryRequirements;
-		vk::MemoryAllocateInfo imageMemoryAllocInfo;
+		bool onGPU = false;
 
 		Texture(const std::string& path, AssetUsage _assetUsage, Engine* _engine, uint8_t desiredChannels = 4);
 

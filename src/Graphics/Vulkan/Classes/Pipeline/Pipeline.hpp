@@ -43,14 +43,14 @@ namespace nihil::graphics
 
     class Pipeline
     {
+        DescriptorSet<AssetUsage::Static> dynamicDescriptorSet;
+
         Resource<vk::Pipeline> pipeline;
         Resource<vk::PipelineLayout> layout;
         RenderPass* baseRenderPass = nullptr;
         Engine* engine = nullptr;
 
         bool destroyed = false;
-
-        DescriptorSet<AssetUsage::Static> dynamicDescriptorSet;
 
     public:
         inline vk::Pipeline _pipeline() { return pipeline; };

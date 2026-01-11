@@ -13,8 +13,11 @@ namespace nihil::graphics
 {
 	class Sampler : public Asset
 	{
+		Resource<vk::Sampler> sampler;
 		Engine* engine = nullptr;
 	public:
+		inline vk::Sampler _sampler() { return sampler.getRes(); };
+
 		vk::Filter magFilter = vk::Filter::eLinear;
 		vk::Filter minFilter = vk::Filter::eLinear;
 		vk::SamplerAddressMode addressModeU = vk::SamplerAddressMode::eRepeat;
@@ -33,8 +36,6 @@ namespace nihil::graphics
 		float minLod = 0.0f;
 		float maxLod = 0.0f;
 		float mipLodBias = 0.0f;
-
-		Resource<vk::Sampler> sampler;
 
 		Sampler(AssetUsage assetUsage, Engine* _engine);
 

@@ -21,14 +21,12 @@ namespace nihil::graphics
     {
         friend class Scene;
     public:
-        //? used for resource optimization in the future, for now just sits here to remind me of my plans.
-        bool active = true;
-
-        bool modifiedThisFrame = false;
-
-        bool autoCreatedInstanceData = false;
-
         PushConstants pushConstants;
+
+        glm::vec3 scaleFactor = glm::vec3(1.0f);
+        glm::vec3 position = glm::vec3(0.0f);
+        glm::vec3 rotation = glm::vec3(0.0f);
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
 
         //TODO: allow multiple models in one object
         Model* model = nullptr;
@@ -37,13 +35,15 @@ namespace nihil::graphics
 
         uint64_t modelMaterialEncoded = 0;
 
-        glm::vec3 scaleFactor = glm::vec3(1.0f);
-        glm::vec3 position = glm::vec3(0.0f);
-        glm::vec3 rotation = glm::vec3(0.0f);
-        glm::mat4 modelMatrix = glm::mat4(1.0f);
-
-        void* instanceData = nullptr;
+        const void* instanceData = nullptr;
         size_t instanceDataSize = 0;
+
+        //? used for resource optimization in the future, for now just sits here to remind me of my plans.
+        bool active = true;
+
+        bool modifiedThisFrame = false;
+
+        bool autoCreatedInstanceData = false;
 
         inline Model* _model() const { return model; };
         inline const glm::vec3& _position() { return position; };
@@ -89,10 +89,10 @@ namespace nihil::graphics
         {
             if constexpr (warn)
             {
-                if (instanceData != nullptr && !selfCreatedInstanceData) Logger::Warn("Chainging the instance data of object: {:p} ensure that you have deleted the previous instance data: {:p}. Not doing so may cause a memory leak.", static_cast<const void*>(this), instanceData);
+                if (instanceData != nullptr && !autoCreatedInstanceData) Logger::Warn("Chainging the instance data of object: {:p} ensure that you have deleted the previous instance data: {:p}. Not doing so may cause a memory leak.", static_cast<const void*>(this), instanceData);
             }
 
-            selfCreatedInstanceData = false;
+            autoCreatedInstanceData = false;
             instanceData = _instanceData;
             instanceDataSize = _instanceDataSize;
         }
@@ -117,7 +117,7 @@ namespace nihil::graphics
 
                 constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
 
-                selfCreatedInstanceData = true;
+                autoCreatedInstanceData = true;
                 instanceData = reinterpret_cast<const void*>(glm::value_ptr(modelMatrix));
                 instanceDataSize = instanceDataChunkSize;
 
