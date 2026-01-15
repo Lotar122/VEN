@@ -44,15 +44,12 @@ if(MSVC)
 endif()
 
 if(LINUX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	set(GNU_FLAGS "
-        -O2 -flto -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized 
-        -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize -fno-math-errno -ffp-contract=fast
-    ")
+	set(GNU_FLAGS "-O2 -flto -fstrict-aliasing -fprefetch-loop-arrays -fipa-pta -pthread -ftree-vectorize -fopt-info-vec-optimized -fomit-frame-pointer -fgraphite-identity -floop-nest-optimize -fno-math-errno -ffp-contract=fast")
 	set(CMAKE_CXX_FLAGS_RELEASE "${GNU_FLAGS}")
 	set(CMAKE_C_FLAGS_RELEASE "${GNU_FLAGS}")
 
 	set(CMAKE_CXX_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native -mtune=native")
-	set(CMAKE_C_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native =mtune=native")
+	set(CMAKE_C_FLAGS_NATIVERELEASE "${GNU_FLAGS} -march=native -mtune=native")
 
     set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
 endif()

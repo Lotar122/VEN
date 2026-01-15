@@ -29,7 +29,9 @@ namespace nihil
         //Never call this function unless you know what you are doing
         static void Init()
         {
-            forceLinkCompat();
+            #ifdef WIN32
+                forceLinkCompat();
+            #endif
         }
 
         template<typename... Args>
