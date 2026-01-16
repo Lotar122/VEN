@@ -13,6 +13,7 @@
 #include "Classes/Listeners/Listeners.hpp"
 
 #include "Concepts/Integer.hpp"
+#include "vulkan/vulkan_handles.hpp"
 
 //! TODO: MAKE A std::mutex FOR THE MAIN COMMAND BUFFER, THIS SHOULD ENSURE THAT IT ISN'T RECORDED TO FROM TWO THREADS AT THE SAME TIME
 
@@ -28,6 +29,8 @@ namespace nihil::graphics
     {
         Version appVersion;
         std::string appName;
+
+        std::string directory;
 
         bool validationLayers = false;
 
@@ -58,12 +61,16 @@ namespace nihil::graphics
         Resource<vk::CommandBuffer> mainCommandBuffer;
         Resource<vk::CommandPool> mainCommandPool;
 
+        Resource<vk::PipelineCache> pipelineCache;
+
         App* app = nullptr;
         Swapchain* swapchain = nullptr;
         Renderer* renderer = nullptr;
 
         uint32_t lastAssetId = 0;
+        std::string directory;
 
+        std::vector<std::byte> pipelineCacheData;
     public:
         Engine(App* _app, EngineArgs& args);
         ~Engine();
@@ -104,6 +111,8 @@ namespace nihil::graphics
 
         inline vk::Fence& _transferFence() { return transferFence.getResR(); };
 
+        inline vk::PipelineCache _pipelineCache() { return pipelineCache; };
+
         inline Renderer* _renderer() { return renderer; };
 
         inline Swapchain* _swapchain() { return swapchain; };
@@ -132,6 +141,11 @@ namespace nihil::graphics
         ); 
         static vk::CommandPool CreateVKCommandPool(vk::Device _device, uint32_t _renderQueueIndex);
         static vk::CommandBuffer CreateVKCommandBuffer(vk::Device _device, vk::CommandPool commandPool);
+
+        static std::vector<std::byte> loadPipelineCacheData(const std::string& path);
+        static std::vector<std::byte> getPipelineCacheData(vk::Device _device, vk::PipelineCache _pipelineCache);
+        static std::pair<vk::PipelineCache, std::vector<std::byte>> createPipelineCache(vk::Device _device, const std::string& directory);
+        static void savePipelineCacheData(const std::string& directory, const std::vector<std::byte>& _pipelineCacheData);
     
         //? Empty for now
         void onResize() final override {};

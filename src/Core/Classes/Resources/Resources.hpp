@@ -24,5 +24,6 @@
 #include "DescriptorPool.hpp"
 #include "DescriptorSet.hpp"
 #include "DescriptorSetLayout.hpp"
+#include "PipelineCache.hpp"
 
 #include "SwapchainKHR.hpp"

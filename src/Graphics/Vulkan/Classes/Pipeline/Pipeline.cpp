@@ -213,7 +213,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 	pipelineInfo.basePipelineHandle = nullptr;
 
 	try {
-		pipeline.assignRes(engine->_device().createGraphicsPipeline(nullptr, pipelineInfo).value, engine->_device());
+		pipeline.assignRes(engine->_device().createGraphicsPipeline(engine->_pipelineCache(), pipelineInfo).value, engine->_device());
 	}
 	catch (vk::SystemError err) {
 		Logger::Exception(err.what());
