@@ -87,6 +87,46 @@ endif()
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
+# Try vcpkg first (only works if toolchain is active)
+find_package(unofficial-shaderc CONFIG QUIET)
+
+# Try system CMake config
+if (NOT unofficial_shaderc_FOUND)
+    find_package(shaderc CONFIG QUIET)
+endif()
+
+# Try system pkg-config as final fallback
+if (NOT unofficial_shaderc_FOUND AND NOT shaderc_FOUND)
+    find_package(PkgConfig QUIET)
+    if (PkgConfig_FOUND)
+        pkg_check_modules(SHADERC QUIET shaderc)
+    endif()
+endif()
+
+add_library(VEN_shaderc INTERFACE)
+
+if (unofficial_shaderc_FOUND)
+    target_link_libraries(VEN_shaderc
+        INTERFACE unofficial::shaderc::shaderc
+    )
+elseif (shaderc_FOUND)
+    target_link_libraries(VEN_shaderc
+        INTERFACE shaderc
+    )
+elseif (SHADERC_FOUND)
+    target_include_directories(VEN_shaderc
+        INTERFACE ${SHADERC_INCLUDE_DIRS}
+    )
+    target_link_libraries(VEN_shaderc
+        INTERFACE ${SHADERC_LIBRARIES}
+    )
+else()
+    message(FATAL_ERROR
+        "Shaderc not found. "
+        "Install via vcpkg or system package manager."
+    )
+endif()
+
 if(LINUX)
 	find_path(STB_INCLUDE_DIR "stb_image.h"
         PATH_SUFFIXES stb
@@ -106,6 +146,8 @@ file(GLOB_RECURSE SOURCES
 set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or Lib")
 
 add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
+
+target_link_libraries(VEN PRIVATE VEN_shaderc)
 
 target_include_directories(VEN 
 	PUBLIC

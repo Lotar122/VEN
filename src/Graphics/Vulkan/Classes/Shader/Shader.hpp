@@ -2,6 +2,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <shaderc/shaderc.hpp>
+
 #include <fstream>
 #include <vector>
 
@@ -25,6 +27,10 @@ namespace nihil::graphics
 
         void LoadFromSource(const std::string& path);
         void LoadFromBinary(const std::string& path);
+
+        static shaderc_shader_kind shaderKindFromPath(const std::string& path);
+
+        static std::vector<uint32_t> compileGLSL(const std::string& path);
 
         ~Shader();
 
