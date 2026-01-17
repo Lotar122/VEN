@@ -113,6 +113,8 @@ namespace nihil::graphics
 
         inline vk::PipelineCache _pipelineCache() { return pipelineCache; };
 
+        inline const std::string& _directory() { return directory; };
+
         inline Renderer* _renderer() { return renderer; };
 
         inline Swapchain* _swapchain() { return swapchain; };

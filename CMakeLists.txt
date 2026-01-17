@@ -86,6 +86,7 @@ endif()
 # Find Vulkan and GLFW
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # Try vcpkg first (only works if toolchain is active)
 find_package(unofficial-shaderc CONFIG QUIET)
@@ -148,6 +149,7 @@ set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or
 add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
 
 target_link_libraries(VEN PRIVATE VEN_shaderc)
+target_link_libraries(VEN PRIVATE OpenSSL::Crypto)
 
 target_include_directories(VEN 
 	PUBLIC

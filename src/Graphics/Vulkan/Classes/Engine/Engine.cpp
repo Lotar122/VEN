@@ -23,6 +23,11 @@ Engine::Engine(App* _app, EngineArgs& args)
         std::filesystem::create_directories(directory);
     }
 
+	if (!std::filesystem::exists(directory + "/ShaderCache"))
+    {
+        std::filesystem::create_directories(directory + "/ShaderCache");
+    }
+
 	app->access();
 
 	app->addEventListener(this, Listeners::onResize);

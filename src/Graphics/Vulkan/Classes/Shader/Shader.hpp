@@ -25,12 +25,25 @@ namespace nihil::graphics
 
         Shader(Engine* _engine);
 
+        //Only use in development or if you know what you are doing.
         void LoadFromSource(const std::string& path);
-        void LoadFromBinary(const std::string& path);
+        //Only use in development or if you know what you are doing.
+        void LoadFromBinary(const std::string& path, size_t offset = 0);
+
+        //This should be used in production it loads shaders from source at first run and on changes. But if the shader didn't change it loads it from a binry cache which is fast.
+        void Load(const std::string& path);
 
         static shaderc_shader_kind shaderKindFromPath(const std::string& path);
 
         static std::vector<uint32_t> compileGLSL(const std::string& path);
+
+        static inline std::string getCacheNameFromPath(const std::string& path)
+        {
+            std::string copy = path;
+            std::erase_if(copy, [](char c) {if(c == '\\' || std::isspace(c) || c == '/' || c == '.') return true; else return false;});
+            copy += ".bin";
+            return copy;
+        }
 
         ~Shader();
 
