@@ -148,9 +148,6 @@ set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or
 
 add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
 
-target_link_libraries(VEN PRIVATE VEN_shaderc)
-target_link_libraries(VEN PRIVATE OpenSSL::Crypto)
-
 target_include_directories(VEN 
 	PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/includes
@@ -168,6 +165,8 @@ target_include_directories(VEN PRIVATE ${Stb_INCLUDE_DIR})
 target_link_libraries(VEN PUBLIC
 	Vulkan::Vulkan
 	glfw
+    VEN_shaderc
+    OpenSSL::Crypto
 )
 
 target_compile_features(VEN PRIVATE cxx_std_20)

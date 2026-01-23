@@ -4,6 +4,7 @@
 #include "Classes/Model/Model.hpp"
 #include "Classes/Engine/Engine.hpp"
 #include "Classes/Pipeline/Pipeline.hpp"
+#include "vulkan/vulkan_handles.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -44,8 +45,35 @@ void Scene::addObjects(std::vector<Object>& newObjects)
     }
 }
 
+//Threading
+struct ThreadContext
+{
+    vk::CommandBuffer commandBuffer;
+    vk::CommandPool commandPool;
+};
+
+ThreadContext createThreadContext(vk::Device device, uint32_t graphicsQueueFamily)
+{
+    vk::CommandPoolCreateInfo poolCI{
+        vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        graphicsQueueFamily
+    };
+
+    vk::CommandPool pool = device.createCommandPool(poolCI);
+
+    vk::CommandBufferAllocateInfo alloc{
+        pool,
+        vk::CommandBufferLevel::eSecondary,
+        1
+    };
+
+    vk::CommandBuffer secondary =
+        device.allocateCommandBuffers(alloc)[0];
+
+    return { secondary, pool };
+}
+
 //TODO
-//get the pipeline from material and not model
 //remember to remove pipelines and the renderpass from the Model class
 
 void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, DescriptorAllocator* descriptorAllocator)
@@ -55,14 +83,14 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
     
     for(Object* o : objects)
     {
-        if(o->_model()->_instancedPipeline())
+        if(o->_material()->_instancedPipeline())
         {
             auto it = instancedDraws.find(o->_modelMaterialEncoded());
             if(it != instancedDraws.end())
             {
                 it->second.push_back(o);
             }
-            else 
+            else
             {
                 //put the vectors in a pool and reuse across frames
                 instancedDraws.insert(std::make_pair(o->_modelMaterialEncoded(), std::vector<Object*>()));
@@ -75,15 +103,19 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             normalDraws.push_back(o);
         }
     }
+
+    //Multithread the recording by doing instanced on tc1 and normal on tc2. This will only decrease performance in our use case.
+    //Make it split the work into 4 threads if the CPU has 6 or more cores
+
     for(auto& it : instancedDraws)
     {
-        if(it.second.size() > 1)
+        if(it.second.size() > 1) [[likely]]
         {
             if (descriptorAllocator)
             {
                 commandBuffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics,
-                    it.second[0]->_model()->_instancedPipeline()->_layout(),
+                    it.second[0]->_material()->_instancedPipeline()->_layout(),
                     0,
                     descriptorAllocator->globalDescriptorSet->set.getRes(),
                     {}
@@ -92,10 +124,10 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
 
             //Push Constants
             //Model component of the push constants is unused
-            commandBuffer.pushConstants(it.second[0]->_model()->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
+            commandBuffer.pushConstants(it.second[0]->_material()->_instancedPipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), it.second[0]->_pushConstants(camera));
 
             //Draw
-            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_model()->_instancedPipeline()->_pipeline());
+            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_material()->_instancedPipeline()->_pipeline());
 
             //Create or reuse the instance buffer
             size_t instanceDataChunkSize = it.second[0]->_instanceData().second;
@@ -123,21 +155,13 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
 
                 instanceBuffer = new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
 
-                instanceBuffer->moveToGPU();
-
                 instanceBuffers.insert(std::make_pair(it.first, instanceBuffer));
             }
 
-            bool objectModified = false;
+            bool reconstructedInstanceBuffer = false;
 
-            for(Object* o : it.second)
+            if(instanceDataSize > instanceBuffer->_size() || (int64_t)instanceDataSize - 1'000 >= (int64_t)instanceBuffer->_size())
             {
-                if(o->modifiedThisFrame) objectModified = true;
-            }
-
-            if(bufferIT != instanceBuffers.end() && objectModified)
-            {
-                //In the future do this so that it only modifies the matrix of the modified object
                 std::vector<std::byte> instanceData;
 
                 instanceData.resize(instanceDataSize);
@@ -147,21 +171,40 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                     memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
-                if(instanceDataSize == instanceBuffer->_size())
-                {
-                    //Just modify the data
-                    instanceBuffer->update(std::move(instanceData));
-                }
-                else
-                {
-                    //the buffer is of the wrong size, delete it and make a new one. reuse the same memory location
-                    instanceBuffer->~Buffer();
+                instanceBuffer->~Buffer();
 
-                    instanceBuffer = new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+                instanceBuffer = std::launder(new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(std::move(instanceData), engine));
+
+                instanceBuffer->moveToGPU();
+
+                reconstructedInstanceBuffer = true;
+
+                bufferIT = instanceBuffers.find(it.first);
+                bufferIT->second = instanceBuffer;
+            }
+
+            if(!reconstructedInstanceBuffer)
+            {
+                size_t counter = 0;
+                for(Object* o : it.second)
+                {
+                    if(o->modifiedThisFrame) 
+                    { 
+                        instanceBuffer->update(
+                            reinterpret_cast<const std::byte*>(o->_instanceData().first), 
+                            { 0, counter * o->_instanceData().second, o->_instanceData().second }
+                        );
+                    }
+
+                    counter++;
                 }
             }
 
+            // //TODO: Mutithread this
+
             assert(instanceBuffer != nullptr);
+
+            instanceBuffer->moveToGPU();
 
             std::array<vk::Buffer, 2> vertexBuffers = {
                 it.second[0]->_model()->_vertexBuffer()._buffer(),
@@ -176,7 +219,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
 
             commandBuffer.bindIndexBuffer(it.second[0]->_model()->_indexBuffer()._buffer(), 0, vk::IndexType::eUint32);
 
-            //std::cout << it.first->_indexBuffer()._typedSize() << " " << it.second.size() << '\n';
             commandBuffer.drawIndexed(static_cast<uint32_t>(it.second[0]->_model()->_indexBuffer()._typedSize()), it.second.size(), 0, 0, 0);
         }
         else if(it.second.size() == 1)
@@ -187,11 +229,11 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
 
     for(Object* o : normalDraws)
     {
-        if (descriptorAllocator)
+        if (descriptorAllocator) [[likely]]
         {
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
-                o->_model()->_pipeline()->_layout(),
+                o->_material()->_pipeline()->_layout(),
                 0,
                 descriptorAllocator->globalDescriptorSet->set.getRes(),
                 {}
@@ -199,7 +241,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
         }
 
         //Push Constants
-        commandBuffer.pushConstants(o->_model()->_pipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
+        commandBuffer.pushConstants(o->_material()->_pipeline()->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
 
         //Draw
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, o->model->_pipeline()->_pipeline());

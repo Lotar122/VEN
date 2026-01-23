@@ -5,6 +5,7 @@
 #include "StorageAndUniformBuffer.hpp"
 #include "FindMemoryTypeIndex.hpp"
 #include "Classes/Asset/Asset.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace nihil::graphics
 {
@@ -48,7 +49,7 @@ namespace nihil::graphics
 
         inline const Engine* _engine() const { return engine; };
 
-        static void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
+        static void copyBufferImpl(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
         {
             vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
             discardResult = engine->_device().resetFences(1, &engine->_transferFence());
@@ -57,7 +58,6 @@ namespace nihil::graphics
             vk::CommandBufferBeginInfo beginInfo{};
             engine->_mainCommandBuffer().begin(beginInfo);
 
-            vk::BufferCopy copyRegion{ 0, 0, size };
             engine->_mainCommandBuffer().copyBuffer(src, dst, copyRegion);
 
             vk::BufferMemoryBarrier barrier{
@@ -89,6 +89,16 @@ namespace nihil::graphics
             submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+        }
+
+        static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
+        {
+            copyBufferImpl(src, dst, size, { 0, 0, size }, engine);
+        }
+
+        static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
+        {
+            copyBufferImpl(src, dst, size, copyRegion, engine);
         }
 
         vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
@@ -375,12 +385,9 @@ namespace nihil::graphics
             if constexpr (!CPUAccessible) engine->_device().freeMemory(stagingMemory);
         }
 
-        void update(const std::vector<T>& _data)
+    private:
+        inline void updateGPUData(vk::BufferCopy updateRegion)
         {
-            assert(_data.size() == data.size());
-
-            data = _data;
-
             bool wasOnGPU = onGPU;
 
             moveToGPU();
@@ -389,25 +396,42 @@ namespace nihil::graphics
             {
                 Logger::Log("Using a staging buffer");
 
-                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
+                void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-
+                std::memcpy(
+                    dataTyped, 
+                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset, 
+                    updateRegion.size
+                );
                 engine->_device().unmapMemory(stagingMemory);
 
-                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, updateRegion, engine);
             }
             else
             {
                 Logger::Log("Using a direct copy");
 
-                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
+                void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                std::memcpy(
+                    dataTyped + updateRegion.dstOffset, 
+                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset, 
+                    updateRegion.size
+                );
                 engine->_device().unmapMemory(memory);
             }
 
             if(!wasOnGPU) freeFromGPU();
+        }
+    public:
+
+        void update(const std::vector<T>& _data)
+        {
+            assert(_data.size() == data.size());
+
+            data = _data;
+
+            updateGPUData({ 0, 0, size });
         }
 
         void update(const std::vector<T>&& _data)
@@ -416,33 +440,7 @@ namespace nihil::graphics
 
             data = std::move(_data);
 
-            bool wasOnGPU = onGPU;
-
-            moveToGPU();
-
-            if constexpr (!CPUAccessible)
-            {
-                Logger::Log("Using a staging buffer");
-
-                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-
-                engine->_device().unmapMemory(stagingMemory);
-
-                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
-            }
-            else
-            {
-                Logger::Log("Using a direct copy");
-
-                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-                engine->_device().unmapMemory(memory);
-            }
-
-            if(!wasOnGPU) freeFromGPU();
+            updateGPUData({ 0, 0, size });
         }
 
         void update(const T* _data, size_t _size)
@@ -451,33 +449,20 @@ namespace nihil::graphics
 
             std::memcpy(data.data(), _data, data.size());
 
-            bool wasOnGPU = onGPU;
+            updateGPUData({ 0, 0, size });
+        }
 
-            moveToGPU();
+        void update(const T* _data, vk::BufferCopy updateRegion)
+        {
+            assert(_data != nullptr);
 
-            if constexpr (!CPUAccessible)
-            {
-                Logger::Log("Using a staging buffer");
+            std::memcpy(
+                reinterpret_cast<std::byte*>(data.data()) + updateRegion.dstOffset, 
+                _data + updateRegion.srcOffset, 
+                updateRegion.size
+            );
 
-                void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-
-                engine->_device().unmapMemory(stagingMemory);
-
-                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
-            }
-            else
-            {
-                Logger::Log("Using a direct copy");
-
-                void* dataRaw = engine->_device().mapMemory(memory, 0, size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
-                engine->_device().unmapMemory(memory);
-            }
-
-            if (!wasOnGPU) freeFromGPU();
+            updateGPUData(updateRegion);
         }
 
         void destroy()

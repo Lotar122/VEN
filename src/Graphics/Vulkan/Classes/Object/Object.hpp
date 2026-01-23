@@ -48,6 +48,7 @@ namespace nihil::graphics
         inline const glm::vec3& _position() { return position; };
         inline const glm::vec3& _rotation() { return rotation; };
         inline const glm::mat4& _modelMatrix() { return modelMatrix; };
+        inline Material* _material() { return material; };
 
         inline uint64_t _modelMaterialEncoded() { return modelMaterialEncoded; };
 

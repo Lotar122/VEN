@@ -40,18 +40,18 @@ namespace nihil::graphics
         {
             assert(_engine != nullptr);
 
-            // assert(_texture != nullptr);
-            // assert(_sampler != nullptr);
+            assert(_texture != nullptr);
+            assert(_sampler != nullptr);
 
-            // assert(_vertexShader != nullptr);
-            // assert(_fragmentShader != nullptr);
-            // assert(_instancedVertexShader != nullptr);
-            // assert(_instancedFragmentShader != nullptr);
+            assert(_vertexShader != nullptr);
+            assert(_fragmentShader != nullptr);
+            assert(_instancedVertexShader != nullptr);
+            assert(_instancedFragmentShader != nullptr);
 
-            // assert(_pipeline != nullptr);
-            // assert(_instancedPipeline != nullptr);
+            assert(_pipeline != nullptr);
+            assert(_instancedPipeline != nullptr);
 
-            // assert(_renderPass != nullptr);
+            assert(_renderPass != nullptr);
 
             engine = _engine;
 
@@ -68,5 +68,15 @@ namespace nihil::graphics
 
             renderPass = _renderPass;
         }
+
+        inline Texture* _texture() { return texture; };
+        inline Sampler* _sampler() { return sampler; };
+        inline Shader* _vertexShader() { return vertexShader; }
+        inline Shader* _fragmentShader() { return fragmentShader; };
+        inline Shader* _instancedVertexShader() { return instancedVertexShader; };
+        inline Shader* _instancedFragmentShader() { return instancedFragmentShader; };
+        inline Pipeline* _pipeline() { return pipeline; };
+        inline Pipeline* _instancedPipeline() { return instancedPipeline; };
+        inline RenderPass* _renderPass() { return renderPass; };
     };
 }
