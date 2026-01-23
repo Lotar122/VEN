@@ -146,15 +146,13 @@ namespace nihil::graphics
             }
         }
 
-        Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
+        inline void BufferConstructorImpl(Engine* _engine, AssetUsage _assetUsage)
         {
             assert(_engine != nullptr);
             assert(_engine->_transferFence() != nullptr);
 
             engine = _engine;
             transferFence = engine->_transferFence();
-
-            data = _data;
 
             memProperties = engine->_physicalDevice().getMemoryProperties();
 
@@ -198,113 +196,27 @@ namespace nihil::graphics
             {
                 Logger::Exception("Failed to find suitable memory type to create buffer");
             }
+        }
+
+        Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
+        {
+            data = _data;
+
+            BufferConstructorImpl(_engine, _assetUsage);
         }
         Buffer(const T&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
-            assert(_engine != nullptr);
-            assert(_engine->_transferFence() != nullptr);
-
-            engine = _engine;
-            transferFence = engine->_transferFence();
-
             data = std::move(_data);
 
-            memProperties = engine->_physicalDevice().getMemoryProperties();
-
-            vk::BufferCreateInfo bufferCreateInfo(
-                {},                      // Flags (default: none)
-                size,              // Size of the buffer
-                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
-                vk::SharingMode::eExclusive // Sharing mode
-            );
-
-            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
-
-            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
-
-            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
-
-            if constexpr (!CPUAccessible)
-            {
-                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
-
-                vk::BufferCreateInfo stagingBufferCreateInfo{
-                    {},
-                    size,
-                    vk::BufferUsageFlagBits::eTransferSrc,
-                    vk::SharingMode::eExclusive
-                };
-
-                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
-
-                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
-
-                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-                if (stagingMemoryTypeIndex == uint32_t(-1))
-                {
-                    Logger::Exception("Failed to find the memory type to create a staging buffer");
-                }
-            }
-
-            if (memoryTypeIndex == uint32_t(-1))
-            {
-                Logger::Exception("Failed to find suitable memory type to create buffer");
-            }
+            BufferConstructorImpl(_engine, _assetUsage);
         }
         Buffer(const T* _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
-            assert(_engine != nullptr);
-            assert(_engine->_transferFence() != nullptr);
             assert(_data != nullptr);
-
-            engine = _engine;
-            transferFence = engine->_transferFence();
 
             data = *_data;
 
-            memProperties = engine->_physicalDevice().getMemoryProperties();
-
-            vk::BufferCreateInfo bufferCreateInfo(
-                {},                      // Flags (default: none)
-                size,              // Size of the buffer
-                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
-                vk::SharingMode::eExclusive // Sharing mode
-            );
-
-            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
-
-            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
-
-            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
-
-            if constexpr (!CPUAccessible)
-            {
-                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
-
-                vk::BufferCreateInfo stagingBufferCreateInfo{
-                    {},
-                    size,
-                    vk::BufferUsageFlagBits::eTransferSrc,
-                    vk::SharingMode::eExclusive
-                };
-
-                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
-
-                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
-
-                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-                if (stagingMemoryTypeIndex == uint32_t(-1))
-                {
-                    Logger::Exception("Failed to find the memory type to create a staging buffer");
-                }
-            }
-
-            if (memoryTypeIndex == uint32_t(-1))
-            {
-                Logger::Exception("Failed to find suitable memory type to create buffer");
-            }
+            BufferConstructorImpl(_engine, _assetUsage);
         }
 
         void moveToGPU()
@@ -602,15 +514,13 @@ namespace nihil::graphics
             }
         }
 
-        Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
+        inline void BufferConstructorImpl(Engine* _engine, AssetUsage _assetUsage)
         {
             assert(_engine != nullptr);
             assert(_engine->_transferFence() != nullptr);
 
             engine = _engine;
             transferFence = engine->_transferFence();
-
-            data = _data;
 
             size = data.size();
 
@@ -656,117 +566,27 @@ namespace nihil::graphics
             {
                 Logger::Exception("Failed to find suitable memory type to create buffer");
             }
+        }
+
+        Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
+        {
+            data = _data;
+
+            BufferConstructorImpl(_engine, _assetUsage);
         }
         Buffer(const T&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
-            assert(_engine != nullptr);
-            assert(_engine->_transferFence() != nullptr);
-
-            engine = _engine;
-            transferFence = engine->_transferFence();
-
             data = std::move(_data);
 
-            size = data.size();
-
-            memProperties = engine->_physicalDevice().getMemoryProperties();
-
-            vk::BufferCreateInfo bufferCreateInfo(
-                {},                      // Flags (default: none)
-                size,              // Size of the buffer
-                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
-                vk::SharingMode::eExclusive // Sharing mode
-            );
-
-            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
-
-            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
-
-            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
-
-            if constexpr (!CPUAccessible)
-            {
-                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
-
-                vk::BufferCreateInfo stagingBufferCreateInfo{
-                    {},
-                    size,
-                    vk::BufferUsageFlagBits::eTransferSrc,
-                    vk::SharingMode::eExclusive
-                };
-
-                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
-
-                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
-
-                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-                if (stagingMemoryTypeIndex == uint32_t(-1))
-                {
-                    Logger::Exception("Failed to find the memory type to create a staging buffer");
-                }
-            }
-
-            if (memoryTypeIndex == uint32_t(-1))
-            {
-                Logger::Exception("Failed to find suitable memory type to create buffer");
-            }
+            BufferConstructorImpl(_engine, _assetUsage);
         }
         Buffer(const T* _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
-            assert(_engine != nullptr);
-            assert(_engine->_transferFence() != nullptr);
             assert(_data != nullptr);
-
-            engine = _engine;
-            transferFence = engine->_transferFence();
 
             data = *_data;
 
-            size = data.size();
-
-            memProperties = engine->_physicalDevice().getMemoryProperties();
-
-            vk::BufferCreateInfo bufferCreateInfo(
-                {},                      // Flags (default: none)
-                size,              // Size of the buffer
-                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
-                vk::SharingMode::eExclusive // Sharing mode
-            );
-
-            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
-
-            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
-
-            memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
-
-            if constexpr (!CPUAccessible)
-            {
-                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
-
-                vk::BufferCreateInfo stagingBufferCreateInfo{
-                    {},
-                    size,
-                    vk::BufferUsageFlagBits::eTransferSrc,
-                    vk::SharingMode::eExclusive
-                };
-
-                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
-
-                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
-
-                stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-                if (stagingMemoryTypeIndex == uint32_t(-1))
-                {
-                    Logger::Exception("Failed to find the memory type to create a staging buffer");
-                }
-            }
-
-            if (memoryTypeIndex == uint32_t(-1))
-            {
-                Logger::Exception("Failed to find suitable memory type to create buffer");
-            }
+            BufferConstructorImpl(_engine, _assetUsage);
         }
 
         void moveToGPU()

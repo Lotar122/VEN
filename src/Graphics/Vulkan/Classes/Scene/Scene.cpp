@@ -104,7 +104,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
         }
     }
 
-    //Multithread the recording by doing instanced on tc1 and normal on tc2. This will only decrease performance in our use case.
+    //Multithread the recording by doing instanced on t1 and normal on t2. This will only decrease performance in our use case.
     //Make it split the work into 4 threads if the CPU has 6 or more cores
 
     for(auto& it : instancedDraws)
