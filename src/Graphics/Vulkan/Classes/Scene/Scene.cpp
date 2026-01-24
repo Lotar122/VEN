@@ -142,7 +142,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             }
             else
             {
-                instanceBuffer = bufferHeap.alloc<Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>>();
+                instanceBuffer = instanceBufferAllocator.allocate();
 
                 std::vector<std::byte> instanceData;
 

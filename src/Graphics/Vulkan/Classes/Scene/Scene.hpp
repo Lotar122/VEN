@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "ShortHeap.hpp"
+#include "BlockAllocator/BlockAllocator.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -19,7 +19,7 @@ namespace nihil::graphics
     class Scene
     {
         Engine* engine = nullptr;
-        ShortHeap bufferHeap = ShortHeap(1024, 1024);
+        BlockAllocator<Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>> instanceBufferAllocator;
 
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
         std::unordered_map<uint64_t, Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;

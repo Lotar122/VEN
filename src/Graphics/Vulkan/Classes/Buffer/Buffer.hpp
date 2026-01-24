@@ -146,7 +146,9 @@ namespace nihil::graphics
             }
         }
 
-        void BufferConstructorImpl(Engine* _engine, AssetUsage _assetUsage)
+        inline void ConsumeBufferImpl();
+
+        inline void BufferConstructorImpl(Engine* _engine, AssetUsage _assetUsage)
         {
             assert(_engine != nullptr);
             assert(_engine->_transferFence() != nullptr);
@@ -231,6 +233,9 @@ namespace nihil::graphics
 
             BufferConstructorImpl(_engine, _assetUsage);
         }
+
+        //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect
+        //Buffer(const Buffer<T, usageT, propertiesT>& source, )
 
         void moveToGPU()
         {
