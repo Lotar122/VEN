@@ -19,9 +19,10 @@ namespace nihil
 
         ~BlockAllocator();
 
-        T* allocate();
+        template<typename... Args>
+        T* allocate(Args&&... args);
 
-        void free(std::byte* block);
+        void free(T* block);
     };
 }
 

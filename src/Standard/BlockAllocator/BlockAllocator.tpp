@@ -1,5 +1,3 @@
-#include "BlockAllocator.hpp"
-
 namespace nihil 
 {
     template<typename T>
@@ -18,36 +16,46 @@ namespace nihil
     }
 
     template<typename T>
-    T* BlockAllocator<T>::allocate()
+    template<typename... Args>
+    T* BlockAllocator<T>::allocate(Args&&... args)
     {
         if(!freeList.empty())
         {
-            std::byte* ptr = *freeList.begin();
-            freeList.erase(ptr);
-            return (T*)ptr;
+            T* ptr = reinterpret_cast<T*>(*freeList.begin());
+            freeList.erase(reinterpret_cast<std::byte*>(ptr));
+
+            ptr = new (ptr) T(std::forward<Args>(args)...);
+
+            return std::launder(ptr);
         }
         else
         {
             if(slabs.back().second >= slabSize)
             {
                 slabs.emplace_back((std::byte*)std::malloc(sizeof(T) * slabSize), 0);
-                std::byte* ptr = slabs.back().first + (sizeof(T) * slabs.back().second);
+                T* ptr = reinterpret_cast<T*>(slabs.back().first + (sizeof(T) * slabs.back().second));
                 slabs.back().second++;
-                return (T*)ptr;
+
+                ptr = new (ptr) T(std::forward<Args>(args)...);
+
+                return std::launder(ptr);
             }
             else 
             {
-                std::byte* ptr = slabs.back().first + (sizeof(T) * slabs.back().second);
+                T* ptr = reinterpret_cast<T*>(slabs.back().first + (sizeof(T) * slabs.back().second));
                 slabs.back().second++;
-                return (T*)ptr;
+
+                ptr = new (ptr) T(std::forward<Args>(args)...);
+
+                return std::launder(ptr);
             }
         }
     }
 
     template<typename T>
-    void BlockAllocator<T>::free(std::byte* block)
+    void BlockAllocator<T>::free(T* block)
     {
-        static_cast<T*>(block)->~T();
-        freeList.insert(block);
+        block->~T();
+        freeList.insert(reinterpret_cast<std::byte*>(block));
     }
 }

@@ -6,6 +6,7 @@
 #include "FindMemoryTypeIndex.hpp"
 #include "Classes/Asset/Asset.hpp"
 #include "vulkan/vulkan.hpp"
+#include <iterator>
 
 namespace nihil::graphics
 {
@@ -211,7 +212,7 @@ namespace nihil::graphics
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
-        Buffer(const std::vector<T>&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(std::vector<T>&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             assert(_data.size() != 0);
 
@@ -225,7 +226,7 @@ namespace nihil::graphics
             assert(_size != 0);
             assert(_data != nullptr);
 
-            size = _size;
+            size = _size * sizeof(T);
 
             data.resize(size);
 
@@ -234,8 +235,126 @@ namespace nihil::graphics
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
-        //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect
-        //Buffer(const Buffer<T, usageT, propertiesT>& source, )
+        //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        Buffer(Buffer<T, usageT, propertiesT>& source, const std::vector<T>& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source.data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), newData.begin(), newData.end());
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            source.moveToGPU();
+
+            copyBuffer(source.buffer, buffer, size, {0, 0, source.size}, engine);
+
+            updateGPUData({ source.size, source.size, newData.size() * sizeof(T) });
+            
+            source.freeFromGPU();
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>& source, std::vector<T>&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source.data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), std::make_move_iterator(newData.begin()), std::make_move_iterator(newData.end()));
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            source.moveToGPU();
+
+            copyBuffer(source.buffer, buffer, size, {0, 0, source.size}, engine);
+
+            updateGPUData({ source.size, source.size, newData.size() * sizeof(T) });
+            
+            source.freeFromGPU();
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>& source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source.data);
+
+            data.resize(data.size() + newDataSize);
+
+            memcpy(data.data() + source.size, newData, newDataSize * sizeof(T));
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            source.moveToGPU();
+
+            copyBuffer(source.buffer, buffer, size, {0, 0, source.size}, engine);
+
+            updateGPUData({ source.size, source.size, newDataSize * sizeof(T) });
+            
+            source.freeFromGPU();
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>* source, const std::vector<T>& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source->data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), newData.begin(), newData.end());
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            source->moveToGPU();
+
+            copyBuffer(source->buffer, buffer, size, {0, 0, source->size}, engine);
+
+            updateGPUData({ source->size, source->size, newData.size() * sizeof(T) });
+            
+            source->freeFromGPU();
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>* source, std::vector<T>&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source->data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), std::make_move_iterator(newData.begin()), std::make_move_iterator(newData.end()));
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            source->moveToGPU();
+
+            copyBuffer(source->buffer, buffer, size, {0, 0, source->size}, engine);
+
+            updateGPUData({ source->size, source->size, newData.size() * sizeof(T) });
+            
+            source->freeFromGPU();
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>* source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source->data);
+
+            data.resize(data.size() + newDataSize);
+
+            memcpy(data.data() + source->size, newData, newDataSize * sizeof(T));
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            source->moveToGPU();
+
+            copyBuffer(source->buffer, buffer, size, {0, 0, source->size}, engine);
+
+            updateGPUData({ source->size, source->size, newDataSize * sizeof(T) });
+            
+            source->freeFromGPU();
+        }
 
         void moveToGPU()
         {
@@ -328,10 +447,10 @@ namespace nihil::graphics
             {
                 Logger::Log("Using a direct copy");
 
-                void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
+                void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(
-                    dataTyped + updateRegion.dstOffset, 
+                    dataTyped, 
                     reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset, 
                     updateRegion.size
                 );

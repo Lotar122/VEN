@@ -9,6 +9,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "Standard/Enumerate.hpp"
+
 using namespace nihil::graphics;
 
 void Scene::addObjects(const Object** newObjects, size_t size)
@@ -142,8 +144,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             }
             else
             {
-                instanceBuffer = instanceBufferAllocator.allocate();
-
                 std::vector<std::byte> instanceData;
 
                 instanceData.resize(instanceDataSize);
@@ -153,7 +153,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                     memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
-                instanceBuffer = new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(instanceData, engine);
+                instanceBuffer = instanceBufferAllocator.allocate(instanceData, engine);
 
                 instanceBuffers.insert(std::make_pair(it.first, instanceBuffer));
             }
@@ -164,18 +164,20 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
             {
                 std::vector<std::byte> instanceData;
 
-                instanceData.resize(instanceDataSize);
+                size_t newObjectCount = (instanceDataSize - instanceBuffer->_size()) / instanceDataChunkSize;
 
-                for (int i = 0; i < it.second.size(); i++)
+                instanceData.resize(instanceDataSize - instanceBuffer->_size());
+
+                for (int i = it.second.size() - newObjectCount, c = 0; i < it.second.size(); i++, c++)
                 {
-                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
+                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * c), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
-                instanceBuffer->~Buffer();
+                Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, instanceData, engine);
 
-                instanceBuffer = std::launder(new (instanceBuffer) Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>(std::move(instanceData), engine));
+                instanceBufferAllocator.free(instanceBuffer);
 
-                instanceBuffer->moveToGPU();
+                instanceBuffer = newInstanceBuffer;
 
                 reconstructedInstanceBuffer = true;
 
@@ -183,21 +185,16 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                 bufferIT->second = instanceBuffer;
             }
 
-            if(!reconstructedInstanceBuffer)
+            for(auto [i, o] : enumerate(it.second))
             {
-                size_t counter = 0;
-                for(Object* o : it.second)
-                {
-                    if(o->modifiedThisFrame) 
-                    { 
-                        instanceBuffer->update(
-                            reinterpret_cast<const std::byte*>(o->_instanceData().first), 
-                            { 0, counter * o->_instanceData().second, o->_instanceData().second }
-                        );
-                    }
-
-                    counter++;
+                if(o->modifiedThisFrame) 
+                { 
+                    instanceBuffer->update(
+                        reinterpret_cast<const std::byte*>(o->_instanceData().first), 
+                        { 0, i * o->_instanceData().second, o->_instanceData().second }
+                    );
                 }
+
             }
 
             // //TODO: Mutithread this
