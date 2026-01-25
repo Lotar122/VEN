@@ -173,7 +173,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                     memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * c), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
-                Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, instanceData, engine);
+                Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, std::move(instanceData), engine);
 
                 instanceBufferAllocator.free(instanceBuffer);
 
@@ -184,6 +184,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                 bufferIT = instanceBuffers.find(it.first);
                 bufferIT->second = instanceBuffer;
             }
+
+            instanceBuffer->beginUpdateRecording();
 
             for(auto [i, o] : enumerate(it.second))
             {
@@ -196,6 +198,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
                 }
 
             }
+
+            instanceBuffer->executeRecordedUpdates();
 
             // //TODO: Mutithread this
 

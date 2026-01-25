@@ -409,6 +409,29 @@ namespace nihil::graphics
             (properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
 
         bool destroyed = false;
+
+        enum class UpdateMode
+        {
+            Immediate,
+            Recording
+        };
+
+        struct UpdateCommand
+        {
+            uint64_t srcOffset;
+            uint64_t dstOffset;
+            uint64_t updateSize;
+            uint64_t _pad = 0;
+        };
+
+        struct UpdateOptimizer
+        {
+            std::vector<UpdateCommand> commands;
+        };
+
+        UpdateOptimizer updateOptimizer = {};
+        UpdateMode updateMode = UpdateMode::Immediate;
+        UpdateMode preRecordingUpdateMode = updateMode;
     public:
         inline vk::Buffer _buffer() { return buffer.getRes(); };
         //return the size of the buffer in bytes
@@ -418,56 +441,64 @@ namespace nihil::graphics
 
         inline const Engine* _engine() const { return engine; };
 
+        template<UpdateMode updateModeT>
         static void copyBufferImpl(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
         {
-            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+            if constexpr (updateModeT == UpdateMode::Immediate) 
+            {
+                vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+                discardResult = engine->_device().resetFences(1, &engine->_transferFence());
 
-            // Step 5: Copy staging buffer to buffer
-            vk::CommandBufferBeginInfo beginInfo{};
-            engine->_mainCommandBuffer().begin(beginInfo);
+                vk::CommandBufferBeginInfo beginInfo{};
+                engine->_mainCommandBuffer().begin(beginInfo);
+            }
 
             engine->_mainCommandBuffer().copyBuffer(src, dst, copyRegion);
 
-            vk::BufferMemoryBarrier barrier{
-                vk::AccessFlagBits::eTransferWrite,
-                vk::AccessFlagBits::eShaderRead,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED,
-                dst,
-                0,
-                size
-            };
+            if constexpr (updateModeT == UpdateMode::Immediate) 
+            {
+                vk::BufferMemoryBarrier barrier{
+                    vk::AccessFlagBits::eTransferWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    dst,
+                    0,
+                    size
+                };
 
-            engine->_mainCommandBuffer().pipelineBarrier(
-                vk::PipelineStageFlagBits::eTransfer,
-                vk::PipelineStageFlagBits::eVertexShader,
-                {},
-                nullptr,
-                barrier,
-                nullptr
-            );
+                engine->_mainCommandBuffer().pipelineBarrier(
+                    vk::PipelineStageFlagBits::eTransfer,
+                    vk::PipelineStageFlagBits::eVertexShader,
+                    {},
+                    nullptr,
+                    barrier,
+                    nullptr
+                );
 
-            engine->_mainCommandBuffer().end();
+                engine->_mainCommandBuffer().end();
 
-            vk::SubmitInfo submitInfo = {};
-            submitInfo.waitSemaphoreCount = 0;
-            submitInfo.pWaitSemaphores = nullptr;
+                vk::SubmitInfo submitInfo = {};
+                submitInfo.waitSemaphoreCount = 0;
+                submitInfo.pWaitSemaphores = nullptr;
 
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+                submitInfo.commandBufferCount = 1;
+                submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
-            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+                vk::Result discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+            }
         }
 
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
         static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
         {
-            copyBufferImpl(src, dst, size, { 0, 0, size }, engine);
+            copyBufferImpl<updateModeT>(src, dst, size, { 0, 0, size }, engine);
         }
 
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
         static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
         {
-            copyBufferImpl(src, dst, size, copyRegion, engine);
+            copyBufferImpl<updateModeT>(src, dst, size, copyRegion, engine);
         }
 
         vk::DescriptorSetLayoutBinding getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
@@ -568,6 +599,17 @@ namespace nihil::graphics
             }
         }
 
+        inline void BufferConsumeImpl(Buffer<T, usageT, propertiesT>* source, size_t newDataSize)
+        {
+            source->moveToGPU();
+
+            copyBuffer(source->buffer, buffer, size, {0, 0, source->size}, engine);
+
+            updateGPUData({ source->size, source->size, newDataSize * sizeof(T) });
+            
+            source->freeFromGPU();
+        }
+
         Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Dynamic) : Asset(_assetUsage, _engine)
         {
             data = _data;
@@ -589,6 +631,87 @@ namespace nihil::graphics
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
+        //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        Buffer(Buffer<T, usageT, propertiesT>& source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source.data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), newData.begin(), newData.end());
+
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            BufferConsumeImpl(&source, newData.size());
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>& source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source.data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), std::make_move_iterator(newData.begin()), std::make_move_iterator(newData.end()));
+
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            BufferConsumeImpl(&source, newData.size());
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>& source, T::value_type* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source.data);
+
+            data.resize(data.size() + newDataSize);
+
+            memcpy(data.data() + source.size, newData, newDataSize * sizeof(T));
+
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            BufferConsumeImpl(&source, newDataSize);
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>* source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source->data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), newData.begin(), newData.end());
+
+            //this should work for now.
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            BufferConsumeImpl(source, newData.size());
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>* source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source->data);
+
+            data.reserve(data.size() + newData.size());
+
+            data.insert(data.end(), std::make_move_iterator(newData.begin()), std::make_move_iterator(newData.end()));
+
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            BufferConsumeImpl(source, newData.size());
+        }
+
+        Buffer(Buffer<T, usageT, propertiesT>* source, T::value_type* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        {
+            data = std::move(source->data);
+
+            data.resize(data.size() + newDataSize);
+
+            memcpy(data.data() + source->size, newData, newDataSize * sizeof(T));
+
+            BufferConstructorImpl(_engine, _assetUsage);
+
+            BufferConsumeImpl(source, newDataSize);
+        }
+
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
         void moveToGPU()
         {
             if (onGPU) return;
@@ -627,7 +750,7 @@ namespace nihil::graphics
 
                 engine->_device().unmapMemory(stagingMemory);
 
-                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+                copyBuffer<updateModeT>(stagingBuffer.getRes(), buffer.getRes(), size, engine);
             }
             else
             {
@@ -655,11 +778,12 @@ namespace nihil::graphics
         }
 
     private:
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
         inline void updateGPUData(vk::BufferCopy updateRegion)
         {
             bool wasOnGPU = onGPU;
 
-            moveToGPU();
+            moveToGPU<updateModeT>();
 
             if constexpr (!CPUAccessible)
             {
@@ -671,7 +795,7 @@ namespace nihil::graphics
 
                 engine->_device().unmapMemory(stagingMemory);
 
-                copyBuffer(stagingBuffer.getRes(), buffer.getRes(), size, updateRegion, engine);
+                copyBuffer<updateModeT>(stagingBuffer.getRes(), buffer.getRes(), size, updateRegion, engine);
             }
             else
             {
@@ -685,7 +809,85 @@ namespace nihil::graphics
 
             if (!wasOnGPU) freeFromGPU();
         }
+
+        inline void recordUpdate(const vk::BufferCopy& updateRegion)
+        {
+            if(updateOptimizer.commands.empty()) [[unlikely]]
+            {
+                updateOptimizer.commands.emplace_back(updateRegion.srcOffset, updateRegion.dstOffset, updateRegion.size);
+
+                return;
+            }
+            auto& prev = updateOptimizer.commands.back();
+            if(prev.dstOffset + prev.updateSize == updateRegion.dstOffset)
+            {
+                prev.updateSize += updateRegion.size;
+            }
+            else
+            {
+                updateOptimizer.commands.emplace_back(updateRegion.srcOffset, updateRegion.dstOffset, updateRegion.size);
+            }
+        }
     public:
+        inline void setUpdateMode(UpdateMode _updateMode)
+        {
+            updateMode = _updateMode;
+        }
+
+        inline void beginUpdateRecording()
+        {
+            preRecordingUpdateMode = updateMode;
+            updateMode = UpdateMode::Recording;
+
+            updateOptimizer.commands.clear();
+            updateOptimizer.commands.reserve(128);
+        }
+
+        void executeRecordedUpdates()
+        {
+            updateMode = preRecordingUpdateMode;
+
+            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+
+            vk::CommandBufferBeginInfo beginInfo{};
+            engine->_mainCommandBuffer().begin(beginInfo);
+
+            for(int i = 0; i < updateOptimizer.commands.size(); i++)
+            {
+                updateGPUData<UpdateMode::Recording>({ updateOptimizer.commands[i].srcOffset, updateOptimizer.commands[i].dstOffset, updateOptimizer.commands[i].updateSize });
+            }
+
+            vk::BufferMemoryBarrier barrier{
+                vk::AccessFlagBits::eTransferWrite,
+                vk::AccessFlagBits::eShaderRead,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                buffer,
+                0,
+                size
+            };
+
+            engine->_mainCommandBuffer().pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eVertexShader,
+                {},
+                nullptr,
+                barrier,
+                nullptr
+            );
+
+            engine->_mainCommandBuffer().end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = nullptr;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+
+            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+        }
 
         void update(const T& _data)
         {
@@ -721,7 +923,8 @@ namespace nihil::graphics
                 updateRange.size
             );
 
-            updateGPUData(updateRange);
+            if(updateMode == UpdateMode::Immediate) updateGPUData(updateRegion);
+            else recordUpdate(updateRegion);
         }
 
         void destroy()

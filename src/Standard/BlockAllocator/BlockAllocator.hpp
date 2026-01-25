@@ -11,8 +11,8 @@ namespace nihil
     class BlockAllocator
     {
     public:
-        std::vector<std::pair<std::byte*, size_t>> slabs;
-        std::unordered_set<std::byte*> freeList;
+        std::vector<std::pair<T*, size_t>> slabs;
+        std::unordered_set<T*> freeList;
         static constexpr size_t slabSize = 1024;
 
         BlockAllocator();

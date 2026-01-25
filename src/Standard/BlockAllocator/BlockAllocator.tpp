@@ -3,7 +3,13 @@ namespace nihil
     template<typename T>
     BlockAllocator<T>::BlockAllocator()
     {
-        slabs.emplace_back((std::byte*)std::malloc(sizeof(T) * slabSize), 0);
+        slabs.emplace_back(
+            static_cast<T*>(::operator new(
+                sizeof(T) * slabSize,
+                std::align_val_t{alignof(T)}
+            )),
+            0
+        );
     }
 
     template<typename T>
@@ -11,7 +17,7 @@ namespace nihil
     {
         for(const auto& s : slabs)
         {
-            std::free(s.first);
+            ::operator delete(s.first, std::align_val_t{alignof(T)});
         }
     }
 
@@ -21,8 +27,8 @@ namespace nihil
     {
         if(!freeList.empty())
         {
-            T* ptr = reinterpret_cast<T*>(*freeList.begin());
-            freeList.erase(reinterpret_cast<std::byte*>(ptr));
+            T* ptr = *freeList.begin();
+            freeList.erase(ptr);
 
             ptr = new (ptr) T(std::forward<Args>(args)...);
 
@@ -32,17 +38,23 @@ namespace nihil
         {
             if(slabs.back().second >= slabSize)
             {
-                slabs.emplace_back((std::byte*)std::malloc(sizeof(T) * slabSize), 0);
-                T* ptr = reinterpret_cast<T*>(slabs.back().first + (sizeof(T) * slabs.back().second));
+                slabs.emplace_back(
+                    static_cast<T*>(::operator new(
+                        sizeof(T) * slabSize,
+                        std::align_val_t{alignof(T)}
+                    )),
+                    0
+                );
+                T* ptr = slabs.back().first + slabs.back().second;
                 slabs.back().second++;
 
                 ptr = new (ptr) T(std::forward<Args>(args)...);
 
                 return std::launder(ptr);
             }
-            else 
+            else [[likely]]
             {
-                T* ptr = reinterpret_cast<T*>(slabs.back().first + (sizeof(T) * slabs.back().second));
+                T* ptr = slabs.back().first + slabs.back().second;
                 slabs.back().second++;
 
                 ptr = new (ptr) T(std::forward<Args>(args)...);
@@ -56,6 +68,6 @@ namespace nihil
     void BlockAllocator<T>::free(T* block)
     {
         block->~T();
-        freeList.insert(reinterpret_cast<std::byte*>(block));
+        freeList.insert(block);
     }
 }
