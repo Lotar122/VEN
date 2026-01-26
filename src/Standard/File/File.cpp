@@ -1,6 +1,7 @@
 #include "Standard/File.hpp"
 #include <filesystem>
 #include <fstream>
+#include <array>
 
 #include "Standard/Logger.hpp"
 #include <openssl/sha.h>
@@ -30,7 +31,7 @@ std::filesystem::file_time_type File::GetTimestamp(const std::string &path)
     }
     catch (const std::filesystem::filesystem_error& e)
     {
-        Logger::Exception("File: {} Could not be read. {}", e.path1().c_str(), e.what());
+        Logger::Exception("File: {} Could not be read. {}", e.path1().string(), e.what());
         return {};
     }
 }

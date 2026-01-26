@@ -96,30 +96,15 @@ if (NOT unofficial_shaderc_FOUND)
     find_package(shaderc CONFIG QUIET)
 endif()
 
-# Try system pkg-config as final fallback
-if (NOT unofficial_shaderc_FOUND AND NOT shaderc_FOUND)
-    find_package(PkgConfig QUIET)
-    if (PkgConfig_FOUND)
-        pkg_check_modules(SHADERC QUIET shaderc)
-    endif()
-endif()
-
 add_library(VEN_shaderc INTERFACE)
 
-if (unofficial_shaderc_FOUND)
+if (unofficial-shaderc_FOUND)
     target_link_libraries(VEN_shaderc
         INTERFACE unofficial::shaderc::shaderc
     )
 elseif (shaderc_FOUND)
     target_link_libraries(VEN_shaderc
         INTERFACE shaderc
-    )
-elseif (SHADERC_FOUND)
-    target_include_directories(VEN_shaderc
-        INTERFACE ${SHADERC_INCLUDE_DIRS}
-    )
-    target_link_libraries(VEN_shaderc
-        INTERFACE ${SHADERC_LIBRARIES}
     )
 else()
     message(FATAL_ERROR
