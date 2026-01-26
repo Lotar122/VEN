@@ -88,28 +88,23 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+add_library(VEN_shaderc INTERFACE)
+
 # Try vcpkg first (only works if toolchain is active)
 find_package(unofficial-shaderc CONFIG QUIET)
 
 # Try system CMake config
 if (NOT unofficial_shaderc_FOUND)
     find_package(shaderc CONFIG QUIET)
-endif()
 
-add_library(VEN_shaderc INTERFACE)
+    target_link_libraries(VEN_shaderc
+        INTERFACE shaderc_shared
+    )
+endif()
 
 if (unofficial-shaderc_FOUND)
     target_link_libraries(VEN_shaderc
         INTERFACE unofficial::shaderc::shaderc
-    )
-elseif (shaderc_FOUND)
-    target_link_libraries(VEN_shaderc
-        INTERFACE shaderc
-    )
-else()
-    message(FATAL_ERROR
-        "Shaderc not found. "
-        "Install via vcpkg or system package manager."
     )
 endif()
 

@@ -9,6 +9,8 @@
 #include <iterator>
 #include <vector>
 
+//!This violates the Vulkan spec. It rebins memory to buffers which is prohibited. A rewrite which instead recreates the buffer is pending.
+
 namespace nihil::graphics
 {
     class Model;
@@ -36,7 +38,7 @@ namespace nihil::graphics
         vk::DeviceMemory memory;
         vk::DeviceMemory stagingMemory;
 
-        bool onGPU = false;
+        bool onGPU = false, allocatedOnGPU = false;
 
         static constexpr bool CPUAccessible = 
             (properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
@@ -182,6 +184,8 @@ namespace nihil::graphics
         inline void BufferConsumeImpl(Buffer<T, usageT, propertiesT>* source, size_t newDataSize)
         {
             source->moveToGPU();
+            
+            allocateOnGPU();
 
             copyBuffer(source->buffer, buffer, size, {0, 0, source->size}, engine);
 
@@ -205,7 +209,7 @@ namespace nihil::graphics
             vk::BufferCreateInfo bufferCreateInfo(
                 {},                      // Flags (default: none)
                 size,              // Size of the buffer
-                usageT | vk::BufferUsageFlagBits::eTransferDst, // Usage flags
+                usageT | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc, // Usage flags
                 vk::SharingMode::eExclusive // Sharing mode
             );
 
@@ -356,12 +360,9 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newDataSize);
         }
 
-        template<UpdateMode updateModeT = UpdateMode::Immediate>
-        void moveToGPU()
+        void allocateOnGPU()
         {
-            if(onGPU) return;
-
-            onGPU = true;
+            if(allocatedOnGPU) return;
 
             Logger::Log("Allocating the buffer.");
 
@@ -378,7 +379,7 @@ namespace nihil::graphics
 
             if constexpr (!CPUAccessible)
             {
-                Logger::Log("Using a staging buffer");
+                Logger::Log("Allocating a staging buffer");
 
                 vk::MemoryAllocateInfo stagingAllocInfo(
                     memRequirements.size,    // Allocation size
@@ -388,7 +389,26 @@ namespace nihil::graphics
                 stagingMemory = engine->_device().allocateMemory(stagingAllocInfo);
 
                 engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
+            }
 
+            allocatedOnGPU = true;
+        }
+
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
+        void moveToGPU()
+        {
+            if(onGPU) return;
+
+            onGPU = true;
+
+            allocateOnGPU();
+
+            Logger::Log("Moving the buffer.");
+
+            engine->_device().waitIdle();
+
+            if constexpr (!CPUAccessible)
+            {
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
@@ -410,9 +430,10 @@ namespace nihil::graphics
 
         inline void freeFromGPU()
         {
-            if(!onGPU) return;
+            if(!allocatedOnGPU) return;
 
             onGPU = false;
+            allocatedOnGPU = false;
 
             Logger::Log("Freeing the buffer.");
 
@@ -459,7 +480,9 @@ namespace nihil::graphics
                 engine->_device().unmapMemory(memory);
             }
 
-            if(!wasOnGPU) freeFromGPU();
+            const UpdateMode templateMode = updateModeT;
+
+            if constexpr (updateModeT == UpdateMode::Immediate) if(!wasOnGPU) freeFromGPU();
         }
 
         inline void recordUpdate(const vk::BufferCopy& updateRegion)
@@ -498,6 +521,8 @@ namespace nihil::graphics
 
         void executeRecordedUpdates()
         {
+            bool wasOnGPU = onGPU;
+
             updateMode = preRecordingUpdateMode;
 
             vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
@@ -540,6 +565,8 @@ namespace nihil::graphics
             submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+
+            if(!wasOnGPU) freeFromGPU();
         }
 
         void update(const std::vector<T>& _data)
