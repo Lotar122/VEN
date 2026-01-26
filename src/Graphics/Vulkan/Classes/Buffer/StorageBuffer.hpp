@@ -913,14 +913,14 @@ namespace nihil::graphics
             updateGPUData({ 0, 0, size });
         }
 
-        void update(const T::value_type* _data, vk::BufferCopy updateRange)
+        void update(const T::value_type* _data, vk::BufferCopy updateRegion)
         {
             assert(_data != nullptr);
 
             std::memcpy(
-                reinterpret_cast<std::byte*>(data.data()) + updateRange.dstOffset, 
-                _data + updateRange.srcOffset, 
-                updateRange.size
+                reinterpret_cast<std::byte*>(data.data()) + updateRegion.dstOffset, 
+                _data + updateRegion.srcOffset, 
+                updateRegion.size
             );
 
             if(updateMode == UpdateMode::Immediate) updateGPUData(updateRegion);
