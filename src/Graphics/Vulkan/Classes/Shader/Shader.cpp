@@ -70,22 +70,29 @@ static inline std::vector<uint32_t> compileAndSaveToCache(const std::string& pat
     std::vector<uint32_t> compiledShader = Shader::compileGLSL(path);
     //Create cache entry
     std::filesystem::file_time_type timestamp = File::GetTimestamp(path);
+    int64_t serializedTimestamp = timestamp.time_since_epoch().count();
     std::array<std::byte, 32> hash = std::move(File::GetFileChecksum(path));
+    uint64_t spirvLenght = compiledShader.size() * sizeof(uint32_t);
 
-    std::byte* cacheEntry = (std::byte*)std::malloc(sizeof(std::filesystem::file_time_type) + (sizeof(std::byte) * 32) + (compiledShader.size() * sizeof(uint32_t)));
+    std::byte* cacheEntry = (std::byte*)std::malloc(sizeof(int64_t) + (sizeof(std::byte) * 32) + sizeof(uint64_t) + (compiledShader.size() * sizeof(uint32_t)));
 
     std::memcpy(
         cacheEntry, 
-        &timestamp, 
-        sizeof(std::filesystem::file_time_type)
+        &serializedTimestamp,
+        sizeof(int64_t)
     );
     std::memcpy(
-        cacheEntry + sizeof(std::filesystem::file_time_type), 
+        cacheEntry + sizeof(int64_t),
         hash.data(), 
         sizeof(std::byte) * 32
     );
     std::memcpy(
-        cacheEntry + sizeof(std::filesystem::file_time_type) + (sizeof(std::byte) * 32), 
+        cacheEntry + sizeof(int64_t) + (sizeof(std::byte) * 32),
+        &spirvLenght,
+        sizeof(uint64_t)
+    );
+    std::memcpy(
+        cacheEntry + sizeof(int64_t) + (sizeof(std::byte) * 32) + sizeof(uint64_t),
         compiledShader.data(), 
         compiledShader.size() * sizeof(uint32_t)
     );
@@ -93,7 +100,8 @@ static inline std::vector<uint32_t> compileAndSaveToCache(const std::string& pat
     File::WriteToFile(
         engine->_directory() + "/ShaderCache/" + cacheName, 
         cacheEntry, 
-        sizeof(std::filesystem::file_time_type) + (sizeof(std::byte) * 32) + (compiledShader.size() * sizeof(uint32_t))
+        sizeof(int64_t) + (sizeof(std::byte) * 32) + sizeof(uint64_t) + (compiledShader.size() * sizeof(uint32_t)),
+        std::ios::binary | std::ios::trunc
     );
 
     std::free(cacheEntry);
@@ -120,8 +128,11 @@ void Shader::Load(const std::string& path)
             Logger::Exception("Failed to open file: {}", path);
 
         std::filesystem::file_time_type cacheTimestamp;
+        int64_t serializedCacheTimestamp;
 
-        cacheFile.read(reinterpret_cast<char*>(&cacheTimestamp), sizeof(std::filesystem::file_time_type));
+        cacheFile.read(reinterpret_cast<char*>(&serializedCacheTimestamp), sizeof(int64_t));
+
+        cacheTimestamp = std::filesystem::file_time_type{std::filesystem::file_time_type::duration{ serializedCacheTimestamp }};
 
         if(sourceTimestamp > cacheTimestamp)
         {
@@ -134,14 +145,11 @@ void Shader::Load(const std::string& path)
 
             std::array<std::byte, 32> sourceHash = File::GetFileChecksum(path);
 
-            //The vector is empty...
             if(std::memcmp(hash.data(), sourceHash.data(), sizeof(std::byte) * 32) == 0)
             {
-                std::streampos currentPos = cacheFile.tellg();
-                cacheFile.seekg(0, std::ios::end);
-                std::streampos endPos = cacheFile.tellg();
-                cacheFile.seekg(currentPos, std::ios::beg);
-                size_t shaderBinarySize = static_cast<std::size_t>(endPos - currentPos);
+                uint64_t shaderBinarySize;
+                cacheFile.read(reinterpret_cast<char*>(&shaderBinarySize), sizeof(uint64_t));
+                if (shaderBinarySize % 4 != 0) [[unlikely]] Logger::Exception("The shader cache: {}, is ill-formed. the size of the SPIR-V binary is not a multiple of 4.");
                 compiledShader.resize(shaderBinarySize / sizeof(uint32_t));
                 cacheFile.read(reinterpret_cast<char*>(compiledShader.data()), shaderBinarySize);
             }

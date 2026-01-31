@@ -1,10 +1,9 @@
-﻿cmake_minimum_required (VERSION 3.10)
+﻿cmake_minimum_required (VERSION 3.24)
 
 project ("VEN")
 
-# Manually set the glfw3 installed directory. Only on windows. Couldn't get it to work another way.
 if(WIN32) 
-	set(glfw3_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows-static/share/glfw3/") 
+	
 endif()
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;NativeRelease" CACHE STRING "" FORCE)
@@ -94,7 +93,7 @@ add_library(VEN_shaderc INTERFACE)
 find_package(unofficial-shaderc CONFIG QUIET)
 
 # Try system CMake config
-if (NOT unofficial_shaderc_FOUND)
+if (NOT unofficial-shaderc_FOUND)
     find_package(shaderc CONFIG QUIET)
 
     target_link_libraries(VEN_shaderc
@@ -114,7 +113,7 @@ if(LINUX)
         PATHS /usr/include
     )
 else()
-	find_path(STB_INCLUDE_DIRS "stb_image.h")
+	find_package(Stb REQUIRED)
 endif()
 
 message("Stb at: ${STB_INCLUDE_DIR}")
