@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 namespace nihil
 {
@@ -10,7 +10,7 @@ namespace nihil
     protected:
         T res;
     public:
-        virtual void destroy() { Logger::Error("Called an empty destroy function for a Resource."); };
+        virtual void destroy() { Carbo::Logger::Error("Called an empty destroy function for a Resource."); };
         ResourceAbstract() {};
         virtual ~ResourceAbstract() {};
         // {
@@ -46,7 +46,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
 

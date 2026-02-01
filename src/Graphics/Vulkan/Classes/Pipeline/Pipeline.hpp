@@ -8,7 +8,7 @@
 #include "Classes/AssetUsage/AssetUsage.hpp"
 #include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 #include <vulkan/vulkan.hpp>
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 namespace nihil::graphics
 {

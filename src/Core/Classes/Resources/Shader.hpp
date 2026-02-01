@@ -16,20 +16,20 @@ namespace nihil
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::ShaderModule called.");
+            Carbo::Logger::Log("The specialized constructor for vk::ShaderModule called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::ShaderModule called.");};
+        Resource() {Carbo::Logger::Log("The specialized constructor for vk::ShaderModule called.");};
         void destroy() override
         {
             if (destroyed || !assigned) return;
             device.destroyShaderModule(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::ShaderModule");
+            Carbo::Logger::Log("Destroying vk::ShaderModule");
         }
         ~Resource() override 
         {
-            if(!destroyed) Logger::Warn("A vk::ShaderModule has gone out of scope without being destroyed, destroying automatically.");
+            if(!destroyed) Carbo::Logger::Warn("A vk::ShaderModule has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -44,7 +44,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
     };

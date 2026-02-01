@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 namespace nihil
 {
@@ -14,7 +14,7 @@ namespace nihil
             if ((typeFilter & (1 << i)) && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) return i;
         }
 
-        Logger::Exception("Failed to find suitable memory type!");
+        Carbo::Logger::Exception("Failed to find suitable memory type!");
 
         return 0;
     }

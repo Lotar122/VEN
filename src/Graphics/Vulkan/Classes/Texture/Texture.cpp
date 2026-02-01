@@ -16,7 +16,7 @@ Texture::Texture(const std::string& path, AssetUsage _assetUsage, Engine* _engin
 
     if (channels != desiredChannels)
     {
-        Logger::Warn("Stb had loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors. File: {}", path);
+        Carbo::Logger::Warn("Stb had loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors. File: {}", path);
     }
 
     size = width * height * desiredChannels;
@@ -26,7 +26,7 @@ Texture::Texture(const std::string& path, AssetUsage _assetUsage, Engine* _engin
     std::memcpy(imageData, temp, size);
     stbi_image_free(temp);
 
-    if (!imageData) Logger::Exception("Failed to load image to create texture.");
+    if (!imageData) Carbo::Logger::Exception("Failed to load image to create texture.");
 
     stagingBuffer = new (stagingBufferMemory) Buffer<
         unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
@@ -71,7 +71,7 @@ Texture::Texture(const char* data, size_t _width, size_t _height, uint8_t _chann
 
     if (channels != desiredChannels)
     {
-        Logger::Warn("Loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors or crashes. File: [Loaded from memory, {}]", reinterpret_cast<void*>(imageData));
+        Carbo::Logger::Warn("Loaded a 3 channel file. (jpg, jpeg etc.) please use formats that support alpha. Using formats that do not may cause visual errors or crashes. File: [Loaded from memory, {}]", reinterpret_cast<void*>(imageData));
     }
 
     size = width * height * desiredChannels;
@@ -80,7 +80,7 @@ Texture::Texture(const char* data, size_t _width, size_t _height, uint8_t _chann
 
     std::memcpy(imageData, data, size);
 
-    if (!imageData) Logger::Exception("Failed to load image to create texture.");
+    if (!imageData) Carbo::Logger::Exception("Failed to load image to create texture.");
 
     stagingBuffer = new (stagingBufferMemory) Buffer<
         unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)

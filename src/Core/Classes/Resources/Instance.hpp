@@ -16,20 +16,20 @@ namespace nihil
             res = _res;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::Instance called.");
+            Carbo::Logger::Log("The specialized constructor for vk::Instance called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::Instance called.");};
+        Resource() { Carbo::Logger::Log("The specialized constructor for vk::Instance called.");};
         void destroy() override
         {
             if (destroyed || !assigned) return;
             res.destroy();
             destroyed = true;
 
-            Logger::Log("Destroying vk::Instance");
+            Carbo::Logger::Log("Destroying vk::Instance");
         }
         ~Resource() override 
         {
-            if(!destroyed) Logger::Warn("A vk::Instance has gone out of scope without being destroyed, destroying automatically.");
+            if(!destroyed) Carbo::Logger::Warn("A vk::Instance has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 

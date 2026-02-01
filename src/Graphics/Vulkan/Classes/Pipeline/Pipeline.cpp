@@ -18,7 +18,7 @@ void Pipeline::destroy()
 	pipeline.destroy();
 	layout.destroy();
 
-	Logger::Log("Destroyed Pipeline.");
+	Carbo::Logger::Log("Destroyed Pipeline.");
 }
 
 Pipeline::~Pipeline()
@@ -49,11 +49,11 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 			auto it = descriptorAllocator->globalDescriptorSet->descriptors.find(dsb.layoutBinding.binding);
 			if (it == descriptorAllocator->globalDescriptorSet->descriptors.end())
 			{
-				Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is not present in the descriptor set", dsb.layoutBinding.binding);
+				Carbo::Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is not present in the descriptor set", dsb.layoutBinding.binding);
 			}
 			if (it->second.descriptorInfo.type != dsb.descriptorInfo.type)
 			{
-				Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is of the wrong type", dsb.layoutBinding.binding);
+				Carbo::Logger::Exception("The static descriptor (binding = {}) passed to the pipeline is of the wrong type", dsb.layoutBinding.binding);
 			}
 
 			staticDescriptors.push_back(&dsb);
@@ -205,7 +205,7 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 		layout.assignRes(engine->_device().createPipelineLayout(layoutInfo), engine->_device());
 	}
 	catch (vk::SystemError err) {
-		Logger::Exception(err.what());
+		Carbo::Logger::Exception(err.what());
 	}
 
 	pipelineInfo.layout = layout.getRes();
@@ -216,8 +216,8 @@ void Pipeline::create(PipelineCreateInfo& info, RenderPass* _renderPass, Descrip
 		pipeline.assignRes(engine->_device().createGraphicsPipeline(engine->_pipelineCache(), pipelineInfo).value, engine->_device());
 	}
 	catch (vk::SystemError err) {
-		Logger::Exception(err.what());
+		Carbo::Logger::Exception(err.what());
 	}
 
-	Logger::Log("Created the pipeline");
+	Carbo::Logger::Log("Created the pipeline");
 }

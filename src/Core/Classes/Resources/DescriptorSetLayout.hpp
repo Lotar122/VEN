@@ -18,20 +18,20 @@ namespace nihil
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::DescriptorSetLayout called.");
+            Carbo::Logger::Log("The specialized constructor for vk::DescriptorSetLayout called.");
         }
-        Resource() { Logger::Log("The specialized constructor for vk::DescriptorSetLayout called."); };
+        Resource() { Carbo::Logger::Log("The specialized constructor for vk::DescriptorSetLayout called."); };
         void destroy() override
         {
             if (destroyed || !assigned) return;
             device.destroyDescriptorSetLayout(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::DescriptorSetLayout");
+            Carbo::Logger::Log("Destroying vk::DescriptorSetLayout");
         }
         ~Resource() override
         {
-            if (!destroyed) Logger::Warn("A vk::DescriptorSetLayout has gone out of scope without being destroyed, destroying automatically.");
+            if (!destroyed) Carbo::Logger::Warn("A vk::DescriptorSetLayout has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -46,7 +46,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
 

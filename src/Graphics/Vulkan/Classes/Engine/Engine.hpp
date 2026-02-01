@@ -5,10 +5,10 @@
 #include <utility>
 
 #include "Classes/App/App.hpp"
-#include "Version.hpp"
-#include "Logger.hpp"
+#include "Structs/Version.hpp"
+#include "Classes/Logger/Logger.hpp"
 #include "Classes/Resources/Resources.hpp"
-#include "Platform.hpp"
+#include "Functions/GetPlatform/GetPlatform.hpp"
 #include "Classes/Renderer/Renderer.hpp"
 #include "Classes/Listeners/Listeners.hpp"
 
@@ -27,7 +27,7 @@ namespace nihil::graphics
 
     struct EngineArgs
     {
-        Version appVersion;
+        Carbo::Version appVersion;
         std::string appName;
 
         std::string directory;
@@ -125,7 +125,7 @@ namespace nihil::graphics
 
         void createRenderer();
     private:
-        static vk::Instance CreateVKInstance(EngineArgs& args, Platform platform);
+        static vk::Instance CreateVKInstance(EngineArgs& args, Carbo::Platform platform);
         static vk::PhysicalDevice PickPhysicalDevice(vk::Instance _instance, PhysicalDevicePreferences& prefs);
         static vk::SurfaceKHR GetSurfaceKHR(App* _app, vk::Instance _instance);
 

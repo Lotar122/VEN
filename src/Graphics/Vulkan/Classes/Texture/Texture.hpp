@@ -6,7 +6,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 #include "Classes/Buffer/Buffer.hpp"
 #include "Classes/Engine/Engine.hpp"
 

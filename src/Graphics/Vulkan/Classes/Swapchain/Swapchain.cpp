@@ -39,14 +39,14 @@ Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _preffe
 		if (format.format == vk::Format::eB8G8R8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
 			surfaceFormat = format; // Return preferred format if found
 			foundFormat = true;
-			Logger::Log("Found the preffered format.");
+			Carbo::Logger::Log("Found the preffered format.");
 		}
 	}
 
 	// Fallback to the first available format
 	if(!foundFormat) surfaceFormat = surfaceFormats[0];
 
-	if(!foundFormat) Logger::Warn("Couldn't find the preffered format, falling back to any available format.");
+	if(!foundFormat) Carbo::Logger::Warn("Couldn't find the preffered format, falling back to any available format.");
 
 	imageFormat = surfaceFormat.format;
 	depthFormat = vk::Format::eD32Sfloat;
@@ -78,7 +78,7 @@ Swapchain::Frame* Swapchain::acquireNextFrame(uint32_t* _imageIndex, uint32_t* _
 
 	else if(result != vk::Result::eSuccess)
 	{
-		Logger::Exception("Failed to acquire the next image.");
+		Carbo::Logger::Exception("Failed to acquire the next image.");
 	}
 
 	if(_imageIndex) *_imageIndex = imageIndex;
@@ -191,7 +191,7 @@ void Swapchain::create(std::pair<uint32_t, uint32_t> _queueFamilyIndices, Render
 		else swapchain.assignRes(engine->_device().createSwapchainKHR(swapchainCreateInfo), engine->_device());
 	}
 	catch(vk::SystemError& err) {
-		Logger::Exception(err.what());
+		Carbo::Logger::Exception(err.what());
 	}
 
 	std::vector<vk::Image> images = engine->_device().getSwapchainImagesKHR(swapchain.getRes());

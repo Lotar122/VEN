@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
-#include "OBJLoader.hpp"
+#include "Legacy/OBJLoader.hpp"
 
 #include "Classes/Buffer/Buffer.hpp"
 

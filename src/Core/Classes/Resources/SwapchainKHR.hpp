@@ -16,20 +16,20 @@ namespace nihil
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::SwapchainKHR called.");
+            Carbo::Logger::Log("The specialized constructor for vk::SwapchainKHR called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::SwapchainKHR called.");};
+        Resource() { Carbo::Logger::Log("The specialized constructor for vk::SwapchainKHR called.");};
         void destroy() override
         {
             if (destroyed || !assigned) return;
             device.destroySwapchainKHR(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::SwapchainKHR");
+            Carbo::Logger::Log("Destroying vk::SwapchainKHR");
         }
         ~Resource() override 
         {
-            if(!destroyed) Logger::Warn("A vk::SwapchainKHR has gone out of scope without being destroyed, destroying automatically.");
+            if(!destroyed) Carbo::Logger::Warn("A vk::SwapchainKHR has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -50,7 +50,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
     };

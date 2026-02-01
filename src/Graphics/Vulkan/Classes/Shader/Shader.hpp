@@ -7,7 +7,7 @@
 #include <fstream>
 #include <vector>
 
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 #include "Classes/Engine/Engine.hpp"
 

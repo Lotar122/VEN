@@ -16,20 +16,20 @@ namespace nihil
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::Buffer called.");
+            Carbo::Logger::Log("The specialized constructor for vk::Buffer called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::Buffer called.");};
+        Resource() {Carbo::Logger::Log("The specialized constructor for vk::Buffer called.");};
         void destroy() override
         {
             if(destroyed || !assigned) return;
             device.destroyBuffer(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::Buffer");
+            Carbo::Logger::Log("Destroying vk::Buffer");
         }
         ~Resource() override 
         {
-            if(!destroyed) Logger::Warn("A vk::Buffer has gone out of scope without being destroyed, destroying automatically.");
+            if(!destroyed) Carbo::Logger::Warn("A vk::Buffer has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -44,7 +44,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
     };

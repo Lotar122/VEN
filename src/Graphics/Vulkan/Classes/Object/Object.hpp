@@ -89,7 +89,7 @@ namespace nihil::graphics
         {
             if constexpr (warn)
             {
-                if (instanceData != nullptr && !autoCreatedInstanceData) Logger::Warn("Chainging the instance data of object: {:p} ensure that you have deleted the previous instance data: {:p}. Not doing so may cause a memory leak.", static_cast<const void*>(this), instanceData);
+                if (instanceData != nullptr && !autoCreatedInstanceData) Carbo::Logger::Warn("Chainging the instance data of object: {:p} ensure that you have deleted the previous instance data: {:p}. Not doing so may cause a memory leak.", static_cast<const void*>(this), instanceData);
             }
 
             autoCreatedInstanceData = false;
@@ -104,7 +104,7 @@ namespace nihil::graphics
 
             if (hasData != hasSize) [[unlikely]]
             {
-                Logger::Exception("The instance data of object: {:p} is invalid", static_cast<const void*>(this));
+                Carbo::Logger::Exception("The instance data of object: {:p} is invalid", static_cast<const void*>(this));
             }
 
             if (hasData)

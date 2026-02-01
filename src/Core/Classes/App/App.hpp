@@ -8,7 +8,7 @@
 #include <cassert>
 #include <mutex>
 
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 #include "Classes/Listeners/Listeners.hpp"
 

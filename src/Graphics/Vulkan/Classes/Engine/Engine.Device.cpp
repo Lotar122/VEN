@@ -9,7 +9,7 @@
 using namespace nihil::graphics;
 using namespace nihil;
 
-vk::Instance Engine::CreateVKInstance(EngineArgs& args, Platform platform)
+vk::Instance Engine::CreateVKInstance(EngineArgs& args, Carbo::Platform platform)
 {
     vk::ApplicationInfo appInfo(
         args.appName.c_str(), // App name
@@ -32,13 +32,13 @@ vk::Instance Engine::CreateVKInstance(EngineArgs& args, Platform platform)
 
     switch(platform)
     {
-        case Platform::LinuxWayland:
+        case Carbo::Platform::LinuxWayland:
             extensions.push_back("VK_KHR_wayland_surface");
             break;
-        case Platform::LinuxX11:
+        case Carbo::Platform::LinuxX11:
             extensions.push_back("VK_KHR_xcb_surface");
             break;
-        case Platform::Windows:
+        case Carbo::Platform::Windows:
             extensions.push_back("VK_KHR_win32_surface");
             break;
     }
@@ -56,7 +56,7 @@ vk::Instance Engine::CreateVKInstance(EngineArgs& args, Platform platform)
 		instance = vk::createInstance(instanceCreateInfo);
 	}
 	catch (const vk::SystemError& err) {
-		Logger::Exception(std::string("An error has occured during instance creation: \n") + std::string(err.what()));
+        Carbo::Logger::Exception(std::string("An error has occured during instance creation: \n") + std::string(err.what()));
 	}
 
 	return instance;
@@ -70,7 +70,7 @@ vk::PhysicalDevice Engine::PickPhysicalDevice(vk::Instance _instance, PhysicalDe
 
     if(availableDevices.empty())
     {
-        Logger::Exception("Couldnt find any vulkan capable device");
+        Carbo::Logger::Exception("Couldnt find any vulkan capable device");
     }
 
     vk::PhysicalDevice pickedDevice;
@@ -166,7 +166,7 @@ vk::PhysicalDevice Engine::PickPhysicalDevice(vk::Instance _instance, PhysicalDe
         pickedDevice = tempMax;
     }
 
-    if(!foundPrefferedDevice) Logger::Exception("Couldn't find a suitable device");
+    if(!foundPrefferedDevice) Carbo::Logger::Exception("Couldn't find a suitable device");
 
     return pickedDevice;
 }
@@ -189,18 +189,18 @@ std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueue
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) 
         {
             graphicsQueueFamilyIndex = i;
-            Logger::Log("Graphics Queue found");
+            Carbo::Logger::Log("Graphics Queue found");
         }
         vk::Bool32 presentSupport = physicalDevice.getSurfaceSupportKHR(i, surface);
         if (presentSupport) 
         {
             presentQueueFamilyIndex = i;
-            Logger::Log("Present Queue found");
+            Carbo::Logger::Log("Present Queue found");
         }
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eTransfer) 
         {
             transferQueueFamilyIndex = i;
-            Logger::Log("Transfer Queue found");
+            Carbo::Logger::Log("Transfer Queue found");
         }
 
         if (graphicsQueueFamilyIndex != -1 && presentQueueFamilyIndex != -1 && transferQueueFamilyIndex != -1) 
@@ -211,7 +211,7 @@ std::tuple<vk::DeviceQueueCreateInfo, vk::DeviceQueueCreateInfo, vk::DeviceQueue
 
     if (graphicsQueueFamilyIndex == -1 || presentQueueFamilyIndex == -1 || transferQueueFamilyIndex == -1) 
     {
-        Logger::Exception("Failed to find suitable queue families.");
+        Carbo::Logger::Exception("Failed to find suitable queue families.");
     }
 
     float queuePriority = 1.0f;
@@ -275,7 +275,7 @@ vk::SurfaceKHR Engine::GetSurfaceKHR(App* _app, vk::Instance _instance)
     VkSurfaceKHR cSurface;
     if(glfwCreateWindowSurface(static_cast<VkInstance>(_instance), _app->window, nullptr, &cSurface) != 0)
     {
-        Logger::Exception("Failed to create a vk::SurfaceKHR. Make sure that you picked the right platform in the \"Platform\" file");
+        Carbo::Logger::Exception("Failed to create a vk::SurfaceKHR. Make sure that you picked the right platform in the \"Platform\" file");
     }
 
     vk::SurfaceKHR surface(cSurface);

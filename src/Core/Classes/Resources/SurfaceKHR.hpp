@@ -14,20 +14,20 @@ namespace nihil
             instance = _instance;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::SurfaceKHR called.");
+            Carbo::Logger::Log("The specialized constructor for vk::SurfaceKHR called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::SurfaceKHR called.");};
+        Resource() {Carbo::Logger::Log("The specialized constructor for vk::SurfaceKHR called.");};
         void destroy() override
         {
             if (destroyed || !assigned) return;
             instance.destroySurfaceKHR(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::SurfaceKHR");
+            Carbo::Logger::Log("Destroying vk::SurfaceKHR");
         }
         ~Resource() override 
         {
-            if(!destroyed) Logger::Warn("A vk::SurfaceKHR has gone out of scope without being destroyed, destroying automatically.");
+            if(!destroyed) Carbo::Logger::Warn("A vk::SurfaceKHR has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -42,7 +42,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
     };

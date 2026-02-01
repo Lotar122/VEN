@@ -116,6 +116,11 @@ else()
 	find_package(Stb REQUIRED)
 endif()
 
+if(NOT TARGET Carbo)
+    message("[WARN] Carbo not provided by parent project. Pull it as a git submodule to build.")
+    add_subdirectory(Carbo)
+endif()
+
 message("Stb at: ${STB_INCLUDE_DIR}")
 message("Using C++ compiler: ${CMAKE_CXX_COMPILER}\nUsing C compiler: ${CMAKE_C_COMPILER}")
 
@@ -146,6 +151,7 @@ target_link_libraries(VEN PUBLIC
 	glfw
     VEN_shaderc
     OpenSSL::Crypto
+    Carbo
 )
 
 target_compile_features(VEN PRIVATE cxx_std_20)

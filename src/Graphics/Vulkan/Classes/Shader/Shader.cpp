@@ -1,6 +1,6 @@
 #include "Shader.hpp"
 
-#include "Standard/File.hpp"
+#include "Classes/File/File.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -14,7 +14,7 @@ using namespace nihil;
 */
 void Shader::LoadFromBinary(const std::string& path, size_t offset)
 {
-    std::vector<uint32_t> buffer = std::move(File::LoadFileToVector<std::vector<uint32_t>>(path)); // Allocate buffer
+    std::vector<uint32_t> buffer = std::move(Carbo::File::LoadFileToVector<std::vector<uint32_t>>(path)); // Allocate buffer
 
     vk::ShaderModuleCreateInfo createInfo = {};
     createInfo.codeSize = buffer.size() * sizeof(uint32_t) - offset; // Size in bytes
@@ -28,7 +28,7 @@ shaderc_shader_kind Shader::shaderKindFromPath(const std::string& path)
     if (path.ends_with(".vert")) return shaderc_vertex_shader;
     if (path.ends_with(".frag")) return shaderc_fragment_shader;
     if (path.ends_with(".comp")) return shaderc_compute_shader;
-    Logger::Exception("Unknown shader type.");
+    Carbo::Logger::Exception("Unknown shader type.");
 }
 
 std::vector<uint32_t> Shader::compileGLSL(const std::string& path)
@@ -44,11 +44,11 @@ std::vector<uint32_t> Shader::compileGLSL(const std::string& path)
         shaderc_optimization_level_performance);
 
     auto result = compiler.CompileGlslToSpv(
-        File::LoadFileToString(path), shaderKindFromPath(path), path.c_str(), options);
+        Carbo::File::LoadFileToString(path), shaderKindFromPath(path), path.c_str(), options);
 
     if (result.GetCompilationStatus() != shaderc_compilation_status_success)
     {
-        Logger::Exception(result.GetErrorMessage());
+        Carbo::Logger::Exception(result.GetErrorMessage());
     }
 
     return { result.begin(), result.end() };
@@ -69,9 +69,9 @@ static inline std::vector<uint32_t> compileAndSaveToCache(const std::string& pat
 {
     std::vector<uint32_t> compiledShader = Shader::compileGLSL(path);
     //Create cache entry
-    std::filesystem::file_time_type timestamp = File::GetTimestamp(path);
+    std::filesystem::file_time_type timestamp = Carbo::File::GetTimestamp(path);
     int64_t serializedTimestamp = timestamp.time_since_epoch().count();
-    std::array<std::byte, 32> hash = std::move(File::GetFileChecksum(path));
+    std::array<std::byte, 32> hash = std::move(Carbo::File::GetFileChecksum(path));
     uint64_t spirvLenght = compiledShader.size() * sizeof(uint32_t);
 
     std::byte* cacheEntry = (std::byte*)std::malloc(sizeof(int64_t) + (sizeof(std::byte) * 32) + sizeof(uint64_t) + (compiledShader.size() * sizeof(uint32_t)));
@@ -97,7 +97,7 @@ static inline std::vector<uint32_t> compileAndSaveToCache(const std::string& pat
         compiledShader.size() * sizeof(uint32_t)
     );
 
-    File::WriteToFile(
+    Carbo::File::WriteToFile(
         engine->_directory() + "/ShaderCache/" + cacheName, 
         cacheEntry, 
         sizeof(int64_t) + (sizeof(std::byte) * 32) + sizeof(uint64_t) + (compiledShader.size() * sizeof(uint32_t)),
@@ -121,11 +121,11 @@ void Shader::Load(const std::string& path)
     }
     else
     {
-        std::filesystem::file_time_type sourceTimestamp = File::GetTimestamp(path);
+        std::filesystem::file_time_type sourceTimestamp = Carbo::File::GetTimestamp(path);
         
         std::ifstream cacheFile(engine->_directory() + "/ShaderCache/" + cacheName, std::ios::binary);
         if (!cacheFile)
-            Logger::Exception("Failed to open file: {}", path);
+            Carbo::Logger::Exception("Failed to open file: {}", path);
 
         std::filesystem::file_time_type cacheTimestamp;
         int64_t serializedCacheTimestamp;
@@ -143,13 +143,13 @@ void Shader::Load(const std::string& path)
             std::array<std::byte, 32> hash;
             cacheFile.read(reinterpret_cast<char*>(hash.data()), sizeof(std::byte) * 32);
 
-            std::array<std::byte, 32> sourceHash = File::GetFileChecksum(path);
+            std::array<std::byte, 32> sourceHash = Carbo::File::GetFileChecksum(path);
 
             if(std::memcmp(hash.data(), sourceHash.data(), sizeof(std::byte) * 32) == 0)
             {
                 uint64_t shaderBinarySize;
                 cacheFile.read(reinterpret_cast<char*>(&shaderBinarySize), sizeof(uint64_t));
-                if (shaderBinarySize % 4 != 0) [[unlikely]] Logger::Exception("The shader cache: {}, is ill-formed. the size of the SPIR-V binary is not a multiple of 4.");
+                if (shaderBinarySize % 4 != 0) [[unlikely]] Carbo::Logger::Exception("The shader cache: {}, is ill-formed. the size of the SPIR-V binary is not a multiple of 4.");
                 compiledShader.resize(shaderBinarySize / sizeof(uint32_t));
                 cacheFile.read(reinterpret_cast<char*>(compiledShader.data()), shaderBinarySize);
             }
@@ -164,7 +164,7 @@ void Shader::Load(const std::string& path)
 
     if (compiledShader.empty()) [[unlikely]]
     {
-        Logger::Exception("Shader SPIR-V is empty for path: {}", path);
+        Carbo::Logger::Exception("Shader SPIR-V is empty for path: {}", path);
     }
 
     vk::ShaderModuleCreateInfo createInfo = {};

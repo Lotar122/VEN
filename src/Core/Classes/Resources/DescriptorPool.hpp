@@ -18,9 +18,9 @@ namespace nihil
             device = _device;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::DescriptorPool called.");
+            Carbo::Logger::Log("The specialized constructor for vk::DescriptorPool called.");
         }
-        Resource() { Logger::Log("The specialized constructor for vk::DescriptorPool called."); };
+        Resource() { Carbo::Logger::Log("The specialized constructor for vk::DescriptorPool called."); };
         void destroy() override
         {
             if (destroyed || !assigned) return;
@@ -28,11 +28,11 @@ namespace nihil
             device.destroyDescriptorPool(res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::DescriptorPool");
+            Carbo::Logger::Log("Destroying vk::DescriptorPool");
         }
         ~Resource() override
         {
-            if (!destroyed) Logger::Warn("A vk::DescriptorPool has gone out of scope without being destroyed, destroying automatically.");
+            if (!destroyed) Carbo::Logger::Warn("A vk::DescriptorPool has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -47,7 +47,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include "Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 #include "Classes/PushConstants/PushConstants.hpp"
 

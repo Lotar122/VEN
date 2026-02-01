@@ -20,20 +20,20 @@ namespace nihil
             commandPool = _commandPool;
             assigned = true;
 
-            Logger::Log("The specialized constructor for vk::CommandBuffer called.");
+            Carbo::Logger::Log("The specialized constructor for vk::CommandBuffer called.");
         }
-        Resource() {Logger::Log("The specialized constructor for vk::CommandBuffer called.");};
+        Resource() {Carbo::Logger::Log("The specialized constructor for vk::CommandBuffer called.");};
         void destroy() override
         {
             if (destroyed || !assigned) return;
             device.freeCommandBuffers(commandPool, 1, &res);
             destroyed = true;
 
-            Logger::Log("Destroying vk::CommandBuffer");
+            Carbo::Logger::Log("Destroying vk::CommandBuffer");
         }
         ~Resource() override 
         {
-            if(!destroyed) Logger::Warn("A vk::CommandBuffer has gone out of scope without being destroyed, destroying automatically.");
+            if(!destroyed) Carbo::Logger::Warn("A vk::CommandBuffer has gone out of scope without being destroyed, destroying automatically.");
             destroy();
         };
 
@@ -49,7 +49,7 @@ namespace nihil
             }
             else
             {
-                Logger::Exception(std::string("Cannot assign an already assigned resource"));
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
             }
         }
 

@@ -139,7 +139,7 @@ namespace nihil::graphics
 		{
 			frameCount = engine->_swapchain()->imageCount;
 
-			Logger::Log("Swapchain Recreation Event in DescriptorAllocator");
+			Carbo::Logger::Log("Swapchain Recreation Event in DescriptorAllocator");
 		}
 
 		vk::DescriptorSet allocateDynamicDescriptorSet(vk::DescriptorSetLayout* layout, std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings, size_t frameIndex)

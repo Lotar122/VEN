@@ -3,7 +3,7 @@
 #include "Classes/Resource/Resource.hpp"
 #include "vulkan/vulkan.hpp"
 #include "Classes/Resources/Resources.hpp"
-#include "Standard/Logger.hpp"
+#include "Classes/Logger/Logger.hpp"
 #include "Classes/Texture/Texture.hpp"
 #include "Classes/Sampler/Sampler.hpp"
 #include "Classes/AssetUsage/AssetUsage.hpp"

@@ -5,24 +5,24 @@ using namespace nihil;
 
 App::App(std::string _name, uint16_t _width, uint16_t _height)
 {
-    Logger::Init();
+    Carbo::Logger::Init();
 
     name = _name;
     width = _width;
     height = _height;
 
     if (!glfwInit()) {
-        Logger::Exception("Failed to initialize GLFW");
+        Carbo::Logger::Exception("Failed to initialize GLFW");
     }
 
     if (!glfwVulkanSupported()) {
-        Logger::Exception("Vulkan is not supported on this system");
+        Carbo::Logger::Exception("Vulkan is not supported on this system");
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Disable OpenGL context
     window = glfwCreateWindow(width, height, name.c_str(), nullptr, nullptr);
     if (!window) {
-        Logger::Exception("Failed to create GLFW window");
+        Carbo::Logger::Exception("Failed to create GLFW window");
     }
 
     glfwSetWindowUserPointer(window, &wp);

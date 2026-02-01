@@ -11,7 +11,7 @@ using namespace nihil;
 
 Engine::Engine(App* _app, EngineArgs& args)
 {
-	Logger::Log("Creating the Engine (Vroom vroom)");
+	Carbo::Logger::Log("Creating the Engine (Vroom vroom)");
 
 	assert(_app != nullptr);
 
@@ -32,7 +32,7 @@ Engine::Engine(App* _app, EngineArgs& args)
 
 	app->addEventListener(this, Listeners::onResize);
 
-	Platform platform = getPlatform();
+	Carbo::Platform platform = Carbo::getPlatform();
 
 	instance.assignRes(CreateVKInstance(args, platform));
 	physicalDevice = PickPhysicalDevice(instance, args.dPrefs);
@@ -96,7 +96,7 @@ void Engine::createRenderer()
 {
 	renderer = new Renderer(this);
 
-	Logger::Log("Renderer Created!");
+	Carbo::Logger::Log("Renderer Created!");
 }
 
 vk::CommandPool Engine::CreateVKCommandPool(vk::Device _device, uint32_t _renderQueueIndex)
@@ -143,7 +143,7 @@ std::pair<vk::PipelineCache, std::vector<std::byte>> Engine::createPipelineCache
 	vk::PipelineCacheCreateInfo cacheInfo{};
 	if (!pipelineCacheData.empty()) [[likely]]
 	{
-		Logger::Log("Pipeline cache found.");
+		Carbo::Logger::Log("Pipeline cache found.");
 		cacheInfo.initialDataSize = pipelineCacheData.size();
 		cacheInfo.pInitialData = pipelineCacheData.data();
 	}
@@ -169,7 +169,7 @@ std::vector<std::byte> Engine::getPipelineCacheData(vk::Device _device, vk::Pipe
 
 void Engine::savePipelineCacheData(const std::string& directory, const std::vector<std::byte>& _pipelineCacheData)
 {
-	Logger::Log("Saving pipeline cache to: {}/pipelineCache.bin", directory);
+	Carbo::Logger::Log("Saving pipeline cache to: {}/pipelineCache.bin", directory);
 	std::ofstream file(directory + "/pipelineCache.bin", std::ios::binary | std::ios::trunc);
 
 	file.write(reinterpret_cast<const char*>(_pipelineCacheData.data()), _pipelineCacheData.size());

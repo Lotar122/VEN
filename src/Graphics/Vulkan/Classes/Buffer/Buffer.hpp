@@ -156,7 +156,7 @@ namespace nihil::graphics
             }
             else
             {
-                Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
+                Carbo::Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
             }
         }
 
@@ -177,7 +177,7 @@ namespace nihil::graphics
             }
             else
             {
-                Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
+                Carbo::Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
             }
         }
 
@@ -221,7 +221,7 @@ namespace nihil::graphics
 
             if constexpr (!CPUAccessible)
             {
-                Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
+                Carbo::Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
 
                 vk::BufferCreateInfo stagingBufferCreateInfo{
                     {},
@@ -238,13 +238,13 @@ namespace nihil::graphics
 
                 if (stagingMemoryTypeIndex == uint32_t(-1))
                 {
-                    Logger::Exception("Failed to find the memory type to create a staging buffer");
+                    Carbo::Logger::Exception("Failed to find the memory type to create a staging buffer");
                 }
             }
 
             if (memoryTypeIndex == uint32_t(-1)) 
             {
-                Logger::Exception("Failed to find suitable memory type to create buffer");
+                Carbo::Logger::Exception("Failed to find suitable memory type to create buffer");
             }
         }
 
@@ -364,7 +364,7 @@ namespace nihil::graphics
         {
             if(allocatedOnGPU) return;
 
-            Logger::Log("Allocating the buffer.");
+            Carbo::Logger::Log("Allocating the buffer.");
 
             engine->_device().waitIdle();
             
@@ -379,7 +379,7 @@ namespace nihil::graphics
 
             if constexpr (!CPUAccessible)
             {
-                Logger::Log("Allocating a staging buffer");
+                Carbo::Logger::Log("Allocating a staging buffer");
 
                 vk::MemoryAllocateInfo stagingAllocInfo(
                     memRequirements.size,    // Allocation size
@@ -403,7 +403,7 @@ namespace nihil::graphics
 
             allocateOnGPU();
 
-            Logger::Log("Moving the buffer.");
+            Carbo::Logger::Log("Moving the buffer.");
 
             engine->_device().waitIdle();
 
@@ -419,7 +419,7 @@ namespace nihil::graphics
             }
             else
             {
-                Logger::Log("Using a direct copy");
+                Carbo::Logger::Log("Using a direct copy");
 
                 void* dataRaw = engine->_device().mapMemory(memory, 0, size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
@@ -435,7 +435,7 @@ namespace nihil::graphics
             onGPU = false;
             allocatedOnGPU = false;
 
-            Logger::Log("Freeing the buffer.");
+            Carbo::Logger::Log("Freeing the buffer.");
 
             engine->_device().waitIdle();
 
@@ -453,7 +453,7 @@ namespace nihil::graphics
 
             if constexpr (!CPUAccessible)
             {
-                Logger::Log("Using a staging buffer");
+                Carbo::Logger::Log("Using a staging buffer");
 
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
@@ -468,7 +468,7 @@ namespace nihil::graphics
             }
             else
             {
-                Logger::Log("Using a direct copy");
+                Carbo::Logger::Log("Using a direct copy");
 
                 void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
