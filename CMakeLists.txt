@@ -2,13 +2,14 @@
 
 project ("VEN")
 
-if(WIN32) 
-	
-endif()
-
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;NativeRelease" CACHE STRING "" FORCE)
+set(CMAKE_STH "NATIVE" CACHE STRING "Controls whether the build is to be native -> -march=native -mtune=native")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "NativeRelease") 
+    message(FATAL_ERROR "NativeRelease on windows detected. Please use: -DNATIVE=1 instead of -DCMAKE_BUILD_TYPE=NativeRelease.")
+endif()
 
 if(MSVC)
     # Basic optimization flags for MSVC
@@ -76,7 +77,10 @@ if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_EXE_LINKER_FLAGS_NATIVERELEASE "" CACHE STRING "" FORCE)
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
+if((CMAKE_BUILD_TYPE STREQUAL "Release") AND (NATIVE EQUAL 1))
+    message("Compiler flags [VEN] are: ${CMAKE_CXX_FLAGS_NATIVERELEASE}")
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_NATIVERELEASE})
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     message("Compiler flags [VEN] are: ${CMAKE_CXX_FLAGS_RELEASE}")
 elseif(CMAKE_BUILD_TYPE STREQUAL "NativeRelease")
     message("Compiler flags [VEN] are: ${CMAKE_CXX_FLAGS_NATIVERELEASE}")
@@ -86,6 +90,7 @@ endif()
 find_package(Vulkan REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(glm REQUIRED)
 
 add_library(VEN_shaderc INTERFACE)
 
@@ -146,11 +151,16 @@ target_include_directories(VEN
 
 target_include_directories(VEN PRIVATE ${Stb_INCLUDE_DIR})
 
+target_compile_definitions(VEN
+    PUBLIC GLM_ENABLE_EXPERIMENTAL
+)
+
 target_link_libraries(VEN PUBLIC
 	Vulkan::Vulkan
 	glfw
     VEN_shaderc
     OpenSSL::Crypto
+    glm::glm
     Carbo
 )
 

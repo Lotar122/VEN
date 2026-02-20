@@ -91,6 +91,14 @@ namespace nihil::graphics
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
         }
 
+        // Disable copy
+        Buffer<T, usageT, propertiesT>(const Buffer<T, usageT, propertiesT>&) = delete;
+        Buffer<T, usageT, propertiesT>& operator=(const Buffer<T, usageT, propertiesT>&) = delete;
+
+        // Enable move
+        Buffer<T, usageT, propertiesT>(Buffer<T, usageT, propertiesT>&&) noexcept = default;
+        Buffer<T, usageT, propertiesT>& operator=(Buffer<T, usageT, propertiesT>&&) noexcept = default;
+
         static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
         {
             copyBufferImpl(src, dst, size, { 0, 0, size }, engine);
@@ -488,6 +496,14 @@ namespace nihil::graphics
                 vk::Result discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
             }
         }
+
+        // Disable copy
+        Buffer<T, usageT, propertiesT>(const Buffer<T, usageT, propertiesT>&) = delete;
+        Buffer<T, usageT, propertiesT>& operator=(const Buffer<T, usageT, propertiesT>&) = delete;
+
+        // Enable move
+        Buffer<T, usageT, propertiesT>(Buffer<T, usageT, propertiesT>&&) noexcept = default;
+        Buffer<T, usageT, propertiesT>& operator=(Buffer<T, usageT, propertiesT>&&) noexcept = default;
 
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
