@@ -13,6 +13,8 @@
 
 #include "Classes/Asset/Asset.hpp"
 
+#include "Classes/AABB/AABB.hpp"
+
 namespace nihil::graphics
 {
     class Scene;
@@ -40,6 +42,9 @@ namespace nihil::graphics
         glm::vec3 rotation = glm::vec3(0.0f);
         glm::mat4 modelMatrix = glm::mat4(1.0f);
 
+        AABB aabb;
+        AABB transformedAABB;
+
         bool autoCreatedInstanceData = false;
         const void* instanceData = nullptr;
         size_t instanceDataSize = 0;
@@ -51,6 +56,8 @@ namespace nihil::graphics
         inline Material* _material() { return material; };
 
         inline uint64_t _modelMaterialEncoded() { return modelMaterialEncoded; };
+
+        inline AABB& _transformedAABB() { return transformedAABB; };
 
         inline const PushConstants* _pushConstants(Camera* camera) 
         {
@@ -82,6 +89,8 @@ namespace nihil::graphics
             recalculateModelMatrix();
 
             modelMaterialEncoded = (static_cast<uint64_t>(model->_getAssetId()) << 32) + material->_getAssetId();
+
+            aabb.computeFromMesh(model->_vertexBuffer()._data());
         }
 
         template<bool warn = true>
@@ -135,6 +144,8 @@ namespace nihil::graphics
             modelMatrix = glm::scale(modelMatrix, scaleFactor);
 
             modelMatrix *= model->_defaultTransform();
+
+            transformedAABB = aabb.getTransformed(modelMatrix);
         }
 
         //TODO: Physics integration later

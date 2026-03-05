@@ -74,6 +74,8 @@ namespace nihil::graphics
         //returns the size of the buffer in units of its type
         inline size_t _typedSize() const { return data.size(); };
 
+        inline std::vector<T>& _data() { return data; };
+
         inline const Engine* _engine() const { return engine; };
 
         template<UpdateMode updateModeT>

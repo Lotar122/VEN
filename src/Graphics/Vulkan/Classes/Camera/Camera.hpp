@@ -7,6 +7,7 @@
 #include <glm/gtx/euler_angles.hpp>
 
 #include "Classes/Listeners/Listeners.hpp"
+#include "Classes/Plane/Plane.hpp"
 
 namespace nihil::graphics
 {
@@ -46,6 +47,8 @@ namespace nihil::graphics
         float far;
 
         bool UI = false;
+
+        std::array<Plane, 6> planes;
         
     public:
         Camera(const CameraCreateInfo& info);
@@ -78,6 +81,8 @@ namespace nihil::graphics
         {
             if (!UI) vp = projectionMatrix * viewMatrix;
             else vp = projectionMatrix;
+
+            planes = extractFrustumPlanes(vp);
         }
 
         inline void recalculateLookAt()
@@ -177,5 +182,7 @@ namespace nihil::graphics
         const inline glm::mat4& _projectionMatrix() const { return projectionMatrix; };
         const inline glm::mat4& _viewMatrix() const { return viewMatrix; };
         const inline glm::mat4& _vp() const { return vp; };
+
+        inline std::array<Plane, 6>& _planes() { return planes; };
     };
 }

@@ -85,6 +85,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
     
     for(Object* o : objects)
     {
+        if(!o->_transformedAABB().isAABBVisible(camera->_planes())) break;
+
         if(o->_material()->_instancedPipeline())
         {
             auto it = instancedDraws.find(o->_modelMaterialEncoded());
