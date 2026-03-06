@@ -4,6 +4,7 @@
 #include "Classes/Model/Model.hpp"
 #include "Classes/Engine/Engine.hpp"
 #include "Classes/Pipeline/Pipeline.hpp"
+#include "Functions/BVH/BVH.hpp"
 #include "vulkan/vulkan_handles.hpp"
 
 #include <glm/glm.hpp>
@@ -82,10 +83,30 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
 {
     instancedDraws.clear();
     normalDraws.clear();
-    
-    for(Object* o : objects)
+    BVHNodeAllocator.reset();
+    toRender.clear();
+    BVHIndices.resize(objects.size());
+    toRender.reserve(objects.size());
+
+    for(int i = 0; i < BVHIndices.size(); ++i)
     {
-        if(!o->_transformedAABB().isAABBVisible(camera->_planes())) break;
+        BVHIndices[i] = i;
+    }
+
+    //Build and cull BVH
+    size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
+    cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
+
+    float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
+
+    Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
+
+    //To reduce cache misses during rendering
+    std::sort(toRender.begin(), toRender.end());
+    
+    for(size_t objectIndex : toRender)
+    {
+        Object* o = objects[objectIndex];
 
         if(o->_material()->_instancedPipeline())
         {
@@ -115,7 +136,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
     {
         if(it.second.size() > 1) [[likely]]
         {
-            if (descriptorAllocator)
+            if (descriptorAllocator) [[likely]]
             {
                 commandBuffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics,

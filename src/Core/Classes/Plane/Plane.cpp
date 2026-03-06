@@ -1,6 +1,8 @@
 #include "Plane.hpp"
 
-std::array<Plane, 6> extractFrustumPlanes(const glm::mat4& m)
+using namespace nihil;
+
+std::array<Plane, 6> nihil::extractFrustumPlanes(const glm::mat4& m)
 {
     std::array<Plane, 6> planes;
 

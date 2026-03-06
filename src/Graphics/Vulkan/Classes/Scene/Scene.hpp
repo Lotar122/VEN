@@ -7,8 +7,10 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "Classes/ECSAllocator/ECSAllocator.hpp"
 #include "Classes/Object/Object.hpp"
 #include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
+#include "Structs/BVHNode.hpp"
 
 namespace nihil::graphics
 {
@@ -20,6 +22,9 @@ namespace nihil::graphics
     {
         Engine* engine = nullptr;
         Carbo::BlockAllocator<Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>> instanceBufferAllocator;
+        Carbo::ECSAllocator<BVHNode> BVHNodeAllocator;
+        std::vector<size_t> BVHIndices;
+        std::vector<size_t> toRender;
 
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
         std::unordered_map<uint64_t, Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;

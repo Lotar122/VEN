@@ -3,10 +3,13 @@
 #include <array>
 #include <glm/glm.hpp>
 
-struct Plane
+namespace nihil
 {
-    glm::vec3 normal;
-    float d;
-};
+    struct Plane
+    {
+        glm::vec3 normal;
+        float d;
+    };
 
-std::array<Plane, 6> extractFrustumPlanes(const glm::mat4& m);
+    std::array<Plane, 6> extractFrustumPlanes(const glm::mat4& m);
+}
