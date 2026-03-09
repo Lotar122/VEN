@@ -39,6 +39,7 @@ namespace nihil::graphics
             RenderPass* renderPass, 
             Scene* scene,
             Camera* camera,
+            Pipeline* debugPipeline,
             DescriptorAllocator* descriptorAllocator = nullptr
         );
 

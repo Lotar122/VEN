@@ -12,6 +12,8 @@
 
 #include "Functions/Enumerate/Enumerate.hpp"
 
+#include "Enums/VisibilityQueryResult.hpp"
+
 using namespace nihil::graphics;
 
 void Scene::addObjects(const Object** newObjects, size_t size)
@@ -79,7 +81,7 @@ ThreadContext createThreadContext(vk::Device device, uint32_t graphicsQueueFamil
 //TODO
 //remember to remove pipelines and the renderpass from the Model class
 
-void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, DescriptorAllocator* descriptorAllocator)
+void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator)
 {
     instancedDraws.clear();
     normalDraws.clear();
@@ -94,19 +96,20 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
     }
 
     //Build and cull BVH
-    size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
-    cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
+    //size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
+    //cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
 
-    float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
+    //float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 
-    Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
+    //Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
 
-    //To reduce cache misses during rendering
-    std::sort(toRender.begin(), toRender.end());
+    ////To reduce cache misses during rendering
+    //std::sort(toRender.begin(), toRender.end());
     
-    for(size_t objectIndex : toRender)
+    for(Object* o : objects)
     {
-        Object* o = objects[objectIndex];
+        /*Object* o = objects[objectIndex];*/
+        if (AABB::isAABBVisible(o->_transformedAABB(), camera->_planes()) == VisibilityQueryResult::Outside) continue;
 
         if(o->_material()->_instancedPipeline())
         {
@@ -127,6 +130,73 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Des
         {
             normalDraws.push_back(o);
         }
+    }
+
+    std::vector<uint32_t> debugIndices =
+    {
+        // front
+        0,1,2, 0,2,3,
+
+        // back
+        4,6,5, 4,7,6,
+
+        // front
+        0,5,1, 0,4,5,
+
+        // back
+        3,2,6, 3,6,7,
+
+        // left
+        0,3,7, 0,7,4,
+
+        // right
+        1,5,6, 1,6,2
+    };
+
+    /*Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer> debugVertexBuffer(debugVertices, engine);
+    Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer> debugIndexBuffer(debugIndices, engine);*/
+
+    /*if(!debugVertexBuffer) debugVertexBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(debugVertices, engine);*/
+    if(!debugIndexBuffer) debugIndexBuffer = new Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(debugIndices, engine);
+    debugIndexBuffer->moveToGPU();
+
+    for (auto p : debugVertexBuffers)
+    {
+        delete p;
+    }
+
+    debugVertexBuffers.clear();
+
+    //Display AABBs for debug
+    for (Object* o : objects)
+    {
+        glm::vec3 min = o->_transformedAABB().min;
+        glm::vec3 max = o->_transformedAABB().max;
+
+        std::vector<float> vertices = {
+            min.x, min.y, max.z, // 0
+            max.x, min.y, max.z, // 1
+            max.x, max.y, max.z, // 2
+            min.x, max.y, max.z, // 3
+            min.x, min.y, min.z, // 4
+            max.x, min.y, min.z, // 5
+            max.x, max.y, min.z, // 6
+            min.x, max.y, min.z  // 7
+        };
+
+        debugVertexBuffers.push_back(new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(vertices, engine));
+        debugVertexBuffers.back()->moveToGPU();
+
+        //Push Constants
+        commandBuffer.pushConstants(debugPipeline->_layout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), o->_pushConstants(camera));
+
+        //Draw
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, debugPipeline->_pipeline());
+        commandBuffer.bindVertexBuffers(0, debugVertexBuffers.back()->_buffer(), {0});
+
+        commandBuffer.bindIndexBuffer(debugIndexBuffer->_buffer(), 0, vk::IndexType::eUint32);
+
+        commandBuffer.drawIndexed(static_cast<uint32_t>(debugIndexBuffer->_typedSize()), 1, 0, 0, 0);
     }
 
     //Multithread the recording by doing instanced on t1 and normal on t2. This will only decrease performance in our use case.

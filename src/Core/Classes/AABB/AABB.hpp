@@ -5,6 +5,7 @@
 
 #include "Classes/Plane/Plane.hpp"
 #include "Enums/VisibilityQueryResult.hpp"
+#include "Classes/Logger/Logger.hpp"
 
 namespace nihil
 {
@@ -26,40 +27,39 @@ namespace nihil
             max = _max;
         }
 
-        static VisibilityQueryResult isAABBVisible(const AABB& box, const std::array<Plane,6>& planes)
+        static VisibilityQueryResult isAABBVisible(const AABB& box, const std::array<Plane, 6>& planes)
         {
+            constexpr float bias = 0.01f;
+            AABB expanded = box;
+            expanded.min -= glm::vec3(bias);
+            expanded.max += glm::vec3(bias);
+
+            glm::vec3 center = (expanded.min + expanded.max) * 0.5f;
+            glm::vec3 extent = (expanded.max - expanded.min) * 0.5f;
+
             bool intersect = false;
 
-            for (const Plane& plane : planes)
+            for (int i = 0; i < 4; i++) // skip near
             {
-                glm::vec3 positive = box.min;
-                glm::vec3 negative = box.max;
+                const Plane& p = planes[i];
+                float dist = glm::dot(p.normal, center) + p.d;
 
-                if (plane.normal.x >= 0) {
-                    positive.x = box.max.x;
-                    negative.x = box.min.x;
-                }
-                if (plane.normal.y >= 0) {
-                    positive.y = box.max.y;
-                    negative.y = box.min.y;
-                }
-                if (plane.normal.z >= 0) {
-                    positive.z = box.max.z;
-                    negative.z = box.min.z;
-                }
+                float radius =
+                    extent.x * std::abs(p.normal.x) +
+                    extent.y * std::abs(p.normal.y) +
+                    extent.z * std::abs(p.normal.z);
 
-                float dPos = glm::dot(plane.normal, positive) + plane.d;
-                float dNeg = glm::dot(plane.normal, negative) + plane.d;
+                Carbo::Logger::Log("Pos:{}, Neg:{}", dist + radius, dist - radius);
 
-                if (dPos < 0)
+                if (dist + radius < -0.01f)
                     return VisibilityQueryResult::Outside;
 
-                if (dNeg < 0)
+                if (dist - radius < -0.01f)
                     intersect = true;
             }
 
             return intersect ? VisibilityQueryResult::Intersection
-                            : VisibilityQueryResult::Inside;
+                : VisibilityQueryResult::Inside;
         }
 
         //Computes a bounding box for any mesh layout: (vx, vy, vz, tx, ty, nx, ny, nz)
@@ -84,6 +84,8 @@ namespace nihil
                 min = glm::min(min, pos);
                 max = glm::max(max, pos);
             }
+
+            Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
         }
 
         AABB getTransformed(const glm::mat4& M) const

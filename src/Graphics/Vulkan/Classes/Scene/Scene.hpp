@@ -33,6 +33,10 @@ namespace nihil::graphics
         std::vector<Object*> normalDraws;
 
         std::vector<Object*> objects;
+
+        //Debug buffers
+        std::vector<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> debugVertexBuffers;
+        Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* debugIndexBuffer = nullptr;
     public:
 
         inline void addObject(Object* object) { objects.push_back(object); };
@@ -44,7 +48,7 @@ namespace nihil::graphics
         inline void use() { for (Object* o : objects) { o->use(); } };
         inline void unuse() { for (Object* o : objects) { o->unuse(); } };
 
-        void recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, DescriptorAllocator* descriptorAllocator = nullptr);
+        void recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator = nullptr);
 
         Scene(Engine* _engine)
         {
@@ -59,6 +63,13 @@ namespace nihil::graphics
             {
                 it.second->~Buffer();
             }
+
+            for (auto p : debugVertexBuffers)
+            {
+                delete p;
+            }
+
+            if (debugIndexBuffer) delete debugIndexBuffer;
         }
     };
 }

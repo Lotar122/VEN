@@ -17,6 +17,7 @@ void Renderer::Render(
 	RenderPass* renderPass, 
 	Scene* scene,
 	Camera* camera,
+	Pipeline* debugPipeline,
 	DescriptorAllocator* descriptorAllocator
 )
 {
@@ -61,7 +62,7 @@ void Renderer::Render(
 	vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
 
 	//record commands from the scene
-    scene->recordCommands(commandBuffer, camera, descriptorAllocator);
+    scene->recordCommands(commandBuffer, camera, debugPipeline, descriptorAllocator);
 
 	commandBuffer.endRenderPass();
 

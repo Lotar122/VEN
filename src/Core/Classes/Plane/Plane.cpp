@@ -43,11 +43,14 @@ std::array<Plane, 6> nihil::extractFrustumPlanes(const glm::mat4& m)
     planes[5].d        = m[3][3] - m[3][2];
 
     // Normalize planes
-    for (int i = 0; i < 6; i++)
+    for (Plane& p : planes)
     {
-        float len = glm::length(planes[i].normal);
-        planes[i].normal /= len;
-        planes[i].d      /= len;
+        float len = glm::length(p.normal);
+        if (len > 0.0f)
+        {
+            p.normal /= len;
+            p.d /= len;
+        }
     }
 
     return planes;

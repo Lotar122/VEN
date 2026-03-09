@@ -86,11 +86,11 @@ namespace nihil::graphics
             material = _material;
             engine = _engine;
 
+            aabb = model->_aabb();
+
             recalculateModelMatrix();
 
             modelMaterialEncoded = (static_cast<uint64_t>(model->_getAssetId()) << 32) + material->_getAssetId();
-
-            aabb.computeFromMesh(model->_vertexBuffer()._data());
         }
 
         template<bool warn = true>

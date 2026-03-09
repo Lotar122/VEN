@@ -7,6 +7,7 @@
 #include "Legacy/OBJLoader.hpp"
 
 #include "Classes/Buffer/Buffer.hpp"
+#include "Classes/AABB/AABB.hpp"
 
 #include "Classes/Asset/Asset.hpp"
 
@@ -33,6 +34,8 @@ namespace nihil::graphics
 
         alignas(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>) byte vertexBufferMemory[sizeof(Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>)];
         alignas(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>) byte indexBufferMemory[sizeof(Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>)];
+
+        AABB modelAABB;
     public:
         Model(
             const std::string& _path, Engine* _engine, Pipeline* _pipeline = nullptr, 
@@ -54,6 +57,8 @@ namespace nihil::graphics
 
             vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(loadingResult.first, engine);
             indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(loadingResult.second, engine);
+
+            modelAABB.computeFromMesh(loadingResult.first);
         }
 
         template<auto usageT1, auto propertiesT1, auto usageT2, auto propertiesT2>
@@ -76,6 +81,8 @@ namespace nihil::graphics
 
             vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(_vertexBuffer);
             indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(_indexBuffer);
+
+            modelAABB.computeFromMesh(_vertexBuffer);
         }
 
         template<auto usageT1, auto propertiesT1, auto usageT2, auto propertiesT2>
@@ -98,6 +105,54 @@ namespace nihil::graphics
 
             vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(_vertexBuffer.data, &engine);
             indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(_indexBuffer.data, &engine);
+
+            modelAABB.computeFromMesh(_vertexBuffer.data);
+        }
+
+        Model(
+            std::vector<float>&& _vertexBuffer, std::vector<uint32_t>&& _indexBuffer,
+            Engine* _engine, Pipeline* _pipeline = nullptr,
+            Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr,
+            glm::mat4 _model = glm::mat4(1.0f)
+        ) : Asset(AssetUsage::Undefined, _engine)
+        {
+            path = "";
+            model = _model;
+            pipeline = _pipeline;
+            renderPass = _renderPass;
+            instancedPipeline = _instancedPipeline;
+
+            assert(_engine != nullptr);
+
+            engine = _engine;
+
+            vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(std::move(_vertexBuffer), engine);
+            indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(std::move(_indexBuffer), engine);
+
+            modelAABB.computeFromMesh(vertexBuffer->_data());
+        }
+
+        Model(
+            std::vector<float>& _vertexBuffer, std::vector<uint32_t>& _indexBuffer,
+            Engine* _engine, Pipeline* _pipeline = nullptr,
+            Pipeline* _instancedPipeline = nullptr, RenderPass* _renderPass = nullptr,
+            glm::mat4 _model = glm::mat4(1.0f)
+        ) : Asset(AssetUsage::Undefined, _engine)
+        {
+            path = "";
+            model = _model;
+            pipeline = _pipeline;
+            renderPass = _renderPass;
+            instancedPipeline = _instancedPipeline;
+
+            assert(_engine != nullptr);
+
+            engine = _engine;
+
+            vertexBuffer = new (vertexBufferMemory) Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(_vertexBuffer, engine);
+            indexBuffer = new (indexBufferMemory) Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(_indexBuffer, engine);
+
+            modelAABB.computeFromMesh(_vertexBuffer);
         }
 
         inline Pipeline* _pipeline() { return pipeline; };
@@ -137,6 +192,8 @@ namespace nihil::graphics
         }
 
         inline glm::mat4& _defaultTransform() { return model; };
+
+        inline AABB& _aabb() { return modelAABB; };
 
         ~Model()
         {
