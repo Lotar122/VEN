@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef UNDEFINE
+
 #include <vulkan/vulkan.hpp>
 #include "Concepts/HasFlag.hpp"
 #include "Concepts/StdVector.hpp"
@@ -966,3 +968,5 @@ namespace nihil::graphics
         }
 	};
 }
+
+#endif

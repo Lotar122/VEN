@@ -29,7 +29,7 @@ Texture::Texture(const std::string& path, AssetUsage _assetUsage, Engine* _engin
     if (!imageData) Carbo::Logger::Exception("Failed to load image to create texture.");
 
     stagingBuffer = new (stagingBufferMemory) Buffer<
-        unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        std::vector<unsigned char>, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
     >(imageData, size, engine);
 
     vk::ImageCreateInfo textureImageCreateInfo = {
@@ -83,7 +83,7 @@ Texture::Texture(const char* data, size_t _width, size_t _height, uint8_t _chann
     if (!imageData) Carbo::Logger::Exception("Failed to load image to create texture.");
 
     stagingBuffer = new (stagingBufferMemory) Buffer<
-        unsigned char, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        std::vector<unsigned char>, vk::BufferUsageFlagBits::eTransferSrc, static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
     >(imageData, size, engine);
 
     vk::ImageCreateInfo textureImageCreateInfo = {

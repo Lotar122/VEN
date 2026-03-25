@@ -157,7 +157,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer> debugIndexBuffer(debugIndices, engine);*/
 
     /*if(!debugVertexBuffer) debugVertexBuffer = new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(debugVertices, engine);*/
-    if(!debugIndexBuffer) debugIndexBuffer = new Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>(debugIndices, engine);
+    if(!debugIndexBuffer) debugIndexBuffer = new Buffer<std::vector<uint32_t>, vk::BufferUsageFlagBits::eIndexBuffer>(debugIndices, engine);
     debugIndexBuffer->moveToGPU();
 
     for (auto p : debugVertexBuffers)
@@ -184,7 +184,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             min.x, max.y, min.z  // 7
         };
 
-        debugVertexBuffers.push_back(new Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>(vertices, engine));
+        debugVertexBuffers.push_back(new Buffer<std::vector<float>, vk::BufferUsageFlagBits::eVertexBuffer>(vertices, engine));
         debugVertexBuffers.back()->moveToGPU();
 
         //Push Constants
@@ -228,7 +228,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             size_t instanceDataChunkSize = it.second[0]->_instanceData().second;
             size_t instanceDataSize = it.second.size() * instanceDataChunkSize;
 
-            Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
+            Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
 
             auto bufferIT = instanceBuffers.find(it.first);
             if(bufferIT != instanceBuffers.end()) 
@@ -266,7 +266,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
                     memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * c), it.second[i]->_instanceData().first, instanceDataChunkSize);
                 }
 
-                Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, std::move(instanceData), engine);
+                Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, std::move(instanceData), engine);
 
                 instanceBufferAllocator.free(instanceBuffer);
 
@@ -294,9 +294,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
             instanceBuffer->executeRecordedUpdates();
 
-            // //TODO: Mutithread this
-
-            assert(instanceBuffer != nullptr);
+            // //TODO: Multithread this
 
             instanceBuffer->moveToGPU();
 

@@ -21,13 +21,13 @@ namespace nihil::graphics
     class Scene
     {
         Engine* engine = nullptr;
-        Carbo::BlockAllocator<Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>> instanceBufferAllocator;
+        Carbo::BlockAllocator<Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>> instanceBufferAllocator;
         Carbo::ECSAllocator<BVHNode> BVHNodeAllocator;
         std::vector<size_t> BVHIndices;
         std::vector<size_t> toRender;
 
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
-        std::unordered_map<uint64_t, Buffer<std::byte, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
+        std::unordered_map<uint64_t, Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>*> instanceBuffers;
 
         std::unordered_map<uint64_t, std::vector<Object*>> instancedDraws;
         std::vector<Object*> normalDraws;
@@ -35,8 +35,8 @@ namespace nihil::graphics
         std::vector<Object*> objects;
 
         //Debug buffers
-        std::vector<Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>*> debugVertexBuffers;
-        Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* debugIndexBuffer = nullptr;
+        std::vector<Buffer<std::vector<float>, vk::BufferUsageFlagBits::eVertexBuffer>*> debugVertexBuffers;
+        Buffer<std::vector<uint32_t>, vk::BufferUsageFlagBits::eIndexBuffer>* debugIndexBuffer = nullptr;
     public:
 
         inline void addObject(Object* object) { objects.push_back(object); };

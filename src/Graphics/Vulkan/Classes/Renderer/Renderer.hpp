@@ -15,6 +15,7 @@ namespace nihil::graphics
     class Pipeline;
     class RenderPass;
     template<typename T, auto usageT, auto propertiesT>
+    requires StdVector<T>
     class Buffer;
     class Scene;
     class DescriptorAllocator;

@@ -1,7 +1,11 @@
 #pragma once
 
+#include "Macros/break_assert.hpp"
+
 #include "Classes/Engine/Engine.hpp"
 #include "Classes/Resources/Resources.hpp"
+#include "Concepts/HasFlag.hpp"
+#include "Concepts/StdVector.hpp"
 #include "StorageBuffer.hpp"
 #include "FindMemoryTypeIndex.hpp"
 #include "Classes/Asset/Asset.hpp"
@@ -9,39 +13,44 @@
 #include <iterator>
 #include <vector>
 
-//!This violates the Vulkan spec. It rebins memory to buffers which is prohibited. A rewrite which instead recreates the buffer is pending.
-
 namespace nihil::graphics
 {
-    class Model;
+	class Model;
 
-    template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
-    class Buffer : public Asset
-    {
-        friend class Model;
-        Engine* engine = nullptr;
-        vk::Fence transferFence = nullptr;
+	//The specialization for T = std::vector<U>
+	template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
+	requires StdVector<T>
+	class Buffer : public Asset
+	{
+        using U = T::value_type;
 
-        size_t size = 0;
-        std::vector<T> data;
-        static constexpr vk::BufferUsageFlags usage = static_cast<vk::BufferUsageFlags>(usageT);
-        static constexpr vk::MemoryPropertyFlags properties = static_cast<vk::MemoryPropertyFlags>(propertiesT);
+		friend class Model;
+		Engine* engine = nullptr;
+		vk::Fence transferFence = nullptr;
 
-        vk::MemoryRequirements memRequirements;
-        vk::MemoryRequirements stagingMemRequirements;
-        vk::PhysicalDeviceMemoryProperties memProperties;
+		size_t size = 0;
+		T data;
+		static constexpr vk::BufferUsageFlags usage = static_cast<vk::BufferUsageFlags>(usageT);
+		static constexpr vk::MemoryPropertyFlags properties = static_cast<vk::MemoryPropertyFlags>(propertiesT);
 
-        uint32_t memoryTypeIndex = uint32_t(-1), stagingMemoryTypeIndex = uint32_t(-1);
+		vk::MemoryRequirements memRequirements;
+		vk::MemoryRequirements stagingMemRequirements;
+		vk::PhysicalDeviceMemoryProperties memProperties;
 
-        Resource<vk::Buffer> buffer;
-        Resource<vk::Buffer> stagingBuffer;
-        vk::DeviceMemory memory;
-        vk::DeviceMemory stagingMemory;
+        vk::BufferCreateInfo bufferCreateInfo;
+        vk::BufferCreateInfo stagingBufferCreateInfo;
 
-        bool onGPU = false, allocatedOnGPU = false;
+		uint32_t memoryTypeIndex = uint32_t(-1), stagingMemoryTypeIndex = uint32_t(-1);
 
-        static constexpr bool CPUAccessible = 
-            (properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
+		vk::Buffer buffer = nullptr;
+		vk::Buffer stagingBuffer = nullptr;
+		vk::DeviceMemory memory;
+		vk::DeviceMemory stagingMemory;
+
+		static constexpr bool CPUAccessible =
+			(properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
+
+        bool onGPU = false, allocatedOnGPU = false, bufferCreated = false;
 
         bool destroyed = false;
 
@@ -68,20 +77,22 @@ namespace nihil::graphics
         UpdateMode updateMode = UpdateMode::Immediate;
         UpdateMode preRecordingUpdateMode = updateMode;
     public:
-        inline vk::Buffer _buffer() { return buffer.getRes(); };
+        inline vk::Buffer _buffer() { return buffer; };
         //return the size of the buffer in bytes
         inline size_t _size() const { return size; };
         //returns the size of the buffer in units of its type
         inline size_t _typedSize() const { return data.size(); };
 
-        inline std::vector<T>& _data() { return data; };
+        inline T& _data() { return data; };
 
         inline const Engine* _engine() const { return engine; };
 
         template<UpdateMode updateModeT>
         static void copyBufferImpl(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
         {
-            if constexpr (updateModeT == UpdateMode::Immediate) 
+            break_assert(dst != nullptr && src != nullptr);
+
+            if constexpr (updateModeT == UpdateMode::Immediate)
             {
                 vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
                 discardResult = engine->_device().resetFences(1, &engine->_transferFence());
@@ -92,7 +103,7 @@ namespace nihil::graphics
 
             engine->_mainCommandBuffer().copyBuffer(src, dst, copyRegion);
 
-            if constexpr (updateModeT == UpdateMode::Immediate) 
+            if constexpr (updateModeT == UpdateMode::Immediate)
             {
                 vk::BufferMemoryBarrier barrier{
                     vk::AccessFlagBits::eTransferWrite,
@@ -149,9 +160,9 @@ namespace nihil::graphics
         vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
         {
             if constexpr (
-                usageT == vk::BufferUsageFlagBits::eStorageBuffer || 
+                usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
                 usageT == vk::BufferUsageFlagBits::eUniformBuffer
-            )
+                )
             {
                 vk::DescriptorSetLayoutBinding bufferBinding{};
                 bufferBinding.binding = binding;
@@ -175,7 +186,7 @@ namespace nihil::graphics
             if constexpr (
                 usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
                 usageT == vk::BufferUsageFlagBits::eUniformBuffer
-            )
+                )
             {
                 vk::DescriptorBufferInfo bufferInfo{
                 buffer,
@@ -194,38 +205,40 @@ namespace nihil::graphics
         inline void BufferConsumeImpl(Buffer<T, usageT, propertiesT>* source, size_t newDataSize)
         {
             source->moveToGPU();
-            
+
             allocateOnGPU();
 
-            copyBuffer(source->buffer, buffer, size, {0, 0, source->size}, engine);
+            copyBuffer(source->buffer, buffer, size, { 0, 0, source->size }, engine);
 
-            updateGPUData({ source->size, source->size, newDataSize * sizeof(T) });
-            
+            updateGPUData({ source->size, source->size, newDataSize * sizeof(U) });
+
             source->freeFromGPU();
         }
 
         inline void BufferConstructorImpl(Engine* _engine, AssetUsage _assetUsage)
         {
-            assert(_engine != nullptr);
-            assert(_engine->_transferFence() != nullptr);
+            break_assert(_engine != nullptr);
+            break_assert(_engine->_transferFence() != nullptr);
 
             engine = _engine;
             transferFence = engine->_transferFence();
 
-            size = data.size() * sizeof(T);
+            size = data.size() * sizeof(U);
+
+            bufferCreated = true;
 
             memProperties = engine->_physicalDevice().getMemoryProperties();
 
-            vk::BufferCreateInfo bufferCreateInfo(
+            bufferCreateInfo = vk::BufferCreateInfo{
                 {},                      // Flags (default: none)
                 size,              // Size of the buffer
                 usageT | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc, // Usage flags
                 vk::SharingMode::eExclusive // Sharing mode
-            );
+            };
 
-            buffer.assignRes(engine->_device().createBuffer(bufferCreateInfo), engine->_device());
+            buffer = engine->_device().createBuffer(bufferCreateInfo);
 
-            memRequirements = engine->_device().getBufferMemoryRequirements(buffer.getRes());
+            memRequirements = engine->_device().getBufferMemoryRequirements(buffer);
 
             memoryTypeIndex = findMemoryTypeIndex(memProperties, memRequirements, properties);
 
@@ -233,16 +246,16 @@ namespace nihil::graphics
             {
                 Carbo::Logger::Log("Creating a buffer which will use a staging buffer for copy operations.");
 
-                vk::BufferCreateInfo stagingBufferCreateInfo{
+                stagingBufferCreateInfo = vk::BufferCreateInfo{
                     {},
                     size,
                     vk::BufferUsageFlagBits::eTransferSrc,
                     vk::SharingMode::eExclusive
                 };
 
-                stagingBuffer.assignRes(engine->_device().createBuffer(stagingBufferCreateInfo), engine->_device());
+                stagingBuffer = engine->_device().createBuffer(stagingBufferCreateInfo);
 
-                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer.getRes());
+                stagingMemRequirements = engine->_device().getBufferMemoryRequirements(stagingBuffer);
 
                 stagingMemoryTypeIndex = findMemoryTypeIndex(memProperties, stagingMemRequirements, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
@@ -252,36 +265,36 @@ namespace nihil::graphics
                 }
             }
 
-            if (memoryTypeIndex == uint32_t(-1)) 
+            if (memoryTypeIndex == uint32_t(-1))
             {
                 Carbo::Logger::Exception("Failed to find suitable memory type to create buffer");
             }
         }
 
-        Buffer(const std::vector<T>& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
-            assert(_data.size() != 0);
+            break_assert(_data.size() != 0);
 
             data = _data;
 
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
-        Buffer(std::vector<T>&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(T&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
-            assert(_data.size() != 0);
+            break_assert(_data.size() != 0);
 
             data = std::move(_data);
 
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
-        Buffer(const T* _data, size_t _size, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(const U* _data, size_t _size, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
-            assert(_size != 0);
-            assert(_data != nullptr);
+            break_assert(_size != 0);
+            break_assert(_data != nullptr);
 
-            size = _size * sizeof(T);
+            size = _size * sizeof(U);
 
             data.resize(size);
 
@@ -291,7 +304,7 @@ namespace nihil::graphics
         }
 
         //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
-        Buffer(Buffer<T, usageT, propertiesT>& source, const std::vector<T>& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer<T, usageT, propertiesT>& source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
 
@@ -304,7 +317,7 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newData.size());
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>& source, std::vector<T>&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer<T, usageT, propertiesT>& source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
 
@@ -323,14 +336,14 @@ namespace nihil::graphics
 
             data.resize(data.size() + newDataSize);
 
-            memcpy(data.data() + source.size, newData, newDataSize * sizeof(T));
+            memcpy(data.data() + source.size, newData, newDataSize * sizeof(U));
 
             BufferConstructorImpl(_engine, _assetUsage);
 
             BufferConsumeImpl(&source, newDataSize);
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>* source, const std::vector<T>& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer<T, usageT, propertiesT>* source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
 
@@ -344,7 +357,7 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newData.size());
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>* source, std::vector<T>&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer<T, usageT, propertiesT>* source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
 
@@ -363,7 +376,7 @@ namespace nihil::graphics
 
             data.resize(data.size() + newDataSize);
 
-            memcpy(data.data() + source->size, newData, newDataSize * sizeof(T));
+            memcpy(data.data() + source->size, newData, newDataSize * sizeof(U));
 
             BufferConstructorImpl(_engine, _assetUsage);
 
@@ -372,20 +385,21 @@ namespace nihil::graphics
 
         void allocateOnGPU()
         {
-            if(allocatedOnGPU) return;
+            if (allocatedOnGPU) return;
 
             Carbo::Logger::Log("Allocating the buffer.");
 
             engine->_device().waitIdle();
-            
+
             vk::MemoryAllocateInfo allocInfo(
                 memRequirements.size,    // Allocation size
                 memoryTypeIndex          // Memory type index
             );
 
             memory = engine->_device().allocateMemory(allocInfo);
+            if(!bufferCreated) buffer = engine->_device().createBuffer(bufferCreateInfo);
 
-            engine->_device().bindBufferMemory(buffer.getRes(), memory, 0);
+            engine->_device().bindBufferMemory(buffer, memory, 0);
 
             if constexpr (!CPUAccessible)
             {
@@ -397,19 +411,19 @@ namespace nihil::graphics
                 );
 
                 stagingMemory = engine->_device().allocateMemory(stagingAllocInfo);
+                if (!bufferCreated) stagingBuffer = engine->_device().createBuffer(stagingBufferCreateInfo);
 
-                engine->_device().bindBufferMemory(stagingBuffer.getRes(), stagingMemory, 0);
+                engine->_device().bindBufferMemory(stagingBuffer, stagingMemory, 0);
             }
 
             allocatedOnGPU = true;
+            bufferCreated = true;
         }
-
+        
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         void moveToGPU()
         {
-            if(onGPU) return;
-
-            onGPU = true;
+            if (onGPU) return;
 
             allocateOnGPU();
 
@@ -425,7 +439,7 @@ namespace nihil::graphics
 
                 engine->_device().unmapMemory(stagingMemory);
 
-                copyBuffer<updateModeT>(stagingBuffer.getRes(), buffer.getRes(), size, engine);
+                copyBuffer<updateModeT>(stagingBuffer, buffer, size, engine);
             }
             else
             {
@@ -436,23 +450,37 @@ namespace nihil::graphics
                 std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
                 engine->_device().unmapMemory(memory);
             }
+
+            onGPU = true;
         }
 
         inline void freeFromGPU()
         {
-            if(!allocatedOnGPU) return;
+            if (!allocatedOnGPU) return;
 
             onGPU = false;
             allocatedOnGPU = false;
+            bufferCreated = false;
 
             Carbo::Logger::Log("Freeing the buffer.");
 
             engine->_device().waitIdle();
 
+            engine->_device().destroyBuffer(buffer);
             engine->_device().freeMemory(memory);
-            if constexpr (!CPUAccessible) engine->_device().freeMemory(stagingMemory);
-        }
+            #if defined(_DEBUG) || !defined(NDEBUG)
+                buffer = nullptr;
+            #endif
+            if constexpr (!CPUAccessible)
+            {
+                engine->_device().destroyBuffer(stagingBuffer);
+                engine->_device().freeMemory(stagingMemory);
 
+                #if defined(_DEBUG) || !defined(NDEBUG)
+                    stagingBuffer = nullptr;
+                #endif
+            }
+        }
     private:
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         inline void updateGPUData(vk::BufferCopy updateRegion)
@@ -468,13 +496,13 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(
-                    dataTyped, 
-                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset, 
+                    dataTyped,
+                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
                     updateRegion.size
                 );
                 engine->_device().unmapMemory(stagingMemory);
 
-                copyBuffer<updateModeT>(stagingBuffer.getRes(), buffer.getRes(), size, updateRegion, engine);
+                copyBuffer<updateModeT>(stagingBuffer, buffer, size, updateRegion, engine);
             }
             else
             {
@@ -483,8 +511,8 @@ namespace nihil::graphics
                 void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
                 T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(
-                    dataTyped, 
-                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset, 
+                    dataTyped,
+                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
                     updateRegion.size
                 );
                 engine->_device().unmapMemory(memory);
@@ -492,19 +520,19 @@ namespace nihil::graphics
 
             const UpdateMode templateMode = updateModeT;
 
-            if constexpr (updateModeT == UpdateMode::Immediate) if(!wasOnGPU) freeFromGPU();
+            if constexpr (updateModeT == UpdateMode::Immediate) if (!wasOnGPU) freeFromGPU();
         }
 
         inline void recordUpdate(const vk::BufferCopy& updateRegion)
         {
-            if(updateOptimizer.commands.empty()) [[unlikely]]
+            if (updateOptimizer.commands.empty()) [[unlikely]]
             {
                 updateOptimizer.commands.emplace_back(updateRegion.srcOffset, updateRegion.dstOffset, updateRegion.size);
 
                 return;
             }
             auto& prev = updateOptimizer.commands.back();
-            if(prev.dstOffset + prev.updateSize == updateRegion.dstOffset)
+            if (prev.dstOffset + prev.updateSize == updateRegion.dstOffset)
             {
                 prev.updateSize += updateRegion.size;
             }
@@ -514,7 +542,6 @@ namespace nihil::graphics
             }
         }
     public:
-
         inline void setUpdateMode(UpdateMode _updateMode)
         {
             updateMode = _updateMode;
@@ -533,6 +560,8 @@ namespace nihil::graphics
         {
             bool wasOnGPU = onGPU;
 
+            moveToGPU();
+
             updateMode = preRecordingUpdateMode;
 
             vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
@@ -541,10 +570,12 @@ namespace nihil::graphics
             vk::CommandBufferBeginInfo beginInfo{};
             engine->_mainCommandBuffer().begin(beginInfo);
 
-            for(int i = 0; i < updateOptimizer.commands.size(); i++)
+            for (int i = 0; i < updateOptimizer.commands.size(); i++)
             {
                 updateGPUData<UpdateMode::Recording>({ updateOptimizer.commands[i].srcOffset, updateOptimizer.commands[i].dstOffset, updateOptimizer.commands[i].updateSize });
             }
+
+            break_assert(buffer != nullptr && stagingBuffer != nullptr);
 
             vk::BufferMemoryBarrier barrier{
                 vk::AccessFlagBits::eTransferWrite,
@@ -576,70 +607,64 @@ namespace nihil::graphics
 
             discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
 
-            if(!wasOnGPU) freeFromGPU();
+            if (!wasOnGPU) freeFromGPU();
         }
 
-        void update(const std::vector<T>& _data)
+        void update(const T& _data)
         {
-            assert(_data.size() == data.size());
+            break_assert(_data.size() == data.size());
 
             data = _data;
 
             updateGPUData({ 0, 0, size });
         }
 
-        void update(const std::vector<T>&& _data)
+        void update(const T&& _data)
         {
-            assert(_data.size() == data.size());
+            break_assert(_data.size() == data.size());
 
             data = std::move(_data);
 
             updateGPUData({ 0, 0, size });
         }
 
-        void update(const T* _data, size_t _size)
+        void update(const U* _data, size_t _size)
         {
-            assert(data.size() == _size);
+            break_assert(data.size() == _size);
 
             std::memcpy(data.data(), _data, data.size());
 
             updateGPUData({ 0, 0, size });
         }
 
-        void update(const T* _data, vk::BufferCopy updateRegion)
+        void update(const U* _data, vk::BufferCopy updateRegion)
         {
-            assert(_data != nullptr);
+            break_assert(_data != nullptr);
 
             std::memcpy(
-                reinterpret_cast<std::byte*>(data.data()) + updateRegion.dstOffset, 
-                _data + updateRegion.srcOffset, 
+                reinterpret_cast<std::byte*>(data.data()) + updateRegion.dstOffset,
+                _data + updateRegion.srcOffset,
                 updateRegion.size
             );
 
-            if(updateMode == UpdateMode::Immediate) updateGPUData(updateRegion);
+            if (updateMode == UpdateMode::Immediate) updateGPUData(updateRegion);
             else recordUpdate(updateRegion);
         }
 
         void destroy()
         {
-            assert(!destroyed);
+            break_assert(!destroyed);
 
             destroyed = true;
 
             engine->_device().waitIdle();
 
             freeFromGPU();
-
-            buffer.destroy();
-            if constexpr (!CPUAccessible)
-            {
-                stagingBuffer.destroy();
-            }
         }
 
         inline ~Buffer()
         {
             destroy();
         }
-    };
+	};
 }

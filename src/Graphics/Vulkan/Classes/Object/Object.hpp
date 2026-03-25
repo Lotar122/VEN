@@ -67,11 +67,11 @@ namespace nihil::graphics
             return &pushConstants;
         }
 
-        inline Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>& _vertexBuffer() { return model->_vertexBuffer(); };
-        inline Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>& _indexBuffer() { return model->_indexBuffer(); };
+        inline Buffer<std::vector<float>, vk::BufferUsageFlagBits::eVertexBuffer>& _vertexBuffer() { return model->_vertexBuffer(); };
+        inline Buffer<std::vector<uint32_t>, vk::BufferUsageFlagBits::eIndexBuffer>& _indexBuffer() { return model->_indexBuffer(); };
 
-        inline Buffer<float, vk::BufferUsageFlagBits::eVertexBuffer>* _vertexBufferPtr() { return model->_vertexBufferPtr(); };
-        inline Buffer<uint32_t, vk::BufferUsageFlagBits::eIndexBuffer>* _indexBufferPtr() { return model->_indexBufferPtr(); };
+        inline Buffer<std::vector<float>, vk::BufferUsageFlagBits::eVertexBuffer>* _vertexBufferPtr() { return model->_vertexBufferPtr(); };
+        inline Buffer<std::vector<uint32_t>, vk::BufferUsageFlagBits::eIndexBuffer>* _indexBufferPtr() { return model->_indexBufferPtr(); };
 
         inline void setPosition(const glm::vec3& _position) { position = _position; recalculateModelMatrix(); }; 
         inline void setRotation(const glm::vec3& _rotation) { rotation = _rotation; recalculateModelMatrix(); }; 
