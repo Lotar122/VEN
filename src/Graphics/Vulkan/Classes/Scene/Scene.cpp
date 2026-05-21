@@ -224,116 +224,116 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             //Draw
             commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_material()->_instancedPipeline()->_pipeline());
 
-            template<bool _freeList = false, bool _homeless = false>
-            void constructSlots(std::vector<Object*>& toRender, std::vector<InstanceDataSlot>& slots, size_t thisFrame, InstanceData** mem, size_t* memSize, std::vector<size_t>* __freeList = nullptr, std::vector<size_t>* __homeless = nullptr)
-            {
-                using FreeListType = std::conditional_t<_freeList, std::vector<size_t>&, std::vector<size_t>>;
-                using HomelessType = std::conditional_t<_homeless, std::vector<size_t>&, std::vector<size_t>>;
+            // template<bool _freeList = false, bool _homeless = false>
+            // void constructSlots(std::vector<Object*>& toRender, std::vector<InstanceDataSlot>& slots, size_t thisFrame, InstanceData** mem, size_t* memSize, std::vector<size_t>* __freeList = nullptr, std::vector<size_t>* __homeless = nullptr)
+            // {
+            //     using FreeListType = std::conditional_t<_freeList, std::vector<size_t>&, std::vector<size_t>>;
+            //     using HomelessType = std::conditional_t<_homeless, std::vector<size_t>&, std::vector<size_t>>;
 
-                struct InitVec
-                {
-                    static inline FreeListType initFreeList(std::vector<size_t>* p)
-                    {
-                        if constexpr (_freeList) {
-                            p->clear();
-                            return *p;
-                        }
-                        else
-                        {
-                            return FreeListType();
-                        }
-                    }
-                    static inline HomelessType initHomeless(std::vector<size_t>* p)
-                    {
-                        if constexpr (_homeless) {
-                            p->clear();
-                            return *p;
-                        }
-                        else
-                        {
-                            return HomelessType();
-                        }
-                    }
-                };
+            //     struct InitVec
+            //     {
+            //         static inline FreeListType initFreeList(std::vector<size_t>* p)
+            //         {
+            //             if constexpr (_freeList) {
+            //                 p->clear();
+            //                 return *p;
+            //             }
+            //             else
+            //             {
+            //                 return FreeListType();
+            //             }
+            //         }
+            //         static inline HomelessType initHomeless(std::vector<size_t>* p)
+            //         {
+            //             if constexpr (_homeless) {
+            //                 p->clear();
+            //                 return *p;
+            //             }
+            //             else
+            //             {
+            //                 return HomelessType();
+            //             }
+            //         }
+            //     };
 
-                HomelessType homeless = InitVec::initHomeless(__homeless);
-                FreeListType freeList = InitVec::initFreeList(__freeList);
+            //     HomelessType homeless = InitVec::initHomeless(__homeless);
+            //     FreeListType freeList = InitVec::initFreeList(__freeList);
 
-                homeless.reserve(toRender.size());
-                freeList.reserve(slots.size());
+            //     homeless.reserve(toRender.size());
+            //     freeList.reserve(slots.size());
 
-                for(size_t i = 0; i < toRender.size(); i++)
-                {
-                    Object* o = toRender[i];
-                    size_t prevDataSlot = o->prevDataSlot;
-                    if(prevDataSlot != std::numeric_limits<size_t>::max()) [[likely]]
-                    {
-                        InstanceDataSlot& slot = slots[prevDataSlot];
-                        if(slot.prevAssignedFrame == thisFrame) [[unlikely]]
-                        {
-                            homeless.push_back(i);
-                            continue;
-                        }
+            //     for(size_t i = 0; i < toRender.size(); i++)
+            //     {
+            //         Object* o = toRender[i];
+            //         size_t prevDataSlot = o->prevDataSlot;
+            //         if(prevDataSlot != std::numeric_limits<size_t>::max()) [[likely]]
+            //         {
+            //             InstanceDataSlot& slot = slots[prevDataSlot];
+            //             if(slot.prevAssignedFrame == thisFrame) [[unlikely]]
+            //             {
+            //                 homeless.push_back(i);
+            //                 continue;
+            //             }
 
-                        slot.prevAssignedFrame = thisFrame;
-                        slot.currentResident = o->id;
-                        slot.currentResidentRenderIndex = i;
-                    }
-                    else
-                    {
-                        homeless.push_back(i);
-                    }
-                }
+            //             slot.prevAssignedFrame = thisFrame;
+            //             slot.currentResident = o->id;
+            //             slot.currentResidentRenderIndex = i;
+            //         }
+            //         else
+            //         {
+            //             homeless.push_back(i);
+            //         }
+            //     }
 
-                for(size_t i = 0; i < slots.size(); i++)
-                {
-                    if(slots[i].prevAssignedFrame != thisFrame) freeList.push_back(i);
-                }
+            //     for(size_t i = 0; i < slots.size(); i++)
+            //     {
+            //         if(slots[i].prevAssignedFrame != thisFrame) freeList.push_back(i);
+            //     }
 
-                slots.reserve(slots.size() + homeless.size());
+            //     slots.reserve(slots.size() + homeless.size());
 
-                while(!homeless.empty())
-                {
-                    size_t homelessBack = homeless.back();
-                    size_t objectId = toRender[homelessBack]->id;
-                    if(!freeList.empty()) 
-                    {
-                        InstanceDataSlot& slot = slots[freeList.back()];
-                        slot.prevAssignedFrame = thisFrame;
-                        slot.currentResident = objectId;
-                        slot.currentResidentRenderIndex = homelessBack;
+            //     while(!homeless.empty())
+            //     {
+            //         size_t homelessBack = homeless.back();
+            //         size_t objectId = toRender[homelessBack]->id;
+            //         if(!freeList.empty()) 
+            //         {
+            //             InstanceDataSlot& slot = slots[freeList.back()];
+            //             slot.prevAssignedFrame = thisFrame;
+            //             slot.currentResident = objectId;
+            //             slot.currentResidentRenderIndex = homelessBack;
 
-                        freeList.pop_back();
-                    }
-                    else
-                    {
-                        slots.emplace_back( objectId, homelessBack );
-                    }
+            //             freeList.pop_back();
+            //         }
+            //         else
+            //         {
+            //             slots.emplace_back( objectId, homelessBack );
+            //         }
 
-                    homeless.pop_back();
-                }
+            //         homeless.pop_back();
+            //     }
 
-                if(*memSize < slots.size())
-                {
-                    std::cout<<"realloc"<<'\n';
-                    delete[] *mem;
-                    *mem = new InstanceData[slots.size()];
-                    *memSize = slots.size();
-                }
+            //     if(*memSize < slots.size())
+            //     {
+            //         std::cout<<"realloc"<<'\n';
+            //         delete[] *mem;
+            //         *mem = new InstanceData[slots.size()];
+            //         *memSize = slots.size();
+            //     }
 
-                for(size_t i = 0; i < slots.size(); i++)
-                {
-                    InstanceDataSlot& slot = slots[i];
-                    Object* o = toRender[slot.currentResidentRenderIndex];
+            //     for(size_t i = 0; i < slots.size(); i++)
+            //     {
+            //         InstanceDataSlot& slot = slots[i];
+            //         Object* o = toRender[slot.currentResidentRenderIndex];
 
-                    bool dirty = o->lastModifiedFrame != thisFrame || (slot.prevOffset != i && slot.prevOffset != std::numeric_limits<size_t>::max()) || slot.lastResident != slot.currentResident;
-                    if(dirty)
-                        std::memcpy(reinterpret_cast<char*>(*mem + i), reinterpret_cast<char*>(&o->data), sizeof(InstanceData));
+            //         bool dirty = o->lastModifiedFrame != thisFrame || (slot.prevOffset != i && slot.prevOffset != std::numeric_limits<size_t>::max()) || slot.lastResident != slot.currentResident;
+            //         if(dirty)
+            //             std::memcpy(reinterpret_cast<char*>(*mem + i), reinterpret_cast<char*>(&o->data), sizeof(InstanceData));
 
-                    slot.prevOffset = i;
-                    slot.lastResident = slots[i].currentResident;
-                }
-            }
+            //         slot.prevOffset = i;
+            //         slot.lastResident = slots[i].currentResident;
+            //     }
+            // }
 
             //Create or reuse the instance buffer
             size_t instanceDataChunkSize = it.second[0]->_instanceData().second;
