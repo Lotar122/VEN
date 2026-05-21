@@ -7,6 +7,8 @@
 
 #include "Classes/Listeners/Listeners.hpp"
 
+#include "Concepts/StdVector.hpp"
+
 #include "Classes/Camera/Camera.hpp"
 
 namespace nihil::graphics

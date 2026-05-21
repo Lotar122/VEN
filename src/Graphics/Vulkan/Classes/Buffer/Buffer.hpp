@@ -138,12 +138,12 @@ namespace nihil::graphics
         }
 
         // Disable copy
-        Buffer<T, usageT, propertiesT>(const Buffer<T, usageT, propertiesT>&) = delete;
-        Buffer<T, usageT, propertiesT>& operator=(const Buffer<T, usageT, propertiesT>&) = delete;
+        Buffer(const Buffer&) = delete;
+        Buffer& operator=(const Buffer&) = delete;
 
         // Enable move
-        Buffer<T, usageT, propertiesT>(Buffer<T, usageT, propertiesT>&&) noexcept = default;
-        Buffer<T, usageT, propertiesT>& operator=(Buffer<T, usageT, propertiesT>&&) noexcept = default;
+        Buffer(Buffer&&) noexcept = default;
+        Buffer& operator=(Buffer&&) noexcept = default;
 
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
@@ -304,7 +304,7 @@ namespace nihil::graphics
         }
 
         //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
-        Buffer(Buffer<T, usageT, propertiesT>& source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer& source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
 
@@ -317,7 +317,7 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newData.size());
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>& source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer& source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
 
@@ -330,7 +330,7 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newData.size());
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>& source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer& source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
 
@@ -343,7 +343,7 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newDataSize);
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>* source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer* source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
 
@@ -357,7 +357,7 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newData.size());
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>* source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer* source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
 
@@ -370,7 +370,7 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newData.size());
         }
 
-        Buffer(Buffer<T, usageT, propertiesT>* source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        Buffer(Buffer* source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
 

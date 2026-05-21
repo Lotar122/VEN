@@ -96,20 +96,20 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     }
 
     //Build and cull BVH
-    //size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
-    //cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
+    size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
+    cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
 
-    //float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
+    float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 
-    //Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
+    Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
 
-    ////To reduce cache misses during rendering
-    //std::sort(toRender.begin(), toRender.end());
+    //To reduce cache misses during rendering
+    std::sort(toRender.begin(), toRender.end());
     
-    for(Object* o : objects)
+    for(size_t objectIndex : toRender)
     {
-        /*Object* o = objects[objectIndex];*/
-        if (AABB::isAABBVisible(o->_transformedAABB(), camera->_planes()) == VisibilityQueryResult::Outside) continue;
+        Object* o = objects[objectIndex];
+        //if (AABB::isAABBVisible(o->_transformedAABB(), camera->_planes()) == VisibilityQueryResult::Outside) continue;
 
         if(o->_material()->_instancedPipeline())
         {
@@ -224,6 +224,117 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             //Draw
             commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_material()->_instancedPipeline()->_pipeline());
 
+            template<bool _freeList = false, bool _homeless = false>
+            void constructSlots(std::vector<Object*>& toRender, std::vector<InstanceDataSlot>& slots, size_t thisFrame, InstanceData** mem, size_t* memSize, std::vector<size_t>* __freeList = nullptr, std::vector<size_t>* __homeless = nullptr)
+            {
+                using FreeListType = std::conditional_t<_freeList, std::vector<size_t>&, std::vector<size_t>>;
+                using HomelessType = std::conditional_t<_homeless, std::vector<size_t>&, std::vector<size_t>>;
+
+                struct InitVec
+                {
+                    static inline FreeListType initFreeList(std::vector<size_t>* p)
+                    {
+                        if constexpr (_freeList) {
+                            p->clear();
+                            return *p;
+                        }
+                        else
+                        {
+                            return FreeListType();
+                        }
+                    }
+                    static inline HomelessType initHomeless(std::vector<size_t>* p)
+                    {
+                        if constexpr (_homeless) {
+                            p->clear();
+                            return *p;
+                        }
+                        else
+                        {
+                            return HomelessType();
+                        }
+                    }
+                };
+
+                HomelessType homeless = InitVec::initHomeless(__homeless);
+                FreeListType freeList = InitVec::initFreeList(__freeList);
+
+                homeless.reserve(toRender.size());
+                freeList.reserve(slots.size());
+
+                for(size_t i = 0; i < toRender.size(); i++)
+                {
+                    Object* o = toRender[i];
+                    size_t prevDataSlot = o->prevDataSlot;
+                    if(prevDataSlot != std::numeric_limits<size_t>::max()) [[likely]]
+                    {
+                        InstanceDataSlot& slot = slots[prevDataSlot];
+                        if(slot.prevAssignedFrame == thisFrame) [[unlikely]]
+                        {
+                            homeless.push_back(i);
+                            continue;
+                        }
+
+                        slot.prevAssignedFrame = thisFrame;
+                        slot.currentResident = o->id;
+                        slot.currentResidentRenderIndex = i;
+                    }
+                    else
+                    {
+                        homeless.push_back(i);
+                    }
+                }
+
+                for(size_t i = 0; i < slots.size(); i++)
+                {
+                    if(slots[i].prevAssignedFrame != thisFrame) freeList.push_back(i);
+                }
+
+                slots.reserve(slots.size() + homeless.size());
+
+                while(!homeless.empty())
+                {
+                    size_t homelessBack = homeless.back();
+                    size_t objectId = toRender[homelessBack]->id;
+                    if(!freeList.empty()) 
+                    {
+                        InstanceDataSlot& slot = slots[freeList.back()];
+                        slot.prevAssignedFrame = thisFrame;
+                        slot.currentResident = objectId;
+                        slot.currentResidentRenderIndex = homelessBack;
+
+                        freeList.pop_back();
+                    }
+                    else
+                    {
+                        slots.emplace_back( objectId, homelessBack );
+                    }
+
+                    homeless.pop_back();
+                }
+
+                if(*memSize < slots.size())
+                {
+                    std::cout<<"realloc"<<'\n';
+                    delete[] *mem;
+                    *mem = new InstanceData[slots.size()];
+                    *memSize = slots.size();
+                }
+
+                for(size_t i = 0; i < slots.size(); i++)
+                {
+                    InstanceDataSlot& slot = slots[i];
+                    Object* o = toRender[slot.currentResidentRenderIndex];
+
+                    bool dirty = o->lastModifiedFrame != thisFrame || (slot.prevOffset != i && slot.prevOffset != std::numeric_limits<size_t>::max()) || slot.lastResident != slot.currentResident;
+                    if(dirty)
+                        std::memcpy(reinterpret_cast<char*>(*mem + i), reinterpret_cast<char*>(&o->data), sizeof(InstanceData));
+
+                    slot.prevOffset = i;
+                    slot.lastResident = slots[i].currentResident;
+                }
+            }
+
             //Create or reuse the instance buffer
             size_t instanceDataChunkSize = it.second[0]->_instanceData().second;
             size_t instanceDataSize = it.second.size() * instanceDataChunkSize;
@@ -251,8 +362,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
                 instanceBuffers.insert(std::make_pair(it.first, instanceBuffer));
             }
 
-            bool reconstructedInstanceBuffer = false;
-
             if(instanceDataSize > instanceBuffer->_size() || (int64_t)instanceDataSize - 1'000 >= (int64_t)instanceBuffer->_size())
             {
                 std::vector<std::byte> instanceData;
@@ -272,24 +381,19 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
                 instanceBuffer = newInstanceBuffer;
 
-                reconstructedInstanceBuffer = true;
-
                 bufferIT = instanceBuffers.find(it.first);
                 bufferIT->second = instanceBuffer;
             }
 
             instanceBuffer->beginUpdateRecording();
 
+            size_t lastWriteEnd;
             for(auto [i, o] : Carbo::enumerate(it.second))
             {
-                if(o->modifiedThisFrame) 
-                { 
                     instanceBuffer->update(
                         reinterpret_cast<const std::byte*>(o->_instanceData().first), 
                         { 0, i * o->_instanceData().second, o->_instanceData().second }
                     );
-                }
-
             }
 
             instanceBuffer->executeRecordedUpdates();
@@ -297,6 +401,76 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             // //TODO: Multithread this
 
             instanceBuffer->moveToGPU();
+
+            // Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
+
+            // auto bufferIT = instanceBuffers.find(it.first);
+            // if(bufferIT != instanceBuffers.end()) 
+            // {
+            //     instanceBuffer = bufferIT->second; 
+            // }
+            // else
+            // {
+            //     std::vector<std::byte> instanceData;
+
+            //     instanceData.resize(instanceDataSize);
+
+            //     for (int i = 0; i < it.second.size(); i++)
+            //     {
+            //         memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
+            //     }
+
+            //     instanceBuffer = instanceBufferAllocator.allocate(instanceData, engine);
+
+            //     instanceBuffers.insert(std::make_pair(it.first, instanceBuffer));
+            // }
+
+            // bool reconstructedInstanceBuffer = false;
+
+            // if(instanceDataSize > instanceBuffer->_size() || (int64_t)instanceDataSize - 1'000 >= (int64_t)instanceBuffer->_size())
+            // {
+            //     std::vector<std::byte> instanceData;
+
+            //     size_t newObjectCount = (instanceDataSize - instanceBuffer->_size()) / instanceDataChunkSize;
+
+            //     instanceData.resize(instanceDataSize - instanceBuffer->_size());
+
+            //     for (int i = it.second.size() - newObjectCount, c = 0; i < it.second.size(); i++, c++)
+            //     {
+            //         memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * c), it.second[i]->_instanceData().first, instanceDataChunkSize);
+            //     }
+
+            //     Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, std::move(instanceData), engine);
+
+            //     instanceBufferAllocator.free(instanceBuffer);
+
+            //     instanceBuffer = newInstanceBuffer;
+
+            //     reconstructedInstanceBuffer = true;
+
+            //     bufferIT = instanceBuffers.find(it.first);
+            //     bufferIT->second = instanceBuffer;
+            // }
+
+            // instanceBuffer->beginUpdateRecording();
+
+            // for(auto [i, o] : Carbo::enumerate(it.second))
+            // {
+            //     if(o->modifiedThisFrame) 
+            //     { 
+            //         instanceBuffer->update(
+            //             reinterpret_cast<const std::byte*>(o->_instanceData().first), 
+            //             { 0, i * o->_instanceData().second, o->_instanceData().second }
+            //         );
+            //     }
+
+            // }
+
+            // instanceBuffer->executeRecordedUpdates();
+
+            // // //TODO: Multithread this
+
+            // instanceBuffer->moveToGPU();
 
             std::array<vk::Buffer, 2> vertexBuffers = {
                 it.second[0]->_model()->_vertexBuffer()._buffer(),
