@@ -5,6 +5,7 @@
 #include "Classes/Engine/Engine.hpp"
 #include "Classes/Pipeline/Pipeline.hpp"
 #include "Functions/BVH/BVH.hpp"
+#include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_handles.hpp"
 
 #include <glm/glm.hpp>
@@ -81,6 +82,132 @@ ThreadContext createThreadContext(vk::Device device, uint32_t graphicsQueueFamil
 //TODO
 //remember to remove pipelines and the renderpass from the Model class
 
+template<bool _freeList = false, bool _homeless = false>
+void constructSlots(
+    size_t instanceDataSize,
+    size_t instanceDataChunkSize,
+    const std::vector<Object*>& toRender, 
+    std::vector<InstanceDataSlot>& slots, 
+    size_t thisFrame, 
+    Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>& instanceBuffer, 
+    std::vector<size_t>* __freeList = nullptr, std::vector<size_t>* __homeless = nullptr
+)
+{
+    using FreeListType = std::conditional_t<_freeList, std::vector<size_t>&, std::vector<size_t>>;
+    using HomelessType = std::conditional_t<_homeless, std::vector<size_t>&, std::vector<size_t>>;
+
+    struct InitVec
+    {
+        static inline FreeListType initFreeList(std::vector<size_t>* p)
+        {
+            if constexpr (_freeList) {
+                p->clear();
+                return *p;
+            }
+            else
+            {
+                return FreeListType();
+            }
+        }
+        static inline HomelessType initHomeless(std::vector<size_t>* p)
+        {
+            if constexpr (_homeless) {
+                p->clear();
+                return *p;
+            }
+            else
+            {
+                return HomelessType();
+            }
+        }
+    };
+
+    HomelessType homeless = InitVec::initHomeless(__homeless);
+    FreeListType freeList = InitVec::initFreeList(__freeList);
+
+    homeless.reserve(toRender.size());
+    freeList.reserve(slots.size());
+
+    if(toRender.size() < slots.size())
+    {
+        slots.erase(slots.end() - (slots.size() - toRender.size()), slots.end());
+    }
+
+    for(size_t i = 0; i < toRender.size(); i++)
+    {
+        Object* o = toRender[i];
+        size_t prevDataSlot = o->prevDataSlot;
+        if(prevDataSlot != std::numeric_limits<size_t>::max() && prevDataSlot < slots.size()) [[likely]]
+        {
+            InstanceDataSlot& slot = slots[prevDataSlot];
+            if(slot.prevAssignedFrame == thisFrame) [[unlikely]]
+            {
+                homeless.push_back(i);
+                continue;
+            }
+
+            slot.prevAssignedFrame = thisFrame;
+            slot.currentResident = o->_getAssetId();
+            slot.currentResidentRenderIndex = i;
+        }
+        else
+        {
+            homeless.push_back(i);
+        }
+    }
+
+    for(size_t i = 0; i < slots.size(); i++)
+    {
+        if(slots[i].prevAssignedFrame != thisFrame) freeList.push_back(i);
+    }
+
+    slots.reserve(slots.size() + homeless.size());
+
+    while(!homeless.empty())
+    {
+        size_t homelessBack = homeless.back();
+        size_t objectId = toRender[homelessBack]->_getAssetId();
+        if(!freeList.empty()) 
+        {
+            InstanceDataSlot& slot = slots[freeList.back()];
+            slot.prevAssignedFrame = thisFrame;
+            slot.currentResident = objectId;
+            slot.currentResidentRenderIndex = homelessBack;
+
+            toRender[homelessBack]->prevDataSlot = freeList.back();
+
+            freeList.pop_back();
+        }
+        else
+        {
+            slots.emplace_back( objectId, homelessBack );
+            toRender[homelessBack]->prevDataSlot = slots.size() - 1;
+        }
+
+        homeless.pop_back();
+    }
+
+    if(!freeList.empty()) Carbo::Logger::Exception("Non-integral slots");
+
+    instanceBuffer.beginUpdateRecording();
+
+    for(size_t i = 0; i < slots.size(); i++)
+    {
+        InstanceDataSlot& slot = slots[i];
+        Object* o = toRender[slot.currentResidentRenderIndex];
+
+        bool dirty = o->lastModifiedFrame == thisFrame || (slot.prevOffset != i && slot.prevOffset != std::numeric_limits<size_t>::max()) || slot.lastResident != slot.currentResident;
+        if(dirty)
+            //std::memcpy(reinterpret_cast<char*>(*mem + i), reinterpret_cast<char*>(&o->data), sizeof(InstanceData));
+            instanceBuffer.update(reinterpret_cast<const std::byte*>(o->_instanceData().first), vk::BufferCopy{ 0, i * o->_instanceData().second, o->_instanceData().second });
+
+        slot.prevOffset = i;
+        slot.lastResident = slots[i].currentResident;
+    }
+
+    instanceBuffer.executeRecordedUpdates();
+}
+
 void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator)
 {
     instancedDraws.clear();
@@ -104,7 +231,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
 
     //To reduce cache misses during rendering
-    std::sort(toRender.begin(), toRender.end());
+    //std::sort(toRender.begin(), toRender.end());
     
     for(size_t objectIndex : toRender)
     {
@@ -168,8 +295,9 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     debugVertexBuffers.clear();
 
     //Display AABBs for debug
-    for (Object* o : objects)
+    for (size_t i : toRender)
     {
+        Object* o = objects[i];
         glm::vec3 min = o->_transformedAABB().min;
         glm::vec3 max = o->_transformedAABB().max;
 
@@ -224,117 +352,6 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             //Draw
             commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, it.second[0]->_material()->_instancedPipeline()->_pipeline());
 
-            // template<bool _freeList = false, bool _homeless = false>
-            // void constructSlots(std::vector<Object*>& toRender, std::vector<InstanceDataSlot>& slots, size_t thisFrame, InstanceData** mem, size_t* memSize, std::vector<size_t>* __freeList = nullptr, std::vector<size_t>* __homeless = nullptr)
-            // {
-            //     using FreeListType = std::conditional_t<_freeList, std::vector<size_t>&, std::vector<size_t>>;
-            //     using HomelessType = std::conditional_t<_homeless, std::vector<size_t>&, std::vector<size_t>>;
-
-            //     struct InitVec
-            //     {
-            //         static inline FreeListType initFreeList(std::vector<size_t>* p)
-            //         {
-            //             if constexpr (_freeList) {
-            //                 p->clear();
-            //                 return *p;
-            //             }
-            //             else
-            //             {
-            //                 return FreeListType();
-            //             }
-            //         }
-            //         static inline HomelessType initHomeless(std::vector<size_t>* p)
-            //         {
-            //             if constexpr (_homeless) {
-            //                 p->clear();
-            //                 return *p;
-            //             }
-            //             else
-            //             {
-            //                 return HomelessType();
-            //             }
-            //         }
-            //     };
-
-            //     HomelessType homeless = InitVec::initHomeless(__homeless);
-            //     FreeListType freeList = InitVec::initFreeList(__freeList);
-
-            //     homeless.reserve(toRender.size());
-            //     freeList.reserve(slots.size());
-
-            //     for(size_t i = 0; i < toRender.size(); i++)
-            //     {
-            //         Object* o = toRender[i];
-            //         size_t prevDataSlot = o->prevDataSlot;
-            //         if(prevDataSlot != std::numeric_limits<size_t>::max()) [[likely]]
-            //         {
-            //             InstanceDataSlot& slot = slots[prevDataSlot];
-            //             if(slot.prevAssignedFrame == thisFrame) [[unlikely]]
-            //             {
-            //                 homeless.push_back(i);
-            //                 continue;
-            //             }
-
-            //             slot.prevAssignedFrame = thisFrame;
-            //             slot.currentResident = o->id;
-            //             slot.currentResidentRenderIndex = i;
-            //         }
-            //         else
-            //         {
-            //             homeless.push_back(i);
-            //         }
-            //     }
-
-            //     for(size_t i = 0; i < slots.size(); i++)
-            //     {
-            //         if(slots[i].prevAssignedFrame != thisFrame) freeList.push_back(i);
-            //     }
-
-            //     slots.reserve(slots.size() + homeless.size());
-
-            //     while(!homeless.empty())
-            //     {
-            //         size_t homelessBack = homeless.back();
-            //         size_t objectId = toRender[homelessBack]->id;
-            //         if(!freeList.empty()) 
-            //         {
-            //             InstanceDataSlot& slot = slots[freeList.back()];
-            //             slot.prevAssignedFrame = thisFrame;
-            //             slot.currentResident = objectId;
-            //             slot.currentResidentRenderIndex = homelessBack;
-
-            //             freeList.pop_back();
-            //         }
-            //         else
-            //         {
-            //             slots.emplace_back( objectId, homelessBack );
-            //         }
-
-            //         homeless.pop_back();
-            //     }
-
-            //     if(*memSize < slots.size())
-            //     {
-            //         std::cout<<"realloc"<<'\n';
-            //         delete[] *mem;
-            //         *mem = new InstanceData[slots.size()];
-            //         *memSize = slots.size();
-            //     }
-
-            //     for(size_t i = 0; i < slots.size(); i++)
-            //     {
-            //         InstanceDataSlot& slot = slots[i];
-            //         Object* o = toRender[slot.currentResidentRenderIndex];
-
-            //         bool dirty = o->lastModifiedFrame != thisFrame || (slot.prevOffset != i && slot.prevOffset != std::numeric_limits<size_t>::max()) || slot.lastResident != slot.currentResident;
-            //         if(dirty)
-            //             std::memcpy(reinterpret_cast<char*>(*mem + i), reinterpret_cast<char*>(&o->data), sizeof(InstanceData));
-
-            //         slot.prevOffset = i;
-            //         slot.lastResident = slots[i].currentResident;
-            //     }
-            // }
-
             //Create or reuse the instance buffer
             size_t instanceDataChunkSize = it.second[0]->_instanceData().second;
             size_t instanceDataSize = it.second.size() * instanceDataChunkSize;
@@ -344,36 +361,32 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             auto bufferIT = instanceBuffers.find(it.first);
             if(bufferIT != instanceBuffers.end()) 
             {
-                instanceBuffer = bufferIT->second; 
+                instanceBuffer = bufferIT->second.first; 
             }
             else
             {
                 std::vector<std::byte> instanceData;
+                std::vector<InstanceDataSlot> instanceDataSlots;
 
                 instanceData.resize(instanceDataSize);
 
-                for (int i = 0; i < it.second.size(); i++)
-                {
-                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * i), it.second[i]->_instanceData().first, instanceDataChunkSize);
-                }
+                instanceBuffer = instanceBufferAllocator.allocate(std::move(instanceData), engine);
 
-                instanceBuffer = instanceBufferAllocator.allocate(instanceData, engine);
+                //constructSlots(instanceDataSize, instanceDataChunkSize, it.second, instanceDataSlots, engine->_currentFrame(), *instanceBuffer);
 
-                instanceBuffers.insert(std::make_pair(it.first, instanceBuffer));
+                bufferIT = instanceBuffers.emplace(it.first, std::make_pair(instanceBuffer, std::move(instanceDataSlots))).first;
             }
+
+            //if((int64_t)instanceDataSize != (int64_t)instanceBuffer->_size()) instanceDataSlots.clear();
 
             if(instanceDataSize > instanceBuffer->_size() || (int64_t)instanceDataSize - 1'000 >= (int64_t)instanceBuffer->_size())
             {
                 std::vector<std::byte> instanceData;
+                std::vector<InstanceDataSlot> instanceDataSlots;
 
                 size_t newObjectCount = (instanceDataSize - instanceBuffer->_size()) / instanceDataChunkSize;
 
                 instanceData.resize(instanceDataSize - instanceBuffer->_size());
-
-                for (int i = it.second.size() - newObjectCount, c = 0; i < it.second.size(); i++, c++)
-                {
-                    memcpy(reinterpret_cast<char*>(instanceData.data()) + (instanceDataChunkSize * c), it.second[i]->_instanceData().first, instanceDataChunkSize);
-                }
 
                 Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>* newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, std::move(instanceData), engine);
 
@@ -381,22 +394,28 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
                 instanceBuffer = newInstanceBuffer;
 
+                
+
                 bufferIT = instanceBuffers.find(it.first);
-                bufferIT->second = instanceBuffer;
+                bufferIT->second = std::make_pair(instanceBuffer, std::move(instanceDataSlots));
+                // bufferIT->second.first = instanceBuffer;
+                // bufferIT->second.second = std::move(instanceDataSlots);
             }
 
-            instanceBuffer->beginUpdateRecording();
+            constructSlots(instanceDataSize, instanceDataChunkSize, it.second, bufferIT->second.second, engine->_currentFrame(), *bufferIT->second.first);
 
-            size_t lastWriteEnd;
-            for(auto [i, o] : Carbo::enumerate(it.second))
-            {
-                    instanceBuffer->update(
-                        reinterpret_cast<const std::byte*>(o->_instanceData().first), 
-                        { 0, i * o->_instanceData().second, o->_instanceData().second }
-                    );
-            }
+            // instanceBuffer->beginUpdateRecording();
 
-            instanceBuffer->executeRecordedUpdates();
+            // size_t lastWriteEnd;
+            // for(auto [i, o] : Carbo::enumerate(it.second))
+            // {
+            //         instanceBuffer->update(
+            //             reinterpret_cast<const std::byte*>(o->_instanceData().first), 
+            //             { 0, i * o->_instanceData().second, o->_instanceData().second }
+            //         );
+            // }
+
+            // instanceBuffer->executeRecordedUpdates();
 
             // //TODO: Multithread this
 
@@ -517,6 +536,4 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
         commandBuffer.drawIndexed(static_cast<uint32_t>(o->_indexBuffer()._typedSize()), 1, 0, 0, 0);
     }
-
-    for(Object* o : objects) { o->afterRender(); };
 }

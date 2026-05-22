@@ -43,6 +43,8 @@ namespace nihil::graphics
     {
         friend class Renderer;
 
+        uint64_t frameCounter = 0;
+
         Resource<vk::Instance> instance;
         vk::PhysicalDevice physicalDevice;
 
@@ -93,6 +95,9 @@ namespace nihil::graphics
             if (counts & vk::SampleCountFlagBits::e2)  return static_cast<ReturnT>(vk::SampleCountFlagBits::e2);
             return static_cast<ReturnT>(vk::SampleCountFlagBits::e1);
         }
+
+        inline void frameEnd() { ++frameCounter; };
+        inline const uint64_t _currentFrame() const { return frameCounter; };
 
         inline vk::Instance _instance() { return instance.getRes(); };
         inline vk::PhysicalDevice _physicalDevice() const { return physicalDevice; };

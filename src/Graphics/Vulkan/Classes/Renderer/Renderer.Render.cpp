@@ -8,6 +8,7 @@
 #include "Classes/Scene/Scene.hpp"
 #include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 
+#include <cstdint>
 #include <thread>
 #include <chrono>
 
@@ -68,6 +69,8 @@ void Renderer::Render(
 
 	commandBuffer.end();
 
+	discardResult = engine->_device().waitForFences(engine->_transferFence(), VK_TRUE, UINT64_MAX);
+
 	vk::SubmitInfo submitInfo = {};
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = engine->_swapchain()->_frames()[frameIndex].imageAvailable.getResP();
@@ -83,4 +86,6 @@ void Renderer::Render(
 	discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);
 
 	engine->swapchain->presentFrame(frame, imageIndex);
+
+	engine->frameEnd();
 }

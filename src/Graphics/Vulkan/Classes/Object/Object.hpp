@@ -28,6 +28,9 @@ namespace nihil::graphics
 
         bool modifiedThisFrame = false;
 
+        size_t prevDataSlot = std::numeric_limits<size_t>::max();
+        uint64_t lastModifiedFrame = std::numeric_limits<uint64_t>::max();
+
         PushConstants pushConstants;
 
         //TODO: allow multiple models in one object
@@ -154,7 +157,7 @@ namespace nihil::graphics
             position += _moveBy;
             recalculateModelMatrix();
 
-            modifiedThisFrame = true;
+            lastModifiedFrame = engine->_currentFrame();
         }
 
         inline void rotate(const glm::vec3& _rotateBy)
@@ -162,7 +165,7 @@ namespace nihil::graphics
             rotation += _rotateBy;
             recalculateModelMatrix();
 
-            modifiedThisFrame = true;
+            lastModifiedFrame = engine->_currentFrame();
         }
 
         inline void scale(const float _scale)
@@ -170,7 +173,7 @@ namespace nihil::graphics
             scaleFactor *= _scale;
             recalculateModelMatrix();
 
-            modifiedThisFrame = true;
+            lastModifiedFrame = engine->_currentFrame();
         }
 
         inline void scale(const glm::vec3& _scale)
@@ -178,12 +181,12 @@ namespace nihil::graphics
             scaleFactor *= _scale;
             recalculateModelMatrix();
 
-            modifiedThisFrame = true;
+            lastModifiedFrame = engine->_currentFrame();
         }
 
         inline void modified()
         {
-            modifiedThisFrame = true;
+            lastModifiedFrame = engine->_currentFrame();
         }
 
         inline void use() { model->moveToGPU(); };
