@@ -8,6 +8,7 @@
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_handles.hpp"
 
+#include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -56,6 +57,8 @@ void Scene::addObjects(std::vector<Object>& newObjects)
 
 void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator)
 {
+    auto start = std::chrono::high_resolution_clock::now();
+
     instancedDraws.clear();
     normalDraws.clear();
 
@@ -65,10 +68,22 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     BVHIndices.resize(objects.size());
     toRender.reserve(objects.size());
 
+    if (objects.empty()) [[unlikely]]
+    {
+        Carbo::Logger::Log("Culled: 0% percent of objects.");
+        return;
+    }
+
     for(int i = 0; i < BVHIndices.size(); ++i)
     {
         BVHIndices[i] = i;
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::cout<<std::format("Setup took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+
+    start = std::chrono::high_resolution_clock::now();
 
     //Build and cull BVH
     size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
@@ -76,7 +91,13 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 
-    Carbo::Logger::Log("Culled: {}% percent of objects.", culledPercent);
+    std::cout<<std::format("Culled: {}% percent of objects.\n", culledPercent);
+
+    end = std::chrono::high_resolution_clock::now();
+
+    std::cout<<std::format("Culling took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+
+    start = std::chrono::high_resolution_clock::now();
 
     for(size_t i : toRender)
     {
@@ -94,8 +115,14 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
         }
     }
 
+    end = std::chrono::high_resolution_clock::now();
+
+    std::cout<<std::format("Draw splitting took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+
     if(instancedDraws.size() > 0)
     {
+        start = std::chrono::high_resolution_clock::now();
+
         //sort so that all objects with the same key are contigous in memory
         std::sort(instancedDraws.begin(), instancedDraws.end(), [](const ObjectInstance& a, const ObjectInstance& b) { return a.key < b.key; });
 
@@ -122,6 +149,14 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             lastKey = currentKey;
             lastKeyIndex = currentKeyIndex;
         }
+
+        end = std::chrono::high_resolution_clock::now();
+
+        std::cout<<std::format("Instanced draw preparation took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+
+        std::chrono::microseconds allBufferConstructions(0), allSlotConstructions(0);
+
+        start = std::chrono::high_resolution_clock::now();
 
         size_t prevOffset = 0, prevCount = 0;
         for(auto [key, count] : drawCounts)
@@ -162,6 +197,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
             Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>* instanceBuffer = nullptr;
 
+            auto bufferStart = std::chrono::high_resolution_clock::now();
+
             auto bufferIT = std::find_if(instanceBuffers.begin(), instanceBuffers.end(), 
             [key](const std::pair<uint64_t, Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>*>& a){ return a.first == key; }
             );
@@ -170,11 +207,11 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             {
                 instanceBuffer = bufferIT->second;
 
-                if(instanceBuffer->_size() != instanceDataSize)
+                if(instanceBuffer->_size() < instanceDataSize)
                 {
-                    std::vector<std::byte> instanceData;
-                    instanceData.resize(instanceDataSize);
-                    decltype(instanceBuffer) newInstanceBuffer = instanceBufferAllocator.allocate(std::move(instanceData), engine);
+                    std::vector<std::byte> newInstanceData;
+                    newInstanceData.resize(instanceDataSize - instanceBuffer->_size());
+                    decltype(instanceBuffer) newInstanceBuffer = instanceBufferAllocator.allocate(instanceBuffer, std::move(newInstanceData), engine);
 
                     instanceBufferAllocator.free(instanceBuffer);
 
@@ -182,6 +219,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
                     bufferIT->second = instanceBuffer;
                 }
+                //Shrink impl later
             }
             else
             {
@@ -203,10 +241,17 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
                 instanceDataSlots = &slotsIT->second;
             }
             
-
+            auto slotsStart = std::chrono::high_resolution_clock::now();
             constructSlots(instanceDataSize, instanceDataChunkSize, instancedDraws.data() + offset, count, *instanceDataSlots, engine->_currentFrame(), *instanceBuffer);
+            auto slotsEnd = std::chrono::high_resolution_clock::now();
+
+            allSlotConstructions += std::chrono::duration_cast<std::chrono::microseconds>(slotsEnd - slotsStart);
 
             instanceBuffer->moveToGPU();
+
+            auto bufferEnd = std::chrono::high_resolution_clock::now();
+
+            allBufferConstructions += std::chrono::duration_cast<std::chrono::microseconds>(bufferEnd - bufferStart);
 
             std::array<vk::Buffer, 2> vertexBuffers = {
                 firstObject->_model()->_vertexBuffer()._buffer(),
@@ -223,6 +268,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
             commandBuffer.drawIndexed(static_cast<uint32_t>(firstObject->_model()->_indexBuffer()._typedSize()), count, 0, 0, 0);
         }
+
+        std::cout<<std::format("Buffer construction took: {}, on average. Of which: {}, was slots construction\n", allBufferConstructions / (float)drawCounts.size(), allSlotConstructions / (float)drawCounts.size());
     }
 
     for(Object* o : normalDraws)

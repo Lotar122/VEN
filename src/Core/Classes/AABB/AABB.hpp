@@ -29,17 +29,12 @@ namespace nihil
 
         static VisibilityQueryResult isAABBVisible(const AABB& box, const std::array<Plane, 6>& planes)
         {
-            constexpr float bias = 0.01f;
-            AABB expanded = box;
-            expanded.min -= glm::vec3(bias);
-            expanded.max += glm::vec3(bias);
-
-            glm::vec3 center = (expanded.min + expanded.max) * 0.5f;
-            glm::vec3 extent = (expanded.max - expanded.min) * 0.5f;
+            glm::vec3 center = (box.min + box.max) * 0.5f;
+            glm::vec3 extent = (box.max - box.min) * 0.5f;
 
             bool intersect = false;
 
-            for (int i = 0; i < 4; i++) // skip near
+            for (int i = 0; i < 5; i++) // skip far plane
             {
                 const Plane& p = planes[i];
                 float dist = glm::dot(p.normal, center) + p.d;
@@ -48,8 +43,6 @@ namespace nihil
                     extent.x * std::abs(p.normal.x) +
                     extent.y * std::abs(p.normal.y) +
                     extent.z * std::abs(p.normal.z);
-
-                Carbo::Logger::Log("Pos:{}, Neg:{}", dist + radius, dist - radius);
 
                 if (dist + radius < -0.01f)
                     return VisibilityQueryResult::Outside;

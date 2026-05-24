@@ -1,3 +1,4 @@
+#include <chrono>
 namespace nihil::graphics
 {
     template<bool _freeList, bool _homeless>
@@ -134,6 +135,8 @@ namespace nihil::graphics
 
         if(!freeList.empty()) Carbo::Logger::Exception("Non-integral slots");
 
+        auto start = std::chrono::high_resolution_clock::now();
+
         instanceBuffer.beginUpdateRecording();
 
         for(size_t i = 0; i < slots.size(); i++)
@@ -155,5 +158,9 @@ namespace nihil::graphics
         }
 
         instanceBuffer.executeRecordedUpdates();
+
+        auto end = std::chrono::high_resolution_clock::now();
+
+        std::cout<<std::format("Memory copies took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
     }
 }

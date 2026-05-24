@@ -16,25 +16,27 @@ size_t nihil::buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indic
     {
         //Build the leafs
         // parent node
-        allocator.at(node).bound = bound;
-        allocator.at(node).leafCount = count;
+        BVHNode& nodeRef = allocator.at(node);
+        nodeRef.bound = bound;
+        nodeRef.leafCount = count;
 
         // first leaf node
         size_t firstLeaf = allocator.allocate();
-        allocator.at(node).nextLeaf = firstLeaf;
+        nodeRef.nextLeaf = firstLeaf;
 
         size_t current = firstLeaf;
         for (size_t i = 0; i < count; i++)
         {
             size_t primIndex = indices[start + i];
-            allocator.at(current).primitiveIndex = primIndex;
-            allocator.at(current).bound = primitives[primIndex];
-            allocator.at(current).leafCount = 0;
+            BVHNode& currentRef = allocator.at(current);
+            currentRef.primitiveIndex = primIndex;
+            currentRef.bound = primitives[primIndex];
+            currentRef.leafCount = 0;
 
             if (i < count - 1)
             {
                 size_t next = allocator.allocate();
-                allocator.at(current).nextLeaf = next;
+                currentRef.nextLeaf = next;
                 current = next;
             }
         }
@@ -76,25 +78,27 @@ size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::v
     {
         //Build the leafs
         // parent node
-        allocator.at(node).bound = bound;
-        allocator.at(node).leafCount = count;
+        BVHNode& nodeRef = allocator.at(node);
+        nodeRef.bound = bound;
+        nodeRef.leafCount = count;
 
         // first leaf node
         size_t firstLeaf = allocator.allocate();
-        allocator.at(node).nextLeaf = firstLeaf;
+        nodeRef.nextLeaf = firstLeaf;
 
         size_t current = firstLeaf;
         for (size_t i = 0; i < count; i++)
         {
             size_t primIndex = indices[start + i];
-            allocator.at(current).primitiveIndex = primIndex;
-            allocator.at(current).bound = primitives[primIndex]->_transformedAABB();
-            allocator.at(current).leafCount = 0;
+            BVHNode& currentRef = allocator.at(current);
+            currentRef.primitiveIndex = primIndex;
+            currentRef.bound = primitives[primIndex]->_transformedAABB();
+            currentRef.leafCount = 0;
 
             if (i < count - 1)
             {
                 size_t next = allocator.allocate();
-                allocator.at(current).nextLeaf = next;
+                currentRef.nextLeaf = next;
                 current = next;
             }
         }
@@ -141,9 +145,9 @@ void nihil::cullBVH(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSA
             continue;
         else if(visibilityQuery == VisibilityQueryResult::Intersection)
         {
-            if (node.leafCount > 0) // leaf
+            if (node.leafCount > 0) // leaf container
             {
-                //Traverse to add to visible
+                // Traverse the leaf chain and test each primitive individually.
                 size_t current = node.nextLeaf;
 
                 for (size_t i = 0; i < node.leafCount; i++)
@@ -164,32 +168,24 @@ void nihil::cullBVH(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSA
         }
         else
         {
-            //Traverse fully inside to set the visibility
-            size_t currentNode;
-            size_t prevStackSize = stack.size();
-            stack.push_back(node.nextLeaf);
-
-            while(stack.size() > prevStackSize)
+            if (node.leafCount > 0) // leaf container
             {
-                currentNode = stack.back();
-                stack.pop_back();
+                size_t current = node.nextLeaf;
 
-                if(allocator.at(currentNode).leafCount > 0)
+                for (size_t i = 0; i < node.leafCount; i++)
                 {
-                    for (size_t i = 0; i < allocator.at(currentNode).leafCount; i++)
-                    {
-                        const BVHNode& leaf = allocator.at(currentNode);
+                    const BVHNode& leaf = allocator.at(current);
 
-                        visible.push_back(leaf.primitiveIndex);
+                    visible.push_back(leaf.primitiveIndex);
 
-                        currentNode = leaf.nextLeaf;
-                    }
+                    current = leaf.nextLeaf;
                 }
-                else
-                {
-                    stack.push_back(allocator.at(currentNode).left);
-                    stack.push_back(allocator.at(currentNode).right);
-                }
+            }
+            else
+            {
+                // Entire subtree is inside, so both children can be accepted without more plane tests.
+                stack.push_back(node.left);
+                stack.push_back(node.right);
             }
         }
     }
