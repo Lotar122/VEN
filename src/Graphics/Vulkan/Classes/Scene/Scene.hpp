@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unordered_map>
+#include <limits>
 #include <vector>
 
 #include "Classes/BlockAllocator/BlockAllocator.hpp"
@@ -12,21 +12,6 @@
 #include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 #include "Structs/BVHNode.hpp"
 
-struct InstanceDataSlot
-{
-    size_t prevOffset = std::numeric_limits<size_t>::max();
-    size_t lastResident = std::numeric_limits<size_t>::max();
-    size_t currentResident = std::numeric_limits<size_t>::max();
-    size_t currentResidentRenderIndex = std::numeric_limits<size_t>::max();
-    
-    uint64_t prevAssignedFrame = std::numeric_limits<uint64_t>::max();
-
-    InstanceDataSlot(size_t _currentResident, size_t _currentResidentRenderIndex) : 
-        currentResident(_currentResident), currentResidentRenderIndex(_currentResidentRenderIndex) {};
-
-    InstanceDataSlot() {};
-};
-
 namespace nihil::graphics
 {
     class Camera;
@@ -35,6 +20,40 @@ namespace nihil::graphics
 
     class Scene
     {
+        struct ObjectInstance
+        {
+            uint64_t key;
+            Object* object;
+        };
+
+        struct InstanceDataSlot
+        {
+            size_t prevOffset = std::numeric_limits<size_t>::max();
+            size_t lastResident = std::numeric_limits<size_t>::max();
+            size_t currentResident = std::numeric_limits<size_t>::max();
+            size_t currentResidentRenderIndex = std::numeric_limits<size_t>::max();
+            
+            uint64_t prevAssignedFrame = std::numeric_limits<uint64_t>::max();
+            uint64_t prevWriteFrame = std::numeric_limits<size_t>::max();
+
+            InstanceDataSlot(size_t _currentResident, size_t _currentResidentRenderIndex, uint64_t _prevAssignedFrame) : 
+                currentResident(_currentResident), currentResidentRenderIndex(_currentResidentRenderIndex), prevAssignedFrame(_prevAssignedFrame) {};
+
+            InstanceDataSlot() {};
+        };
+
+        template<bool _freeList = false, bool _homeless = false>
+        static void constructSlots(
+            size_t instanceDataSize,
+            size_t instanceDataChunkSize,
+            ObjectInstance* toRender,
+            size_t toRenderSize,
+            std::vector<InstanceDataSlot>& slots, 
+            size_t thisFrame, 
+            Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>& instanceBuffer, 
+            std::vector<size_t>* __freeList = nullptr, std::vector<size_t>* __homeless = nullptr
+        );
+
         Engine* engine = nullptr;
         Carbo::BlockAllocator<Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>> instanceBufferAllocator;
         Carbo::ECSAllocator<BVHNode> BVHNodeAllocator;
@@ -42,9 +61,10 @@ namespace nihil::graphics
         std::vector<size_t> toRender;
 
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
-        std::unordered_map<uint64_t, std::pair<Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>*, std::vector<InstanceDataSlot>>> instanceBuffers;
+        std::vector<std::pair<uint64_t, Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>*>> instanceBuffers;
+        std::vector<std::pair<uint64_t, std::vector<InstanceDataSlot>>> instanceSlots;
 
-        std::unordered_map<uint64_t, std::vector<Object*>> instancedDraws;
+        std::vector<ObjectInstance> instancedDraws;
         std::vector<Object*> normalDraws;
 
         std::vector<Object*> objects;
@@ -80,9 +100,9 @@ namespace nihil::graphics
 
         ~Scene()
         {
-            for (auto& it : instanceBuffers)
+            for(auto& b : instanceBuffers)
             {
-                it.second.first->~Buffer();
+                b.second->~Buffer();
             }
 
             for (auto p : debugVertexBuffers)
@@ -94,3 +114,5 @@ namespace nihil::graphics
         }
     };
 }
+
+#include "Scene.tpp"
