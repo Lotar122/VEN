@@ -94,8 +94,8 @@ namespace nihil::graphics
 
             if constexpr (updateModeT == UpdateMode::Immediate)
             {
-                vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-                discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+                std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+                std::ignore = engine->_device().resetFences(1, &engine->_transferFence());
 
                 vk::CommandBufferBeginInfo beginInfo{};
                 engine->_mainCommandBuffer().begin(beginInfo);
@@ -133,7 +133,7 @@ namespace nihil::graphics
                 submitInfo.commandBufferCount = 1;
                 submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
-                vk::Result discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+                std::ignore = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
             }
         }
 
@@ -434,8 +434,7 @@ namespace nihil::graphics
             if constexpr (!CPUAccessible)
             {
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                std::memcpy(reinterpret_cast<T::value_type*>(dataRaw), reinterpret_cast<T::value_type*>(data.data()), size);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -446,8 +445,7 @@ namespace nihil::graphics
                 Carbo::Logger::Log("Using a direct copy");
 
                 void* dataRaw = engine->_device().mapMemory(memory, 0, size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
-                std::memcpy(dataTyped, reinterpret_cast<T*>(data.data()), size);
+                std::memcpy(reinterpret_cast<T::value_type*>(dataRaw), reinterpret_cast<T::value_type*>(data.data()), size);
                 engine->_device().unmapMemory(memory);
             }
 
@@ -494,9 +492,8 @@ namespace nihil::graphics
                 Carbo::Logger::Log("Using a staging buffer");
 
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(
-                    dataTyped,
+                    reinterpret_cast<T::value_type*>(dataRaw),
                     reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
                     updateRegion.size
                 );
@@ -509,16 +506,13 @@ namespace nihil::graphics
                 Carbo::Logger::Log("Using a direct copy");
 
                 void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
-                T* dataTyped = reinterpret_cast<T*>(dataRaw);
                 std::memcpy(
-                    dataTyped,
+                    reinterpret_cast<T::value_type*>(dataRaw),
                     reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
                     updateRegion.size
                 );
                 engine->_device().unmapMemory(memory);
             }
-
-            const UpdateMode templateMode = updateModeT;
 
             if constexpr (updateModeT == UpdateMode::Immediate) if (!wasOnGPU) freeFromGPU();
         }
@@ -564,8 +558,8 @@ namespace nihil::graphics
 
             updateMode = preRecordingUpdateMode;
 
-            vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-            discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+            std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            std::ignore = engine->_device().resetFences(1, &engine->_transferFence());
 
             vk::CommandBufferBeginInfo beginInfo{};
             engine->_mainCommandBuffer().begin(beginInfo);
@@ -605,7 +599,7 @@ namespace nihil::graphics
             submitInfo.commandBufferCount = 1;
             submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
-            discardResult = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+            std::ignore = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
 
             if (!wasOnGPU) freeFromGPU();
         }

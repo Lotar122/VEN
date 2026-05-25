@@ -56,18 +56,12 @@ Swapchain::Swapchain(App* _app, vk::PresentModeKHR _presentMode, uint8_t _preffe
 
 Swapchain::Frame* Swapchain::acquireNextFrame(uint32_t* _imageIndex, uint32_t* _frameIndex)
 {
-	vk::Result discardResult = engine->_device().waitForFences(1, frames[frameIndex].inFlightFence.getResP(), VK_TRUE, UINT64_MAX);
-	discardResult = engine->_device().resetFences(1, frames[frameIndex].inFlightFence.getResP());
+	std::ignore = engine->_device().waitForFences(1, frames[frameIndex].inFlightFence.getResP(), VK_TRUE, UINT64_MAX);
+	std::ignore = engine->_device().resetFences(1, frames[frameIndex].inFlightFence.getResP());
 
 	uint32_t imageIndex = 0;
 
 	vk::Result result = engine->_device().acquireNextImageKHR(swapchain.getRes(), UINT64_MAX, frames[frameIndex].imageAvailable.getRes(), nullptr, &imageIndex);
-
-	if (frameIndex != imageIndex)
-	{
-		//discardResult = engine->_device().waitForFences(1, &frames[imageIndex].inFlightFence, VK_TRUE, UINT64_MAX);
-		//discardResult = engine->_device().resetFences(1, &frames[imageIndex].inFlightFence);
-	}
 	
 	if(result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR)
 	{
@@ -346,7 +340,7 @@ void Swapchain::recreate()
 
 	for(Frame& f : frames)
 	{
-		vk::Result discardResult = engine->_device().waitForFences(f.inFlightFence.getResR(), true, UINT64_MAX);
+		std::ignore = engine->_device().waitForFences(f.inFlightFence.getResR(), true, UINT64_MAX);
 		f.commandBuffer.destroy();
 		f.commandPool.destroy();
 	}

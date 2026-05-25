@@ -37,19 +37,6 @@ namespace nihil
             return res;
         }
 
-        virtual void assignRes(T _res)
-        {
-            if(!assigned)
-            {
-                res = _res;
-                assigned = true;
-            }
-            else
-            {
-                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
-            }
-        }
-
         bool destroyed = false;
         bool assigned = false;
     };

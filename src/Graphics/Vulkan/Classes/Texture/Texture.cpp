@@ -146,8 +146,8 @@ void Texture::moveToGPU()
 
     stagingBuffer->moveToGPU();
 
-    vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-    discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+    std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+    std::ignore = engine->_device().resetFences(1, &engine->_transferFence());
 
     vk::CommandBufferBeginInfo beginInfo{};
     engine->_mainCommandBuffer().begin(beginInfo);
@@ -206,7 +206,7 @@ void Texture::moveToGPU()
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
-    discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_transferFence());
+    std::ignore = engine->_renderQueue().submit(1, &submitInfo, engine->_transferFence());
 
     onGPU = true;
 
@@ -234,8 +234,8 @@ void Texture::update(const std::vector<unsigned char>& _data)
 
     stagingBuffer->update(imageData, size);
 
-    vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-    discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+    std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+    std::ignore = engine->_device().resetFences(1, &engine->_transferFence());
 
     vk::CommandBufferBeginInfo beginInfo{};
     engine->_mainCommandBuffer().begin(beginInfo);
@@ -294,7 +294,7 @@ void Texture::update(const std::vector<unsigned char>& _data)
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
-    discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_transferFence());
+    std::ignore = engine->_renderQueue().submit(1, &submitInfo, engine->_transferFence());
 
     currentLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
@@ -313,8 +313,8 @@ void Texture::update(const unsigned char* _data, size_t _size)
 
     stagingBuffer->update(imageData, size);
 
-    vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
-    discardResult = engine->_device().resetFences(1, &engine->_transferFence());
+    std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+    std::ignore = engine->_device().resetFences(1, &engine->_transferFence());
 
     vk::CommandBufferBeginInfo beginInfo{};
     engine->_mainCommandBuffer().begin(beginInfo);
@@ -373,7 +373,7 @@ void Texture::update(const unsigned char* _data, size_t _size)
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
-    discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_transferFence());
+    std::ignore = engine->_renderQueue().submit(1, &submitInfo, engine->_transferFence());
 
     currentLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 

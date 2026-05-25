@@ -115,7 +115,7 @@ vk::PhysicalDevice Engine::PickPhysicalDevice(vk::Instance _instance, PhysicalDe
         {
             for(vk::PhysicalDevice& device : availableDevices)
             {
-                vk::PhysicalDeviceProperties properties = device.getProperties();
+                //vk::PhysicalDeviceProperties properties = device.getProperties();
                 vk::PhysicalDeviceMemoryProperties memoryProperties = device.getMemoryProperties();
 
                 uint64_t deviceLocalMemory = 0;
@@ -144,7 +144,7 @@ vk::PhysicalDevice Engine::PickPhysicalDevice(vk::Instance _instance, PhysicalDe
 
         for(vk::PhysicalDevice& device : availableDevices)
         {
-            vk::PhysicalDeviceProperties properties = device.getProperties();
+            //vk::PhysicalDeviceProperties properties = device.getProperties();
             vk::PhysicalDeviceMemoryProperties memoryProperties = device.getMemoryProperties();
 
             uint64_t deviceLocalMemory = 0;

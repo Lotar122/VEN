@@ -60,7 +60,7 @@ void Renderer::Render(
 	commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     
 	//Wait for transfers before starting recording commands
-	vk::Result discardResult = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+	std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
 
 	//record commands from the scene
     scene->recordCommands(commandBuffer, camera, debugPipeline, descriptorAllocator);
@@ -69,7 +69,7 @@ void Renderer::Render(
 
 	commandBuffer.end();
 
-	discardResult = engine->_device().waitForFences(engine->_transferFence(), VK_TRUE, UINT64_MAX);
+	std::ignore = engine->_device().waitForFences(engine->_transferFence(), VK_TRUE, UINT64_MAX);
 
 	vk::SubmitInfo submitInfo = {};
 	submitInfo.waitSemaphoreCount = 1;
@@ -83,7 +83,7 @@ void Renderer::Render(
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = engine->_swapchain()->_frames()[frameIndex].renderFinished.getResP();
 
-	discardResult = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);
+	std::ignore = engine->_renderQueue().submit(1, &submitInfo, engine->_swapchain()->_frames()[frameIndex].inFlightFence);
 
 	engine->swapchain->presentFrame(frame, imageIndex);
 

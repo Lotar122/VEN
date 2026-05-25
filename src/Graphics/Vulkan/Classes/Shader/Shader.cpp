@@ -14,7 +14,7 @@ using namespace nihil;
 */
 void Shader::LoadFromBinary(const std::string& path, size_t offset)
 {
-    std::vector<uint32_t> buffer = std::move(Carbo::File::LoadFileToVector<std::vector<uint32_t>>(path)); // Allocate buffer
+    std::vector<uint32_t> buffer = Carbo::File::LoadFileToVector<std::vector<uint32_t>>(path); // Allocate buffer
 
     vk::ShaderModuleCreateInfo createInfo = {};
     createInfo.codeSize = buffer.size() * sizeof(uint32_t) - offset; // Size in bytes
@@ -71,7 +71,7 @@ static inline std::vector<uint32_t> compileAndSaveToCache(const std::string& pat
     //Create cache entry
     std::filesystem::file_time_type timestamp = Carbo::File::GetTimestamp(path);
     int64_t serializedTimestamp = timestamp.time_since_epoch().count();
-    std::array<std::byte, 32> hash = std::move(Carbo::File::GetFileChecksum(path));
+    std::array<std::byte, 32> hash = Carbo::File::GetFileChecksum(path);
     uint64_t spirvLenght = compiledShader.size() * sizeof(uint32_t);
 
     std::byte* cacheEntry = (std::byte*)std::malloc(sizeof(int64_t) + (sizeof(std::byte) * 32) + sizeof(uint64_t) + (compiledShader.size() * sizeof(uint32_t)));
@@ -112,7 +112,7 @@ static inline std::vector<uint32_t> compileAndSaveToCache(const std::string& pat
 void Shader::Load(const std::string& path)
 {
     //Check if the shader is in cache
-    std::string cacheName = std::move(getCacheNameFromPath(path));
+    std::string cacheName = getCacheNameFromPath(path);
     std::vector<uint32_t> compiledShader;
 
     if(!std::filesystem::exists(engine->_directory() + "/ShaderCache/" + cacheName)) [[unlikely]]

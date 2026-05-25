@@ -142,16 +142,15 @@ namespace nihil::graphics
 			Carbo::Logger::Log("Swapchain Recreation Event in DescriptorAllocator");
 		}
 
-		vk::DescriptorSet allocateDynamicDescriptorSet(vk::DescriptorSetLayout* layout, std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings, size_t frameIndex)
-		{
-			//allocate in the pool corresponding to the frame.
-			//Write a specialization for AssetUsage::Dynamic that uses this instead and it keeps frameCount vk::DescriptorSet objects so that they can be updated every frame. make it inherit from the DescriptorSet class.
-			//You'll need to make an abstraact base class.
-		}
+		// vk::DescriptorSet allocateDynamicDescriptorSet(vk::DescriptorSetLayout* layout, std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings, size_t frameIndex)
+		// {
+		// 	//allocate in the pool corresponding to the frame.
+		// 	//Write a specialization for AssetUsage::Dynamic that uses this instead and it keeps frameCount vk::DescriptorSet objects so that they can be updated every frame. make it inherit from the DescriptorSet class.
+		// 	//You'll need to make an abstraact base class.
+		// }
 
 		vk::DescriptorSet allocateStaticDescriptorSet(vk::DescriptorSetLayout* layout, std::vector<DescriptorSetLayoutBinding>& _descriptorSetLayoutBindings)
 		{
-			size_t h = (staticPoolSizes.size() / (allTypes.size() + 1)) - 1;
 			if(staticPoolSizes[(staticPoolSizes.size() / (allTypes.size() + 1)) - 1] == 128) growStaticPools();
 			std::array<size_t, allTypes.size()> sizes;
 
@@ -167,7 +166,6 @@ namespace nihil::graphics
 
 			for(int i = 0; i < sizes.size(); i++)
 			{
-				size_t x = staticPoolSizesView((staticPoolSizes.size() / (allTypes.size() + 1)) - 1, i) + sizes[i];
 				if(staticPoolSizesView((staticPoolSizes.size() / (allTypes.size() + 1)) - 1, i) + sizes[i] > 128) { growStaticPools(); break; }
 			}
 

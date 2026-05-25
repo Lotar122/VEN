@@ -41,7 +41,7 @@ Engine::Engine(App* _app, EngineArgs& args)
 
 	app->endAccess();
 
-	vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+	//vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
 
 	auto queueInfo = CreateVKQueueInfo(instance, physicalDevice, surface);
 
@@ -68,16 +68,16 @@ Engine::Engine(App* _app, EngineArgs& args)
 
 	transferFence.assignRes(device.getRes().createFence(transferFenceCreateInfo), device);
 
-	auto pipelineCacheInfo = std::move(createPipelineCache(device, directory));
+	auto pipelineCacheInfo = createPipelineCache(device, directory);
 
 	pipelineCache.assignRes(pipelineCacheInfo.first, device);
 
-	pipelineCacheData = std::move(pipelineCacheInfo.second);
+	pipelineCacheData = pipelineCacheInfo.second;
 }
 
 Engine::~Engine() 
 {
-	pipelineCacheData = std::move(getPipelineCacheData(device, pipelineCache));
+	pipelineCacheData = getPipelineCacheData(device, pipelineCache);
 	savePipelineCacheData(directory, pipelineCacheData);
 
 	pipelineCache.destroy();

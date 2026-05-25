@@ -33,7 +33,19 @@ namespace nihil
             destroy();
         };
 
-        //void assignRes
+        virtual void assignRes(vk::Device _res)
+        {
+            if(!assigned)
+            {
+                res = _res;
+                
+                assigned = true;
+            }
+            else
+            {
+                Carbo::Logger::Exception(std::string("Cannot assign an already assigned resource"));
+            }
+        }
 
         //T getRes
         //T* getResP

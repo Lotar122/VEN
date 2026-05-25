@@ -18,6 +18,7 @@
 
 #include <format>
 #include <limits>
+#include <thread>
 
 using namespace nihil::graphics;
 
@@ -57,6 +58,9 @@ void Scene::addObjects(std::vector<Object>& newObjects)
 
 void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator)
 {
+    std::vector<std::thread> dataWorkers;
+    std::mutex slotTimeCountMutex;
+
     auto start = std::chrono::high_resolution_clock::now();
 
     instancedDraws.clear();
@@ -219,7 +223,18 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
                     bufferIT->second = instanceBuffer;
                 }
-                //Shrink impl later
+                else if(instanceBuffer->_size() / 2 >= instanceDataSize || (instanceBuffer->_size() > 10'240 && instanceBuffer->_size() - 10'240 >= instanceDataSize)) [[unlikely]]
+                {
+                    std::vector<std::byte> instanceData;
+                    instanceData.resize(instanceDataSize);
+                    decltype(instanceBuffer) newInstanceBuffer = instanceBufferAllocator.allocate(std::move(instanceData), engine);
+
+                    instanceBufferAllocator.free(instanceBuffer);
+
+                    instanceBuffer = newInstanceBuffer;
+
+                    bufferIT->second = instanceBuffer;
+                }
             }
             else
             {
@@ -240,14 +255,17 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             {
                 instanceDataSlots = &slotsIT->second;
             }
-            
-            auto slotsStart = std::chrono::high_resolution_clock::now();
-            constructSlots(instanceDataSize, instanceDataChunkSize, instancedDraws.data() + offset, count, *instanceDataSlots, engine->_currentFrame(), *instanceBuffer);
-            auto slotsEnd = std::chrono::high_resolution_clock::now();
 
-            allSlotConstructions += std::chrono::duration_cast<std::chrono::microseconds>(slotsEnd - slotsStart);
+            dataWorkers.emplace_back( [&slotTimeCountMutex, &allSlotConstructions, instanceDataSize, instanceDataChunkSize, offset, instanceDataSlots, instanceBuffer, count](Engine* engine, std::vector<ObjectInstance>& instancedDraws) {
+                auto slotsStart = std::chrono::high_resolution_clock::now();
+                constructSlots(instanceDataSize, instanceDataChunkSize, instancedDraws.data() + offset, count, *instanceDataSlots, engine->_currentFrame(), *instanceBuffer);
+                auto slotsEnd = std::chrono::high_resolution_clock::now();
 
-            instanceBuffer->moveToGPU();
+                std::lock_guard<std::mutex> lock(slotTimeCountMutex);
+                allSlotConstructions += std::chrono::duration_cast<std::chrono::microseconds>(slotsEnd - slotsStart);
+
+                instanceBuffer->moveToGPU();
+            }, engine, std::ref(instancedDraws) );
 
             auto bufferEnd = std::chrono::high_resolution_clock::now();
 
@@ -269,6 +287,12 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             commandBuffer.drawIndexed(static_cast<uint32_t>(firstObject->_model()->_indexBuffer()._typedSize()), count, 0, 0, 0);
         }
 
+        for(auto& t : dataWorkers)
+        {
+            if(t.joinable()) t.join();
+        }
+
+        std::lock_guard<std::mutex> lock(slotTimeCountMutex);
         std::cout<<std::format("Buffer construction took: {}, on average. Of which: {}, was slots construction\n", allBufferConstructions / (float)drawCounts.size(), allSlotConstructions / (float)drawCounts.size());
     }
 
