@@ -22,7 +22,7 @@ namespace nihil::graphics
 	requires StdVector<T>
 	class Buffer : public Asset
 	{
-        using U = T::value_type;
+        using U = typename T::value_type;
 
 		friend class Model;
 		Engine* engine = nullptr;
@@ -69,7 +69,8 @@ namespace nihil::graphics
         enum class UpdateMode
         {
             Immediate,
-            Recording
+            Recording,
+            Direct
         };
 
         struct UpdateCommand
@@ -85,9 +86,17 @@ namespace nihil::graphics
             std::vector<UpdateCommand> commands;
         };
 
+        struct DirectWriteOptimizer
+        {
+            std::vector<UpdateCommand> commands;
+        };
+
         UpdateOptimizer updateOptimizer = {};
+        DirectWriteOptimizer directWriteOptimizer = {};
         UpdateMode updateMode = UpdateMode::Immediate;
         UpdateMode preRecordingUpdateMode = updateMode;
+
+        void* directDataRaw = nullptr;
     public:
         inline vk::Buffer _buffer() { return buffer; };
         //return the size of the buffer in bytes
@@ -308,7 +317,7 @@ namespace nihil::graphics
 
             size = _size * sizeof(U);
 
-            data.resize(size);
+            data.resize(_size);
 
             std::memcpy(data.data(), _data, size);
 
@@ -446,7 +455,7 @@ namespace nihil::graphics
             if constexpr (!CPUAccessible)
             {
                 void* dataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
-                std::memcpy(reinterpret_cast<T::value_type*>(dataRaw), reinterpret_cast<T::value_type*>(data.data()), size);
+                std::memcpy(reinterpret_cast<U*>(dataRaw), reinterpret_cast<U*>(data.data()), size);
 
                 engine->_device().unmapMemory(stagingMemory);
 
@@ -457,7 +466,7 @@ namespace nihil::graphics
                 Carbo::Logger::Log("Using a direct copy");
 
                 void* dataRaw = engine->_device().mapMemory(memory, 0, size);
-                std::memcpy(reinterpret_cast<T::value_type*>(dataRaw), reinterpret_cast<T::value_type*>(data.data()), size);
+                std::memcpy(reinterpret_cast<U*>(dataRaw), reinterpret_cast<U*>(data.data()), size);
                 engine->_device().unmapMemory(memory);
             }
 
@@ -493,40 +502,82 @@ namespace nihil::graphics
         }
     private:
         template<UpdateMode updateModeT = UpdateMode::Immediate>
-        inline void updateGPUData(vk::BufferCopy updateRegion)
+        inline void updateGPUData(vk::BufferCopy updateRegion, const U* _directData = nullptr, void* _dataRaw = nullptr)
         {
-            bool wasOnGPU = onGPU();
-
-            moveToGPU<updateModeT>();
-
-            if constexpr (!CPUAccessible)
+            if constexpr (updateModeT == UpdateMode::Direct)
             {
-                Carbo::Logger::Log("Using a staging buffer");
+                if (!onGPU()) [[unlikely]] Carbo::Logger::Warn("You might have un-pushed changes CPU side. Upload before direct writing maybe?");
 
-                void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
+                setOnGPU(true);
+
                 std::memcpy(
-                    reinterpret_cast<T::value_type*>(dataRaw),
-                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
+                    reinterpret_cast<U*>(_dataRaw) + updateRegion.dstOffset,
+                    reinterpret_cast<const std::byte*>(_directData) + updateRegion.srcOffset,
                     updateRegion.size
                 );
-                engine->_device().unmapMemory(stagingMemory);
 
-                copyBuffer<updateModeT>(stagingBuffer, buffer, size, updateRegion, engine);
+                //if constexpr (!CPUAccessible)
+                //{
+                //    Carbo::Logger::Log("Using a staging buffer");
+
+                //    void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
+                //    std::memcpy(
+                //        reinterpret_cast<U*>(_dataRaw),
+                //        reinterpret_cast<std::byte*>(_directData) + updateRegion.srcOffset,
+                //        updateRegion.size
+                //    );
+                //    engine->_device().unmapMemory(stagingMemory);
+
+                //    //copyBuffer<updateModeT>(stagingBuffer, buffer, size, updateRegion, engine);
+                //}
+                //else
+                //{
+                //    Carbo::Logger::Log("Using a direct copy");
+
+                //    void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
+                //    std::memcpy(
+                //        reinterpret_cast<U*>(_dataRaw),
+                //        reinterpret_cast<std::byte*>(_directData) + updateRegion.srcOffset,
+                //        updateRegion.size
+                //    );
+                //    engine->_device().unmapMemory(memory);
+                //}
             }
             else
             {
-                Carbo::Logger::Log("Using a direct copy");
+                bool wasOnGPU = onGPU();
 
-                void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
-                std::memcpy(
-                    reinterpret_cast<T::value_type*>(dataRaw),
-                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
-                    updateRegion.size
-                );
-                engine->_device().unmapMemory(memory);
+                moveToGPU<updateModeT>();
+
+                if constexpr (!CPUAccessible)
+                {
+                    Carbo::Logger::Log("Using a staging buffer");
+
+                    void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
+                    std::memcpy(
+                        reinterpret_cast<U*>(dataRaw),
+                        reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
+                        updateRegion.size
+                    );
+                    engine->_device().unmapMemory(stagingMemory);
+
+                    copyBuffer<updateModeT>(stagingBuffer, buffer, size, updateRegion, engine);
+                }
+                else
+                {
+                    Carbo::Logger::Log("Using a direct copy");
+
+                    void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
+                    std::memcpy(
+                        reinterpret_cast<U*>(dataRaw),
+                        reinterpret_cast<std::byte*>(data.data()) + updateRegion.srcOffset,
+                        updateRegion.size
+                    );
+                    engine->_device().unmapMemory(memory);
+                }
+
+                if constexpr (updateModeT == UpdateMode::Immediate) if (!wasOnGPU) freeFromGPU();
             }
-
-            if constexpr (updateModeT == UpdateMode::Immediate) if (!wasOnGPU) freeFromGPU();
         }
 
         inline void recordUpdate(const vk::BufferCopy& updateRegion)
@@ -547,7 +598,109 @@ namespace nihil::graphics
                 updateOptimizer.commands.emplace_back(updateRegion.srcOffset, updateRegion.dstOffset, updateRegion.size);
             }
         }
+
+        inline void recordDirectWrite(const vk::BufferCopy& updateRegion)
+        {
+            if (directWriteOptimizer.commands.empty()) [[unlikely]]
+            {
+                directWriteOptimizer.commands.emplace_back(updateRegion.srcOffset, updateRegion.dstOffset, updateRegion.size);
+
+                return;
+            }
+            auto& prev = directWriteOptimizer.commands.back();
+            if (prev.dstOffset + prev.updateSize == updateRegion.dstOffset)
+            {
+                prev.updateSize += updateRegion.size;
+            }
+            else
+            {
+                directWriteOptimizer.commands.emplace_back(updateRegion.srcOffset, updateRegion.dstOffset, updateRegion.size);
+            }
+        }
     public:
+        inline void beginDirectWrite()
+        {
+            preRecordingUpdateMode = updateMode;
+            updateMode = UpdateMode::Direct;
+
+            directWriteOptimizer.commands.clear();
+            directWriteOptimizer.commands.reserve(128);
+
+            if constexpr (!CPUAccessible)
+            {
+                directDataRaw = engine->_device().mapMemory(stagingMemory, 0, size);
+            }
+            else
+            {
+                directDataRaw = engine->_device().mapMemory(memory, 0, size);
+            }
+        }
+
+        void executeDirectWrites()
+        {
+            updateMode = preRecordingUpdateMode;
+
+            if constexpr (!CPUAccessible)
+            {
+                engine->_device().unmapMemory(stagingMemory);
+            }
+            else
+            {
+                engine->_device().unmapMemory(memory);
+            }
+
+            std::ignore = engine->_device().waitForFences(engine->_transferFence(), true, UINT64_MAX);
+            std::ignore = engine->_device().resetFences(1, &engine->_transferFence());
+
+            vk::CommandBufferBeginInfo beginInfo{};
+            engine->_mainCommandBuffer().begin(beginInfo);
+
+            for (int i = 0; i < directWriteOptimizer.commands.size(); i++)
+            {
+                std::cout << "Staging -> DeviceLocal\n";
+
+                //Copy staging to buffer
+                //updateGPUData<UpdateMode::Direct>({ updateOptimizer.commands[i].srcOffset, updateOptimizer.commands[i].dstOffset, updateOptimizer.commands[i].updateSize });
+                copyBuffer<UpdateMode::Direct>(stagingBuffer, buffer, size, { directWriteOptimizer.commands[i].srcOffset, directWriteOptimizer.commands[i].dstOffset, directWriteOptimizer.commands[i].updateSize }, engine);
+            }
+
+            #if defined(_DEBUG) || !defined(NDEBUG)
+                directDataRaw = nullptr;
+            #endif
+
+            break_assert(buffer != nullptr && stagingBuffer != nullptr);
+
+            vk::BufferMemoryBarrier barrier{
+                vk::AccessFlagBits::eTransferWrite,
+                vk::AccessFlagBits::eShaderRead,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                buffer,
+                0,
+                size
+            };
+
+            engine->_mainCommandBuffer().pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eVertexShader,
+                {},
+                nullptr,
+                barrier,
+                nullptr
+            );
+
+            engine->_mainCommandBuffer().end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.waitSemaphoreCount = 0;
+            submitInfo.pWaitSemaphores = nullptr;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
+
+            std::ignore = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
+        }
+
         inline void setUpdateMode(UpdateMode _updateMode)
         {
             updateMode = _updateMode;
@@ -620,41 +773,72 @@ namespace nihil::graphics
         {
             break_assert(_data.size() == data.size());
 
-            data = _data;
+            if (updateMode != UpdateMode::Direct)
+            {
+                data = _data;
 
-            updateGPUData({ 0, 0, size });
+                updateGPUData({ 0, 0, size });
+            }
+            else
+            {
+                updateGPUData<UpdateMode::Direct>({ 0, 0, size }, _data.data());
+            }
         }
 
         void update(const T&& _data)
         {
             break_assert(_data.size() == data.size());
 
-            data = std::move(_data);
+            if (updateMode != UpdateMode::Direct)
+            {
+                data = std::move(_data);
 
-            updateGPUData({ 0, 0, size });
+                updateGPUData({ 0, 0, size });
+            }
+            else
+            {
+                updateGPUData<UpdateMode::Direct>({ 0, 0, size }, _data.data());
+            }
         }
 
         void update(const U* _data, size_t _size)
         {
             break_assert(data.size() == _size);
 
-            std::memcpy(data.data(), _data, data.size());
+            if (updateMode != UpdateMode::Direct)
+            {
+                std::memcpy(data.data(), _data, data.size());
 
-            updateGPUData({ 0, 0, size });
+                updateGPUData({ 0, 0, size });
+            }
+            else
+            {
+                updateGPUData<UpdateMode::Direct>({ 0, 0, size }, _data);
+            }
         }
 
         void update(const U* _data, vk::BufferCopy updateRegion)
         {
             break_assert(_data != nullptr);
 
-            std::memcpy(
-                reinterpret_cast<std::byte*>(data.data()) + updateRegion.dstOffset,
-                _data + updateRegion.srcOffset,
-                updateRegion.size
-            );
+            if (updateMode != UpdateMode::Direct)
+            {
+                std::memcpy(
+                    reinterpret_cast<std::byte*>(data.data()) + updateRegion.dstOffset,
+                    _data + updateRegion.srcOffset,
+                    updateRegion.size
+                );
 
-            if (updateMode == UpdateMode::Immediate) updateGPUData(updateRegion);
-            else recordUpdate(updateRegion);
+                if (updateMode == UpdateMode::Immediate) updateGPUData(updateRegion);
+                else recordUpdate(updateRegion);
+            }
+            else
+            {
+                allocateOnGPU();
+
+                updateGPUData<UpdateMode::Direct>(updateRegion, _data, directDataRaw);
+                recordDirectWrite(updateRegion);
+            }
         }
 
         void destroy()

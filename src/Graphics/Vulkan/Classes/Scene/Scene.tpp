@@ -137,7 +137,9 @@ namespace nihil::graphics
 
         auto start = std::chrono::high_resolution_clock::now();
 
-        instanceBuffer.beginUpdateRecording();
+        //instanceBuffer.beginUpdateRecording();
+        instanceBuffer.moveToGPU();
+        instanceBuffer.beginDirectWrite();
 
         for(size_t i = 0; i < slots.size(); i++)
         {
@@ -156,7 +158,8 @@ namespace nihil::graphics
             slot.lastResident = slot.currentResident;
         }
 
-        instanceBuffer.executeRecordedUpdates();
+        //instanceBuffer.executeRecordedUpdates();
+        instanceBuffer.executeDirectWrites();
 
         auto end = std::chrono::high_resolution_clock::now();
 

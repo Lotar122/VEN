@@ -263,7 +263,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
             allSlotConstructions += std::chrono::duration_cast<std::chrono::microseconds>(slotsEnd - slotsStart);
 
-            instanceBuffer->moveToGPU();
+            //instanceBuffer->moveToGPU();
 
             auto bufferEnd = std::chrono::high_resolution_clock::now();
 
