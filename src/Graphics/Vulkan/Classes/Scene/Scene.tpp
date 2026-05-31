@@ -148,7 +148,6 @@ namespace nihil::graphics
             //std::cout<<std::format("Dirty: {}, prevOffset: {}, i: {}, lastResident: {}, currentResident: {}, currentResidentRenderIndex: {}, thisFrame: {}\n", dirty, slot.prevOffset, i, slot.lastResident, slot.currentResident, slot.currentResidentRenderIndex, thisFrame);
             if(dirty)
             {
-                //std::memcpy(reinterpret_cast<char*>(*mem + i), reinterpret_cast<char*>(&o->data), sizeof(InstanceData));
                 instanceBuffer.update(reinterpret_cast<const std::byte*>(o->_instanceData().first), vk::BufferCopy{ 0, i * o->_instanceData().second, o->_instanceData().second });
                 slot.prevWriteFrame = thisFrame;
             }

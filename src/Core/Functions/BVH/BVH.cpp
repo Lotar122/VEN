@@ -46,16 +46,22 @@ size_t nihil::buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indic
 
     AABB centroidBounds;
     for (int i = start; i < end; i++)
-        centroidBounds.expand(primitives[indices[i]].centroid());
+        centroidBounds.expand(primitives[indices[i]]._centroid());
 
     size_t axis = centroidBounds.longestAxis();
 
-    std::sort(indices.begin() + start, indices.begin() + end,
-        [axis, &primitives](const size_t& a, const size_t& b) {
-            return primitives[a].centroid()[axis] < primitives[b].centroid()[axis];
-    });
-
     size_t mid = (start + end) / 2;
+
+    std::nth_element(
+        indices.begin() + start,
+        indices.begin() + mid,
+        indices.begin() + end,
+        [axis, &primitives](size_t a, size_t b)
+        {
+            return primitives[a]._centroid()[axis]
+                < primitives[b]._centroid()[axis];
+        }
+    );
 
     allocator.at(node).left = buildBVH(primitives, indices, start, mid, allocator);
     allocator.at(node).right = buildBVH(primitives, indices, mid, end, allocator);
@@ -108,13 +114,13 @@ size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::v
 
     AABB centroidBounds;
     for (int i = start; i < end; i++)
-        centroidBounds.expand(primitives[indices[i]]->_transformedAABB().centroid());
+        centroidBounds.expand(primitives[indices[i]]->_transformedAABB()._centroid());
 
     size_t axis = centroidBounds.longestAxis();
 
     std::sort(indices.begin() + start, indices.begin() + end,
         [axis, &primitives](const size_t& a, const size_t& b) {
-            return primitives[a]->_transformedAABB().centroid()[axis] < primitives[b]->_transformedAABB().centroid()[axis];
+            return primitives[a]->_transformedAABB()._centroid()[axis] < primitives[b]->_transformedAABB()._centroid()[axis];
     });
 
     size_t mid = (start + end) / 2;

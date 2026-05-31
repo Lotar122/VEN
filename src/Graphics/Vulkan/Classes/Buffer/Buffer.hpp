@@ -33,6 +33,22 @@ namespace nihil::graphics
 		static constexpr vk::BufferUsageFlags usage = static_cast<vk::BufferUsageFlags>(usageT);
 		static constexpr vk::MemoryPropertyFlags properties = static_cast<vk::MemoryPropertyFlags>(propertiesT);
 
+        //bool destroyed = false, onGPU = false, allocatedOnGPU = false, bufferCreated = false, directWrite = false;
+        uint8_t state = 0x00;
+
+        inline bool destroyed() { return state & 1u << 0; };
+        inline bool onGPU() { return state & 1u << 1; };
+        inline bool allocatedOnGPU() { return state & 1u << 2; };
+        inline bool bufferCreated() { return state & 1u << 3; };
+        inline bool directWrite() { return state & 1u << 4; };
+        
+        //Setters
+        inline void setDestroyed(const bool& val) { state = val ? state | (1u << 0) : state & ~(1u << 0); };
+        inline void setOnGPU(const bool& val) { state = val ? state | (1u << 1) : state & ~(1u << 1); };
+        inline void setAllocatedOnGPU(const bool& val) { state = val ? state | (1u << 2) : state & ~(1u << 2); };
+        inline void setBufferCreated(const bool& val) { state = val ? state | (1u << 3) : state & ~(1u << 3); };
+        inline void setDirectWrite(const bool& val) { state = val ? state | (1u << 4) : state & ~(1u << 4); };
+
 		vk::MemoryRequirements memRequirements;
 		vk::MemoryRequirements stagingMemRequirements;
 		vk::PhysicalDeviceMemoryProperties memProperties;
@@ -49,10 +65,6 @@ namespace nihil::graphics
 
 		static constexpr bool CPUAccessible =
 			(properties & (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible)) == (vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
-
-        bool onGPU = false, allocatedOnGPU = false, bufferCreated = false;
-
-        bool destroyed = false;
 
         enum class UpdateMode
         {
@@ -225,7 +237,7 @@ namespace nihil::graphics
 
             size = data.size() * sizeof(U);
 
-            bufferCreated = true;
+            setBufferCreated(true);
 
             memProperties = engine->_physicalDevice().getMemoryProperties();
 
@@ -385,7 +397,7 @@ namespace nihil::graphics
 
         void allocateOnGPU()
         {
-            if (allocatedOnGPU) return;
+            if (allocatedOnGPU()) return;
 
             Carbo::Logger::Log("Allocating the buffer.");
 
@@ -397,7 +409,7 @@ namespace nihil::graphics
             );
 
             memory = engine->_device().allocateMemory(allocInfo);
-            if(!bufferCreated) buffer = engine->_device().createBuffer(bufferCreateInfo);
+            if(!bufferCreated()) buffer = engine->_device().createBuffer(bufferCreateInfo);
 
             engine->_device().bindBufferMemory(buffer, memory, 0);
 
@@ -411,19 +423,19 @@ namespace nihil::graphics
                 );
 
                 stagingMemory = engine->_device().allocateMemory(stagingAllocInfo);
-                if (!bufferCreated) stagingBuffer = engine->_device().createBuffer(stagingBufferCreateInfo);
+                if (!bufferCreated()) stagingBuffer = engine->_device().createBuffer(stagingBufferCreateInfo);
 
                 engine->_device().bindBufferMemory(stagingBuffer, stagingMemory, 0);
             }
 
-            allocatedOnGPU = true;
-            bufferCreated = true;
+            setAllocatedOnGPU(true);
+            setBufferCreated(true);
         }
         
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         void moveToGPU()
         {
-            if (onGPU) return;
+            if (onGPU()) return;
 
             allocateOnGPU();
 
@@ -449,16 +461,16 @@ namespace nihil::graphics
                 engine->_device().unmapMemory(memory);
             }
 
-            onGPU = true;
+            setOnGPU(true);
         }
 
         inline void freeFromGPU()
         {
-            if (!allocatedOnGPU) return;
+            if (!allocatedOnGPU()) return;
 
-            onGPU = false;
-            allocatedOnGPU = false;
-            bufferCreated = false;
+            setOnGPU(false);
+            setAllocatedOnGPU(false);
+            setBufferCreated(false);
 
             Carbo::Logger::Log("Freeing the buffer.");
 
@@ -483,7 +495,7 @@ namespace nihil::graphics
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         inline void updateGPUData(vk::BufferCopy updateRegion)
         {
-            bool wasOnGPU = onGPU;
+            bool wasOnGPU = onGPU();
 
             moveToGPU<updateModeT>();
 
@@ -552,7 +564,7 @@ namespace nihil::graphics
 
         void executeRecordedUpdates()
         {
-            bool wasOnGPU = onGPU;
+            bool wasOnGPU = onGPU();
 
             moveToGPU();
 
@@ -647,9 +659,9 @@ namespace nihil::graphics
 
         void destroy()
         {
-            break_assert(!destroyed);
+            break_assert(!destroyed());
 
-            destroyed = true;
+            setDestroyed(true);
 
             engine->_device().waitIdle();
 

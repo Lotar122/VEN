@@ -14,17 +14,25 @@ namespace nihil
     public:
         glm::vec3 min;
         glm::vec3 max;
+        glm::vec3 centroid;
+        glm::vec3 extent;
 
         AABB()
         {
             min = glm::vec3(std::numeric_limits<float>::max());
             max = glm::vec3(std::numeric_limits<float>::lowest());
+
+            centroid = (min + max) * 0.5f;
+            extent = max - min;
         }
 
         AABB(const glm::vec3& _min, const glm::vec3& _max)
         {
             min = _min;
             max = _max;
+
+            centroid = (min + max) * 0.5f;
+            extent = max - min;
         }
 
         static VisibilityQueryResult isAABBVisible(const AABB& box, const std::array<Plane, 6>& planes)
@@ -32,27 +40,27 @@ namespace nihil
             glm::vec3 center = (box.min + box.max) * 0.5f;
             glm::vec3 extent = (box.max - box.min) * 0.5f;
 
-            bool intersect = false;
+            constexpr float epsilon = -0.01f;
+            VisibilityQueryResult result = VisibilityQueryResult::Inside;
 
             for (int i = 0; i < 5; i++) // skip far plane
             {
                 const Plane& p = planes[i];
                 float dist = glm::dot(p.normal, center) + p.d;
 
-                float radius =
-                    extent.x * std::abs(p.normal.x) +
-                    extent.y * std::abs(p.normal.y) +
-                    extent.z * std::abs(p.normal.z);
+                glm::vec3 radiusVec = extent * glm::abs(p.normal);
 
-                if (dist + radius < -0.01f)
+                float radius =
+                    radiusVec.x + radiusVec.y + radiusVec.z;
+
+                if (dist + radius < epsilon)
                     return VisibilityQueryResult::Outside;
 
-                if (dist - radius < -0.01f)
-                    intersect = true;
+                if (dist - radius < epsilon)
+                    result = VisibilityQueryResult::Intersection;
             }
 
-            return intersect ? VisibilityQueryResult::Intersection
-                : VisibilityQueryResult::Inside;
+            return result;
         }
 
         //Computes a bounding box for any mesh layout: (vx, vy, vz, tx, ty, nx, ny, nz)
@@ -77,6 +85,9 @@ namespace nihil
                 min = glm::min(min, pos);
                 max = glm::max(max, pos);
             }
+
+            centroid = (min + max) * 0.5f;
+            extent = max - min;
 
             Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
         }
@@ -113,41 +124,42 @@ namespace nihil
         {
             min = glm::min(bounds.min, min);
             max = glm::max(bounds.max, max);
+
+            centroid = (min + max) * 0.5f;
+            extent = max - min;
         }
 
         void expand(const glm::vec3& p)
         {
-            min.x = std::min(min.x, p.x);
-            min.y = std::min(min.y, p.y);
-            min.z = std::min(min.z, p.z);
+            min = glm::min(min, p);
+            max = glm::max(max, p);
 
-            max.x = std::max(max.x, p.x);
-            max.y = std::max(max.y, p.y);
-            max.z = std::max(max.z, p.z);
+            centroid = (min + max) * 0.5f;
+            extent = max - min;
         }
 
-        inline glm::vec3 centroid() const
+        inline const glm::vec3& _centroid() const
         {
-            return (min + max) * 0.5f;
+            return centroid;
         }
 
-        inline glm::vec3 extent() const
+        inline const glm::vec3& _extent() const
         {
-            return max - min;
+            return extent;
         }
 
         size_t longestAxis() const
         {
-            glm::vec3 e = extent();
+            const glm::vec3& e = extent;
 
             if (e.x > e.y && e.x > e.z) return 0;
             if (e.y > e.z) return 1;
             return 2;
         }
 
-        inline float surfaceArea()
+        inline float surfaceArea() const
         {
-            glm::vec3 e = extent();
+            const glm::vec3& e = extent;
             return 2.0f * (e.x*e.y + e.x*e.z + e.y*e.z);
         }
     };

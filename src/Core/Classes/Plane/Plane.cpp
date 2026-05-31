@@ -50,6 +50,7 @@ std::array<Plane, 6> nihil::extractFrustumPlanes(const glm::mat4& m)
         {
             p.normal /= len;
             p.d /= len;
+            //p.absNormal = glm::abs(p.normal);
         }
     }
 

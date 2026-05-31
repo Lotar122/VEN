@@ -140,6 +140,8 @@ set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or
 
 add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
 
+target_compile_definitions(VEN PRIVATE GLM_FORCE_DEFAULT_ALIGNED_GENTYPES)
+
 target_include_directories(VEN 
 	PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/includes
