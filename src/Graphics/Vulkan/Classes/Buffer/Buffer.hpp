@@ -506,7 +506,7 @@ namespace nihil::graphics
         {
             if constexpr (updateModeT == UpdateMode::Direct)
             {
-                if (!onGPU()) [[unlikely]] Carbo::Logger::Warn("You might have un-pushed changes CPU side. Upload before direct writing maybe?");
+                if (!onGPU()) [[unlikely]] Carbo::Logger::Warn("You might have un-pushed changes CPU side. Upload before direct writing perhaps?");
 
                 setOnGPU(true);
 
@@ -515,33 +515,6 @@ namespace nihil::graphics
                     reinterpret_cast<const std::byte*>(_directData) + updateRegion.srcOffset,
                     updateRegion.size
                 );
-
-                //if constexpr (!CPUAccessible)
-                //{
-                //    Carbo::Logger::Log("Using a staging buffer");
-
-                //    void* dataRaw = engine->_device().mapMemory(stagingMemory, updateRegion.dstOffset, updateRegion.size);
-                //    std::memcpy(
-                //        reinterpret_cast<U*>(_dataRaw),
-                //        reinterpret_cast<std::byte*>(_directData) + updateRegion.srcOffset,
-                //        updateRegion.size
-                //    );
-                //    engine->_device().unmapMemory(stagingMemory);
-
-                //    //copyBuffer<updateModeT>(stagingBuffer, buffer, size, updateRegion, engine);
-                //}
-                //else
-                //{
-                //    Carbo::Logger::Log("Using a direct copy");
-
-                //    void* dataRaw = engine->_device().mapMemory(memory, updateRegion.dstOffset, updateRegion.size);
-                //    std::memcpy(
-                //        reinterpret_cast<U*>(_dataRaw),
-                //        reinterpret_cast<std::byte*>(_directData) + updateRegion.srcOffset,
-                //        updateRegion.size
-                //    );
-                //    engine->_device().unmapMemory(memory);
-                //}
             }
             else
             {

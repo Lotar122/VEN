@@ -14,6 +14,7 @@
 #include "Classes/Asset/Asset.hpp"
 
 #include "Classes/AABB/AABB.hpp"
+#include "Classes/ObjectAllocator/ObjectAllocator.hpp"
 
 namespace nihil::graphics
 {
@@ -36,6 +37,7 @@ namespace nihil::graphics
         //TODO: allow multiple models in one object
         Model* model = nullptr;
         Material* material = nullptr;
+        ObjectAllocator* objectAllocator = nullptr;
         Engine* engine = nullptr;
 
         uint64_t modelMaterialEncoded = 0;
@@ -43,10 +45,11 @@ namespace nihil::graphics
         glm::vec3 scaleFactor = glm::vec3(1.0f);
         glm::vec3 position = glm::vec3(0.0f);
         glm::vec3 rotation = glm::vec3(0.0f);
-        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        size_t modelMatrix = 0;
+        //glm::mat4 modelMatrix = glm::mat4(1.0f);
 
-        AABB aabb;
-        AABB transformedAABB;
+        size_t aabb;
+        size_t transformedAABB;
 
         bool autoCreatedInstanceData = false;
         const void* instanceData = nullptr;
@@ -55,12 +58,13 @@ namespace nihil::graphics
         inline Model* _model() const { return model; };
         inline const glm::vec3& _position() { return position; };
         inline const glm::vec3& _rotation() { return rotation; };
-        inline const glm::mat4& _modelMatrix() { return modelMatrix; };
+        inline const glm::mat4& _modelMatrix() { return objectAllocator->modelMatricies.at(modelMatrix); };
         inline Material* _material() { return material; };
 
         inline uint64_t _modelMaterialEncoded() { return modelMaterialEncoded; };
 
-        inline AABB& _transformedAABB() { return transformedAABB; };
+        inline AABB& _transformedAABB() { return objectAllocator->transformedAABBs.at(transformedAABB); };
+        inline AABB& _aabb() { return objectAllocator->AABBs.at(aabb); }
 
         inline const PushConstants* _pushConstants(Camera* camera) 
         {
@@ -79,17 +83,21 @@ namespace nihil::graphics
         inline void setPosition(const glm::vec3& _position) { position = _position; recalculateModelMatrix(); }; 
         inline void setRotation(const glm::vec3& _rotation) { rotation = _rotation; recalculateModelMatrix(); }; 
 
-        Object(Model* _model, Material* _material, Engine* _engine) : Asset(AssetUsage::Undefined, _engine)
+        Object(Model* _model, Material* _material, ObjectAllocator* _allocator, Engine* _engine) : Asset(AssetUsage::Undefined, _engine)
         {
             assert(_model != nullptr);
             assert(_material != nullptr);
+            assert(_allocator != nullptr);
             assert(_engine != nullptr);
 
             model = _model;
             material = _material;
+            objectAllocator = _allocator;
             engine = _engine;
 
-            aabb = model->_aabb();
+            aabb = objectAllocator->AABBs.allocate(model->_aabb());
+            transformedAABB = objectAllocator->transformedAABBs.allocate();
+            modelMatrix = objectAllocator->modelMatricies.allocate(1.0f);
 
             recalculateModelMatrix();
 
@@ -130,7 +138,7 @@ namespace nihil::graphics
                 constexpr size_t instanceDataChunkSize = 16 * sizeof(float);
 
                 autoCreatedInstanceData = true;
-                instanceData = reinterpret_cast<const void*>(glm::value_ptr(modelMatrix));
+                instanceData = reinterpret_cast<const void*>(glm::value_ptr(objectAllocator->modelMatricies.at(modelMatrix)));
                 instanceDataSize = instanceDataChunkSize;
 
                 return std::make_pair(instanceData, instanceDataSize);
@@ -139,16 +147,17 @@ namespace nihil::graphics
 
         inline void recalculateModelMatrix()
         {
-            modelMatrix = glm::mat4(1.0f);
-            modelMatrix = glm::translate(modelMatrix, position);
-            modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-            modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-            modelMatrix = glm::rotate(modelMatrix, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-            modelMatrix = glm::scale(modelMatrix, scaleFactor);
+            glm::mat4& modelMatrixRef = objectAllocator->modelMatricies.at(modelMatrix);
+            modelMatrixRef = glm::mat4(1.0f);
+            modelMatrixRef = glm::translate(modelMatrixRef, position);
+            modelMatrixRef = glm::rotate(modelMatrixRef, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+            modelMatrixRef = glm::rotate(modelMatrixRef, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+            modelMatrixRef = glm::rotate(modelMatrixRef, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+            modelMatrixRef = glm::scale(modelMatrixRef, scaleFactor);
 
-            modelMatrix *= model->_defaultTransform();
+            modelMatrixRef *= model->_defaultTransform();
 
-            transformedAABB = aabb.getTransformed(modelMatrix);
+            objectAllocator->transformedAABBs.at(transformedAABB) = objectAllocator->AABBs.at(aabb).getTransformed(modelMatrixRef);
         }
 
         //TODO: Physics integration later

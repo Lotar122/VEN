@@ -1,22 +1,24 @@
 #pragma once
 
+#include <cstdint>
+#include "vulkan/vulkan.hpp"
+
 namespace nihil::graphics
 {
-    inline static uint32_t findMemoryTypeIndex(vk::PhysicalDeviceMemoryProperties memProperties, vk::MemoryRequirements memRequirements, vk::MemoryPropertyFlags memFlags)
+    inline static uint32_t findMemoryTypeIndex(
+        vk::PhysicalDeviceMemoryProperties memProperties,
+        vk::MemoryRequirements memRequirements,
+        vk::MemoryPropertyFlags memFlags)
     {
-        uint32_t memoryTypeIndex = uint32_t(-1);
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
         {
-            if (
-                (memRequirements.memoryTypeBits & (1 << i)) &&
-                (memProperties.memoryTypes[i].propertyFlags & memFlags)
-                )
+            if ((memRequirements.memoryTypeBits & (1u << i)) &&
+                ((memProperties.memoryTypes[i].propertyFlags & memFlags) == memFlags))
             {
-                memoryTypeIndex = i;
-                break;
+                return i;
             }
         }
 
-        return memoryTypeIndex;
+        return uint32_t(-1);
     }
-}
+    }

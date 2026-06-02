@@ -118,12 +118,18 @@ size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::v
 
     size_t axis = centroidBounds.longestAxis();
 
-    std::sort(indices.begin() + start, indices.begin() + end,
-        [axis, &primitives](const size_t& a, const size_t& b) {
-            return primitives[a]->_transformedAABB()._centroid()[axis] < primitives[b]->_transformedAABB()._centroid()[axis];
-    });
-
     size_t mid = (start + end) / 2;
+
+    std::nth_element(
+        indices.begin() + start,
+        indices.begin() + mid,
+        indices.begin() + end,
+        [axis, &primitives](size_t a, size_t b)
+        {
+            return primitives[a]->_aabb()._centroid()[axis]
+                < primitives[b]->_aabb()._centroid()[axis];
+        }
+    );
 
     allocator.at(node).left = buildBVH(primitives, indices, start, mid, allocator);
     allocator.at(node).right = buildBVH(primitives, indices, mid, end, allocator);
