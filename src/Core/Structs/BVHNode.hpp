@@ -8,8 +8,8 @@ namespace nihil
     {
         AABB bound;
         size_t nextLeaf;
-        size_t left, right;
-        size_t leafCount;
+        size_t left, right, parent;
         size_t primitiveIndex;
+        uint8_t leafCount;
     };
 }

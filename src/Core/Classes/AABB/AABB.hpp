@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <limits>
+#include <vector>
 
 #include "Classes/Plane/Plane.hpp"
 #include "Enums/VisibilityQueryResult.hpp"
@@ -14,25 +15,17 @@ namespace nihil
     public:
         glm::vec3 min;
         glm::vec3 max;
-        glm::vec3 centroid;
-        glm::vec3 extent;
 
         AABB()
         {
             min = glm::vec3(std::numeric_limits<float>::max());
             max = glm::vec3(std::numeric_limits<float>::lowest());
-
-            centroid = (min + max) * 0.5f;
-            extent = max - min;
         }
 
         AABB(const glm::vec3& _min, const glm::vec3& _max)
         {
             min = _min;
             max = _max;
-
-            centroid = (min + max) * 0.5f;
-            extent = max - min;
         }
 
         static VisibilityQueryResult isAABBVisible(const AABB& box, const std::array<Plane, 6>& planes)
@@ -86,9 +79,6 @@ namespace nihil
                 max = glm::max(max, pos);
             }
 
-            centroid = (min + max) * 0.5f;
-            extent = max - min;
-
             Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
         }
 
@@ -124,33 +114,27 @@ namespace nihil
         {
             min = glm::min(bounds.min, min);
             max = glm::max(bounds.max, max);
-
-            centroid = (min + max) * 0.5f;
-            extent = max - min;
         }
 
         void expand(const glm::vec3& p)
         {
             min = glm::min(min, p);
             max = glm::max(max, p);
-
-            centroid = (min + max) * 0.5f;
-            extent = max - min;
         }
 
-        inline const glm::vec3& _centroid() const
+        inline const glm::vec3 _centroid() const
         {
-            return centroid;
+            return (min + max) * 0.5f;
         }
 
-        inline const glm::vec3& _extent() const
+        inline const glm::vec3 _extent() const
         {
-            return extent;
+            return max - min;
         }
 
         size_t longestAxis() const
         {
-            const glm::vec3& e = extent;
+            const glm::vec3& e = _extent();
 
             if (e.x > e.y && e.x > e.z) return 0;
             if (e.y > e.z) return 1;
@@ -159,7 +143,7 @@ namespace nihil
 
         inline float surfaceArea() const
         {
-            const glm::vec3& e = extent;
+            const glm::vec3& e = _extent();
             return 2.0f * (e.x*e.y + e.x*e.z + e.y*e.z);
         }
     };

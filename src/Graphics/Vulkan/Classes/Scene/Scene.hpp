@@ -76,8 +76,6 @@ namespace nihil::graphics
         //New instancing system resources
         std::vector<size_t> instanceDataSlotFreeList;
         std::vector<size_t> homelessData;
-
-        // std::vector<InstanceDataSlot> instanceDataSlots;
     public:
 
         inline void addObject(Object* object) { objects.push_back(object); };
@@ -100,11 +98,6 @@ namespace nihil::graphics
 
         ~Scene()
         {
-            for(auto& b : instanceBuffers)
-            {
-                b.second->~Buffer();
-            }
-
             for (auto p : debugVertexBuffers)
             {
                 delete p;

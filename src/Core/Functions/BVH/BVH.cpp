@@ -1,11 +1,19 @@
 #include "BVH.hpp"
 #include "Structs/BVHNode.hpp"
 
+#include <cmath>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <limits>
+#include <mutex>
+#include <stack>
+
 using namespace nihil;
 
-size_t nihil::buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indices, size_t start, size_t end, Carbo::ECSAllocator<BVHNode>& allocator)
+//This shouldn't be used as refitting wont work.
+size_t nihil::buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVHNode>& allocator)
 {
     size_t node = allocator.allocate();
+    allocator.at(node).parent = parent;
 
     AABB bound;
     for (int i = start; i < end; i++) bound.expand(primitives[indices[i]]);
@@ -36,7 +44,7 @@ size_t nihil::buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indic
             if (i < count - 1)
             {
                 size_t next = allocator.allocate();
-                currentRef.nextLeaf = next;
+                allocator.at(current).nextLeaf = next;
                 current = next;
             }
         }
@@ -63,17 +71,18 @@ size_t nihil::buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indic
         }
     );
 
-    allocator.at(node).left = buildBVH(primitives, indices, start, mid, allocator);
-    allocator.at(node).right = buildBVH(primitives, indices, mid, end, allocator);
+    allocator.at(node).left = buildBVH(primitives, indices, start, mid, node, allocator);
+    allocator.at(node).right = buildBVH(primitives, indices, mid, end, node, allocator);
     allocator.at(node).bound = bound;
     allocator.at(node).leafCount = 0;
 
     return node;
 }
 
-size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, Carbo::ECSAllocator<BVHNode>& allocator)
+size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVHNode>& allocator)
 {
     size_t node = allocator.allocate();
+    allocator.at(node).parent = parent;
 
     AABB bound;
     for (int i = start; i < end; i++) bound.expand(primitives[indices[i]]->_transformedAABB());
@@ -100,11 +109,12 @@ size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::v
             currentRef.primitiveIndex = primIndex;
             currentRef.bound = primitives[primIndex]->_transformedAABB();
             currentRef.leafCount = 0;
+            primitives[primIndex]->BVHParentIndex = current;
 
             if (i < count - 1)
             {
                 size_t next = allocator.allocate();
-                currentRef.nextLeaf = next;
+                allocator.at(current).nextLeaf = next;
                 current = next;
             }
         }
@@ -131,8 +141,8 @@ size_t nihil::buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::v
         }
     );
 
-    allocator.at(node).left = buildBVH(primitives, indices, start, mid, allocator);
-    allocator.at(node).right = buildBVH(primitives, indices, mid, end, allocator);
+    allocator.at(node).left = buildBVH(primitives, indices, start, mid, node, allocator);
+    allocator.at(node).right = buildBVH(primitives, indices, mid, end, node, allocator);
     allocator.at(node).bound = bound;
     allocator.at(node).leafCount = 0;
 
@@ -196,9 +206,76 @@ void nihil::cullBVH(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSA
             else
             {
                 // Entire subtree is inside, so both children can be accepted without more plane tests.
-                stack.push_back(node.left);
-                stack.push_back(node.right);
+
+                size_t nodeIndex;
+                std::vector<size_t> toTraverse;
+                toTraverse.push_back(node.left);
+                toTraverse.push_back(node.right);
+                while(!toTraverse.empty())
+                {
+                    nodeIndex = toTraverse.back();
+                    toTraverse.pop_back();
+
+                    const BVHNode& node = allocator.at(nodeIndex);
+
+                    if(node.leafCount > 0)
+                    {
+                        size_t current = node.nextLeaf;
+
+                        for (size_t i = 0; i < node.leafCount; i++)
+                        {
+                            const BVHNode& leaf = allocator.at(current);
+
+                            visible.push_back(leaf.primitiveIndex);
+
+                            current = leaf.nextLeaf;
+                        }
+                    }
+                    else
+                    {
+                        toTraverse.push_back(node.left);
+                        toTraverse.push_back(node.right);
+                    }
+                }
             }
         }
     }
+}
+
+float refit(graphics::Object* object, Carbo::ECSAllocator<BVHNode>& allocator)
+{
+    if(object->BVHParentIndex == std::numeric_limits<size_t>::max()) Carbo::Logger::Exception("The object: {:p} has an invalid BVHIndex.", reinterpret_cast<void*>(object));
+
+    BVHNode& nodeRef = allocator.at(object->BVHParentIndex);
+    float oldSurfaceArea = nodeRef.bound.surfaceArea();
+
+    nodeRef.bound.max = glm::vec3(std::numeric_limits<float>::lowest());
+    nodeRef.bound.min = glm::vec3(std::numeric_limits<float>::max());
+
+    size_t current = nodeRef.nextLeaf;
+
+    for (size_t i = 0; i < nodeRef.leafCount; i++)
+    {
+        const BVHNode& leaf = allocator.at(current);
+
+        nodeRef.bound.expand(leaf.bound);
+
+        current = leaf.nextLeaf;
+    }
+
+    current = nodeRef.parent;
+    while(current > 0)
+    {
+        BVHNode& parentRef = allocator.at(current);
+        parentRef.bound = AABB();
+
+        parentRef.bound.expand(allocator.at(parentRef.left).bound);
+        parentRef.bound.expand(allocator.at(parentRef.right).bound);
+
+        current = parentRef.parent;
+    }
+
+    float newSurfaceArea = nodeRef.bound.surfaceArea();
+
+    return newSurfaceArea / oldSurfaceArea;
 }

@@ -87,7 +87,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     start = std::chrono::high_resolution_clock::now();
 
     //Build and cull BVH
-    size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), BVHNodeAllocator);
+    size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
     cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
