@@ -70,7 +70,7 @@ namespace nihil::graphics
 
         inline const PushConstants* _pushConstants(Camera* camera) 
         {
-            pushConstants.model = modelMatrix;
+            pushConstants.model = objectAllocator->modelMatricies.at(modelMatrix);
             pushConstants.vp = camera->_vp();
 
             return &pushConstants;
