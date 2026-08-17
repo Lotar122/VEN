@@ -197,8 +197,8 @@ namespace nihil
 
     size_t buildBVH(std::vector<AABB>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVHNode>& allocator);
     size_t buildBVH(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVHNode>& allocator);
-    void cullBVH(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSAllocator<BVHNode>& allocator, std::vector<size_t>& visible);
+    void cullBVH(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSAllocator<BVHNode>& allocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack = nullptr);
 
     //returns the "cost" or how bad the tree becomes after this
-    float refit(graphics::Object* object, Carbo::ECSAllocator<BVHNode>& allocator);
+    float refitBVH(const std::vector<graphics::Object*>& primitives, graphics::Object* object, Carbo::ECSAllocator<BVHNode>& allocator);
 }

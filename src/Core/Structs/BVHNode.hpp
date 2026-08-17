@@ -11,5 +11,6 @@ namespace nihil
         size_t left, right, parent;
         size_t primitiveIndex;
         uint8_t leafCount;
+        float originalSurfaceArea = 0.123f;
     };
 }

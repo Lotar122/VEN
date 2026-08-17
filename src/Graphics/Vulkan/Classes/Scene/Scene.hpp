@@ -60,6 +60,8 @@ namespace nihil::graphics
         std::vector<size_t> BVHIndices;
         std::vector<size_t> toRender;
 
+        size_t BVHRoot = std::numeric_limits<size_t>::max();
+
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
         std::vector<std::pair<uint64_t, Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>*>> instanceBuffers;
         std::vector<std::pair<uint64_t, std::vector<InstanceDataSlot>>> instanceSlots;
@@ -68,10 +70,6 @@ namespace nihil::graphics
         std::vector<Object*> normalDraws;
 
         std::vector<Object*> objects;
-
-        //Debug buffers
-        std::vector<Buffer<std::vector<float>, vk::BufferUsageFlagBits::eVertexBuffer>*> debugVertexBuffers;
-        Buffer<std::vector<uint32_t>, vk::BufferUsageFlagBits::eIndexBuffer>* debugIndexBuffer = nullptr;
 
         //New instancing system resources
         std::vector<size_t> instanceDataSlotFreeList;
@@ -98,12 +96,10 @@ namespace nihil::graphics
 
         ~Scene()
         {
-            for (auto p : debugVertexBuffers)
+            for(const auto& b : instanceBuffers)
             {
-                delete p;
+                b.second->~Buffer();
             }
-
-            if (debugIndexBuffer) delete debugIndexBuffer;
         }
     };
 }
