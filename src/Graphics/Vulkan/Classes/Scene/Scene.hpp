@@ -56,7 +56,7 @@ namespace nihil::graphics
 
         Engine* engine = nullptr;
         Carbo::BlockAllocator<Buffer<std::vector<std::byte>, vk::BufferUsageFlagBits::eVertexBuffer>> instanceBufferAllocator;
-        Carbo::ECSAllocator<BVHNode> BVHNodeAllocator;
+        Carbo::ECSAllocator<BVH2Node> BVHNodeAllocator;
         std::vector<size_t> BVHIndices;
         std::vector<size_t> toRender;
 
@@ -96,10 +96,10 @@ namespace nihil::graphics
 
         ~Scene()
         {
-            for(const auto& b : instanceBuffers)
-            {
-                b.second->~Buffer();
-            }
+            // for(const auto& b : instanceBuffers)
+            // {
+            //     b.second->~Buffer();
+            // }
         }
     };
 }

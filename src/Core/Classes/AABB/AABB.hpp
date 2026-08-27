@@ -132,13 +132,29 @@ namespace nihil
             return max - min;
         }
 
+        template<size_t n = 0>
         size_t longestAxis() const
         {
             const glm::vec3& e = _extent();
 
-            if (e.x > e.y && e.x > e.z) return 0;
-            if (e.y > e.z) return 1;
-            return 2;
+            if constexpr (n == 0)
+            {
+                if (e.x >= e.y && e.x >= e.z) return 0;
+                if (e.y >= e.z) return 1;
+                return 2;
+            }
+            else if constexpr (n == 1)
+            {
+                if (e.x >= e.y && e.x <= e.z) return 0;
+                if (e.y >= e.x && e.y <= e.z) return 1;
+                return 2;
+            }
+            else
+            {
+                if (e.x <= e.y && e.x <= e.z) return 0;
+                if (e.y <= e.z) return 1;
+                return 2;
+            }
         }
 
         inline float surfaceArea() const

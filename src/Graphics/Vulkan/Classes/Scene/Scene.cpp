@@ -91,14 +91,14 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     //Build/Refit and cull BVH
     // size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
-    if(BVHRoot == std::numeric_limits<size_t>::max()) [[unlikely]] BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
+    if(BVHRoot == std::numeric_limits<size_t>::max()) [[unlikely]] BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
     else
     {
         for(Object* o : objects)
         {
             if(o->lastModifiedFrame >= engine->_currentFrame()) 
             {
-                float refitHeuristic = refitBVH(objects, o, BVHNodeAllocator);
+                float refitHeuristic = refitBVH2(objects, o, BVHNodeAllocator);
                 if(refitHeuristic > rebuildThreshold) 
                 {
                     rebuild = true;
@@ -110,11 +110,11 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
         {
             Carbo::Logger::Log("BVH rebuild");
             BVHNodeAllocator.reset();
-            BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
+            BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
         }
     }
 
-    cullBVH(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
+    cullBVH2(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 
