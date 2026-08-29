@@ -90,31 +90,31 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     bool rebuild = false;
 
     //Build/Refit and cull BVH
-    // size_t BVHRoot = buildBVH(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
-    if(BVHRoot == std::numeric_limits<size_t>::max()) [[unlikely]] BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
-    else
-    {
-        for(Object* o : objects)
-        {
-            if(o->lastModifiedFrame >= engine->_currentFrame()) 
-            {
-                float refitHeuristic = refitBVH2(objects, o, BVHNodeAllocator);
-                if(refitHeuristic > rebuildThreshold) 
-                {
-                    rebuild = true;
-                    break;
-                }
-            }
-        }
-        if(rebuild)
-        {
-            Carbo::Logger::Log("BVH rebuild");
-            BVHNodeAllocator.reset();
-            BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
-        }
-    }
+    //size_t BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, BVH4NodeAllocator, BVH4LeafNodeAllocator);
+    if(BVHRoot == std::numeric_limits<size_t>::max()) [[unlikely]] BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, BVH4NodeAllocator, BVH4LeafNodeAllocator, BVH4ColdNodeAllocator);
+    // else
+    // {
+    //     for(Object* o : objects)
+    //     {
+    //         if(o->lastModifiedFrame >= engine->_currentFrame()) 
+    //         {
+    //             float refitHeuristic = refitBVH2(objects, o, BVHNodeAllocator);
+    //             if(refitHeuristic > rebuildThreshold) 
+    //             {
+    //                 rebuild = true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     if(rebuild)
+    //     {
+    //         Carbo::Logger::Log("BVH rebuild");
+    //         BVHNodeAllocator.reset();
+    //         BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
+    //     }
+    // }
 
-    cullBVH2(BVHRoot, camera->_planes(), BVHNodeAllocator, toRender);
+    cullBVH4(BVHRoot, camera->_planes(), BVH4NodeAllocator, BVH4LeafNodeAllocator, BVH4ColdNodeAllocator, toRender);
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 

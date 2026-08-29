@@ -16,10 +16,8 @@ namespace nihil
         uint8_t leafCount;
     };
 
-    struct BVH4Node
+    struct alignas(16) BVH4Node
     {
-        AABB bound;
-
         std::array<float, 4> minX;
         std::array<float, 4> minY;
         std::array<float, 4> minZ;
@@ -29,12 +27,6 @@ namespace nihil
         std::array<float, 4> maxZ;
 
         std::array<uint32_t, 4> children;
-
-        uint32_t parent;
-        uint32_t primitiveIndex;
-        uint32_t nextLeaf;
-        float originalSurfaceArea;
-        uint8_t leafCount;
     };
 
     struct BVH4LeafNode
@@ -43,6 +35,16 @@ namespace nihil
         uint32_t primitiveIndex;
         uint32_t nextLeaf;
         uint32_t parent;
+        uint8_t leafCount;
+    };
+
+    struct BVH4ColdNode
+    {
+        AABB bound;
+        uint32_t parent;
+        uint32_t primitiveIndex;
+        uint32_t firstLeaf;
+        float originalSurfaceArea;
         uint8_t leafCount;
     };
 }

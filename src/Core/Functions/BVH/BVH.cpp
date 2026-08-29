@@ -5,16 +5,23 @@
 #include <cmath>
 #include <format>
 #include <glm/ext/quaternion_geometric.hpp>
+#include <immintrin.h>
 #include <limits>
 #include <mutex>
 #include <stack>
+#include <xmmintrin.h>
+#include <bit> // std::countr_zero
 
 using namespace nihil;
 
-size_t nihil::buildBVH4(std::vector<nihil::graphics::Object *> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVH4Node> &allocator, Carbo::ECSAllocator<BVH4LeafNode>& leafAllocator)
+size_t nihil::buildBVH4(std::vector<nihil::graphics::Object *> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVH4Node> &allocator, Carbo::ECSAllocator<BVH4LeafNode>& leafAllocator, Carbo::ECSAllocator<BVH4ColdNode>& coldAllocator)
 {
     size_t node = allocator.allocate();
-    allocator.at(node).parent = parent;
+    size_t nodeCold = coldAllocator.allocate();
+
+    assert(node == nodeCold);
+
+    coldAllocator.at(node).parent = parent;
 
     AABB bound;
     AABB centroidBounds;
@@ -25,20 +32,23 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object *> &primitives, std:
         centroidBounds.expand(transformedAABB._centroid());
     }
 
-    size_t count = end - start;
+    int count = (int)end - (int)start;
 
-    if (count <= 8) 
+    assert(count > 0);
+
+    if (count <= 4) 
     {
         //Build the leafs
         // parent node
         BVH4Node& nodeRef = allocator.at(node);
-        nodeRef.bound = bound;
-        nodeRef.leafCount = static_cast<uint8_t>(count);
-        nodeRef.originalSurfaceArea = bound.surfaceArea();
+        BVH4ColdNode& nodeColdRef = coldAllocator.at(node);
+        nodeColdRef.bound = bound;
+        nodeColdRef.leafCount = static_cast<uint8_t>(count);
+        nodeColdRef.originalSurfaceArea = bound.surfaceArea();
 
         // first leaf node
         size_t firstLeaf = leafAllocator.allocate();
-        allocator.at(node).nextLeaf = firstLeaf;
+        nodeColdRef.firstLeaf = firstLeaf;
 
         size_t current = firstLeaf;
         leafAllocator.at(current).leafCount = count;
@@ -46,11 +56,19 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object *> &primitives, std:
         {
             size_t primIndex = indices[start + i];
             BVH4LeafNode& currentRef = leafAllocator.at(current);
-            currentRef.parent = parent;
+            currentRef.parent = node;
             currentRef.primitiveIndex = primIndex;
             currentRef.bound = primitives[primIndex]->_transformedAABB();
 
             primitives[primIndex]->BVHParentIndex = node;
+
+            nodeRef.minX[i] = currentRef.bound.min.x;
+            nodeRef.minY[i] = currentRef.bound.min.y;
+            nodeRef.minZ[i] = currentRef.bound.min.z;
+
+            nodeRef.maxX[i] = currentRef.bound.max.x;
+            nodeRef.maxY[i] = currentRef.bound.max.y;
+            nodeRef.maxZ[i] = currentRef.bound.max.z;
 
             if (i < count - 1)
             {
@@ -66,9 +84,14 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object *> &primitives, std:
     size_t axis1 = centroidBounds.longestAxis<0>();
     size_t axis2 = centroidBounds.longestAxis<1>();
 
-    const size_t mid = (start + end) / 2;
-    const size_t midA = (start + mid) / 2;
-    const size_t midB = (mid + end) / 2;
+    const size_t mid  = start + count / 2;
+    const size_t midA = start + count / 4;
+    const size_t midB = start + (count * 3) / 4;
+
+    assert(start < midA);
+    assert(midA < mid);
+    assert(mid < midB);
+    assert(midB < end);
 
     auto compareAxis = [&](size_t axis)
     {
@@ -103,35 +126,121 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object *> &primitives, std:
         compareAxis(axis2)
     );
 
-    allocator.at(node).children[0] = buildBVH4(primitives, indices, start, midA, node, allocator, leafAllocator);
-    allocator.at(node).children[1] = buildBVH4(primitives, indices, midA, mid, node, allocator, leafAllocator);
-    allocator.at(node).children[2] = buildBVH4(primitives, indices, mid, midB, node, allocator, leafAllocator);
-    allocator.at(node).children[3] = buildBVH4(primitives, indices, midB, end, node, allocator, leafAllocator);
+    allocator.at(node).children[0] = buildBVH4(primitives, indices, start, midA, node, allocator, leafAllocator, coldAllocator);
+    allocator.at(node).children[1] = buildBVH4(primitives, indices, midA, mid, node, allocator, leafAllocator, coldAllocator);
+    allocator.at(node).children[2] = buildBVH4(primitives, indices, mid, midB, node, allocator, leafAllocator, coldAllocator);
+    allocator.at(node).children[3] = buildBVH4(primitives, indices, midB, end, node, allocator, leafAllocator, coldAllocator);
 
     BVH4Node& nodeRef = allocator.at(node);
+    BVH4ColdNode& nodeColdRef = coldAllocator.at(node);
+
 
     for (size_t i = 0; i < 4; ++i)
     {
-        const BVH4Node& child = allocator.at(nodeRef.children[i]);
+        const BVH4ColdNode& childCold = coldAllocator.at(nodeRef.children[i]);
 
-        nodeRef.minX[i] = child.bound.min.x;
-        nodeRef.maxX[i] = child.bound.max.x;
+        nodeRef.minX[i] = childCold.bound.min.x;
+        nodeRef.maxX[i] = childCold.bound.max.x;
 
-        nodeRef.minY[i] = child.bound.min.y;
-        nodeRef.maxY[i] = child.bound.max.y;
+        nodeRef.minY[i] = childCold.bound.min.y;
+        nodeRef.maxY[i] = childCold.bound.max.y;
 
-        nodeRef.minZ[i] = child.bound.min.z;
-        nodeRef.maxZ[i] = child.bound.max.z;
+        nodeRef.minZ[i] = childCold.bound.min.z;
+        nodeRef.maxZ[i] = childCold.bound.max.z;
     }
 
-    nodeRef.bound = bound;
-    nodeRef.leafCount = 0;
-    nodeRef.originalSurfaceArea = bound.surfaceArea();
+    nodeColdRef.bound = bound;
+    nodeColdRef.leafCount = 0;
+    nodeColdRef.originalSurfaceArea = bound.surfaceArea();
 
     return node;
 }
 
-void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSAllocator<BVH4Node>& allocator, Carbo::ECSAllocator<BVH4LeafNode>& leafAllocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack)
+uint16_t testBVH4Node(const BVH4Node& node, const std::array<Plane, 6>& planes)
+{
+    //Clever bit trick for abs, it sets the sign bit to 0 when & with a float
+    const __m128 absMask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
+        
+    __m128 centerX;
+    __m128 centerY;
+    __m128 centerZ;
+    __m128 extentX;
+    __m128 extentY;
+    __m128 extentZ;
+
+    const __m128 half = _mm_set1_ps(0.5f);
+
+    __m128 minX = _mm_load_ps(node.minX.data());
+    __m128 minY = _mm_load_ps(node.minY.data());
+    __m128 minZ = _mm_load_ps(node.minZ.data());
+
+    __m128 maxX = _mm_load_ps(node.maxX.data());
+    __m128 maxY = _mm_load_ps(node.maxY.data());
+    __m128 maxZ = _mm_load_ps(node.maxZ.data());
+
+    centerX = _mm_mul_ps(_mm_add_ps(minX, maxX), half);
+    centerY = _mm_mul_ps(_mm_add_ps(minY, maxY), half);
+    centerZ = _mm_mul_ps(_mm_add_ps(minZ, maxZ), half);
+
+    extentX = _mm_mul_ps(_mm_sub_ps(maxX, minX), half);
+    extentY = _mm_mul_ps(_mm_sub_ps(maxY, minY), half);
+    extentZ = _mm_mul_ps(_mm_sub_ps(maxZ, minZ), half);
+
+    __m128 normalX;
+    __m128 normalY;
+    __m128 normalZ;
+
+    __m128 absNormalX;
+    __m128 absNormalY;
+    __m128 absNormalZ;
+
+    __m128 d;
+
+    //Skip far plane
+
+    int outsideMask = 0, insideMask = 0b1111;
+
+    for(int i = 0; i < 5; i++)
+    {
+        const Plane& p = planes[i];
+
+        normalX = _mm_set1_ps(p.normal.x);
+        normalY = _mm_set1_ps(p.normal.y);
+        normalZ = _mm_set1_ps(p.normal.z);
+        d = _mm_set1_ps(p.d);
+
+        absNormalX = _mm_and_ps(normalX, absMask);
+        absNormalY = _mm_and_ps(normalY, absMask);
+        absNormalZ = _mm_and_ps(normalZ, absMask);
+
+        __m128 dist = _mm_mul_ps(centerX, normalX);
+        dist = _mm_fmadd_ps(centerY, normalY, dist);
+        dist = _mm_fmadd_ps(centerZ, normalZ, dist);
+        dist = _mm_add_ps(dist, d);
+
+        __m128 radius = _mm_mul_ps(extentX, absNormalX);
+        radius = _mm_fmadd_ps(extentY, absNormalY, radius);
+        radius = _mm_fmadd_ps(extentZ, absNormalZ, radius);
+
+        const __m128 outside = _mm_cmplt_ps(_mm_add_ps(dist, radius), _mm_setzero_ps());
+        const __m128 inside = _mm_cmpge_ps(_mm_sub_ps(dist, radius), _mm_setzero_ps());
+
+        outsideMask |= _mm_movemask_ps(outside);
+        insideMask  &= _mm_movemask_ps(inside);
+
+        if(outsideMask == 0b1111) break;
+    }
+
+    int intersectMask = (~outsideMask & ~insideMask) & 0b1111;
+
+    uint16_t result = 0 | outsideMask;
+    result |= (insideMask << 4);
+    result |= (intersectMask << 8);
+
+    return result;
+}
+
+void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSAllocator<BVH4Node>& allocator, Carbo::ECSAllocator<BVH4LeafNode>& leafAllocator, Carbo::ECSAllocator<BVH4ColdNode>& coldAllocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack)
 {
     alignas(std::vector<size_t>) std::byte stackMemory[sizeof(std::vector<size_t>)];
     if(!reusableStack) new (stackMemory) std::vector<size_t>();
@@ -140,7 +249,103 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECS
     stack.reserve(128);
     stack.push_back(root);
 
-    
+    while (!stack.empty())
+    {
+        const size_t nodeIndex = stack.back();
+        stack.pop_back();
+
+        const BVH4Node& node = allocator.at(nodeIndex);
+
+        //Perform visibility query
+        //TODO: Add a scalar fallback later
+        const uint16_t result = testBVH4Node(node, planes);
+        const uint32_t insideMask    = (result >> 4) & 0b1111;
+        const uint32_t intersectMask = (result >> 8) & 0b1111;
+        // any bit not set in either mask => that child is fully outside, skip it.
+
+        uint32_t liveMask = insideMask | intersectMask;
+        while (liveMask)
+        {
+            const int i = std::countr_zero(liveMask);
+            liveMask &= liveMask - 1; // clear lowest set bit
+
+            const BVH4Node& child = allocator.at(node.children[i]);
+            const BVH4ColdNode& childCold = coldAllocator.at(node.children[i]);
+
+            if (intersectMask & (1u << i))
+            {
+                if (childCold.leafCount > 0)
+                {
+                    // Straddling node: test its up-to-4 leaves individually.
+                    const uint16_t resultLeaves = testBVH4Node(child, planes);
+                    const uint32_t insideMaskLeaves    = (resultLeaves >> 4) & 0b1111;
+                    const uint32_t intersectMaskLeaves = (resultLeaves >> 8) & 0b1111;
+                    const uint32_t visibleLeaves = insideMaskLeaves | intersectMaskLeaves;
+
+                    size_t leaf = childCold.firstLeaf;
+                    for (uint8_t j = 0; j < childCold.leafCount; ++j)
+                    {
+                        if (visibleLeaves & (1u << j))
+                            visible.push_back(leafAllocator.at(leaf).primitiveIndex);
+
+                        leaf = leafAllocator.at(leaf).nextLeaf;
+                    }
+                }
+                else
+                {
+                    stack.push_back(node.children[i]);
+                }
+            }
+            else // insideMask bit set: child is fully inside every plane, accept whole subtree
+            {
+                if (childCold.leafCount > 0)
+                {
+                    size_t leaf = childCold.firstLeaf;
+                    for (uint8_t j = 0; j < childCold.leafCount; ++j)
+                    {
+                        visible.push_back(leafAllocator.at(leaf).primitiveIndex);
+                        leaf = leafAllocator.at(leaf).nextLeaf;
+                    }
+                }
+                else
+                {
+                    // Drain exactly the subtree pushed here, tracked by stack size
+                    // rather than the old "sentinel value" trick (which could read
+                    // stack.back() on an empty stack, and could swallow unrelated
+                    // pending nodes already sitting below it on the stack).
+                    const size_t baseSize = stack.size();
+                    stack.push_back(node.children[i]);
+
+                    while (stack.size() > baseSize)
+                    {
+                        const size_t current = stack.back();
+                        stack.pop_back();
+
+                        const BVH4Node& innerNode = allocator.at(current);
+                        const BVH4ColdNode& innerNodeCold = coldAllocator.at(current);
+                        if (innerNodeCold.leafCount > 0)
+                        {
+                            size_t leaf = innerNodeCold.firstLeaf;
+                            for (uint8_t j = 0; j < innerNodeCold.leafCount; ++j)
+                            {
+                                visible.push_back(leafAllocator.at(leaf).primitiveIndex);
+                                leaf = leafAllocator.at(leaf).nextLeaf;
+                            }
+                        }
+                        else
+                        {
+                            stack.push_back(innerNode.children[0]);
+                            stack.push_back(innerNode.children[1]);
+                            stack.push_back(innerNode.children[2]);
+                            stack.push_back(innerNode.children[3]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if(!reusableStack) stack.~vector();
 }
 
 size_t nihil::buildBVH2(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVH2Node>& allocator)

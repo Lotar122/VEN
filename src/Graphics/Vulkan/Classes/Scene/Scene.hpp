@@ -60,6 +60,10 @@ namespace nihil::graphics
         std::vector<size_t> BVHIndices;
         std::vector<size_t> toRender;
 
+        Carbo::ECSAllocator<BVH4Node> BVH4NodeAllocator;
+        Carbo::ECSAllocator<BVH4LeafNode> BVH4LeafNodeAllocator;
+        Carbo::ECSAllocator<BVH4ColdNode> BVH4ColdNodeAllocator;
+
         size_t BVHRoot = std::numeric_limits<size_t>::max();
 
         //instead of Model* use two asset ids (model, material) packed into a uint64_t
