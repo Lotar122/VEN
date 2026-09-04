@@ -62,7 +62,9 @@ namespace nihil::graphics
 
         Carbo::ECSAllocator<BVH4Node> BVH4NodeAllocator;
         Carbo::ECSAllocator<BVH4LeafNode> BVH4LeafNodeAllocator;
-        Carbo::ECSAllocator<BVH4ColdNode> BVH4ColdNodeAllocator;
+        // Carbo::ECSAllocator<BVH4ColdNode> BVH4ColdNodeAllocator;
+
+        Carbo::ECSAllocator<BVH2Node> BVH2NodeAllocator;
 
         size_t BVHRoot = std::numeric_limits<size_t>::max();
 

@@ -91,7 +91,33 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     //Build/Refit and cull BVH
     //size_t BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, BVH4NodeAllocator, BVH4LeafNodeAllocator);
-    if(BVHRoot == std::numeric_limits<size_t>::max()) [[unlikely]] BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, BVH4NodeAllocator, BVH4LeafNodeAllocator, BVH4ColdNodeAllocator);
+
+    std::vector<glm::vec3> centroidCache;
+    centroidCache.reserve(objects.size());
+
+    for(int i = 0; i < objects.size(); i++)
+    {
+        centroidCache.push_back(objects[i]->_transformedAABB()._centroid());
+    }
+
+    auto approxLog4 =  [](uint32_t x) -> int
+    {
+        return std::bit_width(x) / 2;
+    };
+
+    // BVH4ColdNodeAllocator.reset();
+    BVH4NodeAllocator.reset();
+    BVH4LeafNodeAllocator.reset();
+
+    //BVH2NodeAllocator.reset();
+
+    // BVH4NodeAllocator.reserve(approxLog4(objects.size()) * 2);
+    // BVH4ColdNodeAllocator.reserve(approxLog4(objects.size()) * 2);
+
+    // BVH4LeafNodeAllocator.reserve(objects.size());
+
+     BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, BVH4NodeAllocator, BVH4LeafNodeAllocator, centroidCache);
+    //if(BVHRoot == std::numeric_limits<size_t>::max()) BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVH2NodeAllocator);
     // else
     // {
     //     for(Object* o : objects)
@@ -114,7 +140,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     //     }
     // }
 
-    cullBVH4(BVHRoot, camera->_planes(), BVH4NodeAllocator, BVH4LeafNodeAllocator, BVH4ColdNodeAllocator, toRender);
+    cullBVH4(BVHRoot, camera->_planes(), BVH4NodeAllocator, BVH4LeafNodeAllocator, toRender);
+    //cullBVH2(BVHRoot, camera->_planes(), BVH2NodeAllocator, toRender);
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 

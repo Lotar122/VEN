@@ -127,7 +127,17 @@ namespace nihil
             return (min + max) * 0.5f;
         }
 
+        inline static const glm::vec3 centroid(const glm::vec3& min, const glm::vec3& max)
+        {
+            return (min + max) * 0.5f;
+        }
+
         inline const glm::vec3 _extent() const
+        {
+            return max - min;
+        }
+
+        inline static const glm::vec3 extent(const glm::vec3& min, const glm::vec3& max)
         {
             return max - min;
         }
@@ -157,9 +167,15 @@ namespace nihil
             }
         }
 
-        inline float surfaceArea() const
+        inline float _surfaceArea() const
         {
-            const glm::vec3& e = _extent();
+            const glm::vec3 e = _extent();
+            return 2.0f * (e.x*e.y + e.x*e.z + e.y*e.z);
+        }
+
+        inline static float surfaceArea(const glm::vec3& min, const glm::vec3& max)
+        {
+            const glm::vec3 e = extent(min, max);
             return 2.0f * (e.x*e.y + e.x*e.z + e.y*e.z);
         }
     };
