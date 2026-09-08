@@ -12,6 +12,8 @@
 #include "Classes/DescriptorAllocator/DescriptorAllocator.hpp"
 #include "Structs/BVHNode.hpp"
 
+#include "Classes/AtomicBumpAllocator/AtomicBumpAllocator.hpp"
+
 namespace nihil::graphics
 {
     class Camera;
@@ -60,9 +62,12 @@ namespace nihil::graphics
         std::vector<size_t> BVHIndices;
         std::vector<size_t> toRender;
 
-        Carbo::ECSAllocator<BVH4Node> BVH4NodeAllocator;
-        Carbo::ECSAllocator<BVH4LeafNode> BVH4LeafNodeAllocator;
+        // Carbo::ECSAllocator<BVH4Node> BVH4NodeAllocator;
+        // Carbo::ECSAllocator<BVH4LeafNode> BVH4LeafNodeAllocator;
         // Carbo::ECSAllocator<BVH4ColdNode> BVH4ColdNodeAllocator;
+
+        Carbo::AtomicBumpAllocator<alignof(BVH4Node)>* BVH4NodeAllocator = nullptr;
+        alignas(Carbo::AtomicBumpAllocator<alignof(BVH4Node)>) std::byte BVH4NodeAllocatorMemory[sizeof(BVH4Node)];
 
         Carbo::ECSAllocator<BVH2Node> BVH2NodeAllocator;
 

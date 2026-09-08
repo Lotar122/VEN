@@ -32,10 +32,10 @@ namespace nihil
 
     struct BVH4LeafNode
     {
-        AABB bound;
+        // AABB bound;
         uint32_t primitiveIndex;
         uint32_t nextLeaf;
-        uint32_t parent;
+        // uint32_t parent;
     };
 
     // struct BVH4ColdNode
@@ -61,8 +61,9 @@ namespace nihil
         std::array<uint32_t, 4> children;
         
         uint32_t parent;
-        uint32_t firstLeaf = std::numeric_limits<uint32_t>::max();
         // uint32_t primIndex;
         float originalSurfaceArea;
+
+        uint8_t leafMask = 0;
     };
 }

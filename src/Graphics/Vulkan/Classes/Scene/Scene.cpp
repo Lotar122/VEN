@@ -69,6 +69,24 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     BVHIndices.resize(objects.size());
     toRender.reserve(objects.size());
 
+    const size_t BVH4NodeCount = std::ceil(((4 * objects.size()) - 1) / 3.0f);
+
+    if(!BVH4NodeAllocator)
+    {
+        BVH4NodeAllocator = new (reinterpret_cast<void*>(BVH4NodeAllocatorMemory)) Carbo::AtomicBumpAllocator<alignof(BVH4Node)>(BVH4NodeCount * sizeof(BVH4Node));
+    }
+    else
+    {
+        if(BVH4NodeAllocator->_size() < BVH4NodeCount * sizeof(BVH4Node))
+        {
+            BVH4NodeAllocator->~AtomicBumpAllocator<alignof(BVH4Node)>();
+        }
+        else
+        {
+            BVH4NodeAllocator->reset();
+        }
+    }
+
     if (objects.empty()) [[unlikely]]
     {
         Carbo::Logger::Log("Culled: 0% percent of objects.");
@@ -106,8 +124,8 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     };
 
     // BVH4ColdNodeAllocator.reset();
-    BVH4NodeAllocator.reset();
-    BVH4LeafNodeAllocator.reset();
+    // BVH4NodeAllocator.reset();
+    // BVH4LeafNodeAllocator.reset();
 
     //BVH2NodeAllocator.reset();
 
@@ -116,7 +134,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     // BVH4LeafNodeAllocator.reserve(objects.size());
 
-     BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, BVH4NodeAllocator, BVH4LeafNodeAllocator, centroidCache);
+    BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, *BVH4NodeAllocator, centroidCache);
     //if(BVHRoot == std::numeric_limits<size_t>::max()) BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVH2NodeAllocator);
     // else
     // {
@@ -140,7 +158,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
     //     }
     // }
 
-    cullBVH4(BVHRoot, camera->_planes(), BVH4NodeAllocator, BVH4LeafNodeAllocator, toRender);
+    cullBVH4(BVHRoot, camera->_planes(), *BVH4NodeAllocator, toRender);
     //cullBVH2(BVHRoot, camera->_planes(), BVH2NodeAllocator, toRender);
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;

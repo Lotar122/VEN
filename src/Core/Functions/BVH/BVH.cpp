@@ -14,10 +14,11 @@
 
 #include "Classes/CPUFeatures/CPUFeatures.hpp"
 #include "Functions/Prefetch/Prefetch.hpp"
+#include "Classes/AtomicBumpAllocator/AtomicBumpAllocator.hpp"
 
 using namespace nihil;
 
-size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVH4Node> &allocator, Carbo::ECSAllocator<BVH4LeafNode>& leafAllocator, std::vector<glm::vec3>& centroidCache)
+size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache)
 {
     auto _mm_horizontalmin_ps = [](__m128 v) -> float
     {
@@ -33,9 +34,12 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
         return _mm_cvtss_f32(v);
     };
 
-    size_t node = allocator.allocate();
+    BVH4Node* node = allocator.allocate<BVH4Node>();
+    size_t nodeIndex = node - reinterpret_cast<BVH4Node*>(allocator._data());
 
-    allocator.at(node).parent = parent;
+    node->leafMask = 0;
+
+    node->parent = parent;
 
     size_t count = end - start;
 
@@ -44,52 +48,34 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
     if (count <= 4) 
     {
         //Build the leafs
-        // parent node
-        BVH4Node& nodeRef = allocator.at(node);
 
-        // first leaf node
-        size_t firstLeaf = leafAllocator.allocate();
-        nodeRef.firstLeaf = firstLeaf;
+        node->leafMask = (1u << count) - 1;
 
-        size_t current = firstLeaf;
-        size_t next;
         for (size_t i = 0; i < count; i++)
         {
-            if (i < count - 1)
-            {
-                next = leafAllocator.allocate();
-                leafAllocator.at(current).nextLeaf = next;
-                Carbo::prefetch<Carbo::PrefetchHint::nt>(leafAllocator._data() + current);
-                Carbo::prefetch<Carbo::PrefetchHint::nt>(reinterpret_cast<std::byte*>(leafAllocator._data() + current) + 64);
-            }
-
             size_t primIndex = indices[start + i];
-            BVH4LeafNode& currentRef = leafAllocator.at(current);
-            currentRef.parent = node;
-            currentRef.primitiveIndex = primIndex;
-            currentRef.bound = primitives[primIndex]->_transformedAABB();
+            primitives[primIndex]->BVHParentIndex = nodeIndex;
 
-            primitives[primIndex]->BVHParentIndex = node;
+            //in future make indices uint32_t so that you can do one simd load and store to do this loops work
+            node->children[i] = primIndex;
 
-            nodeRef.minX[i] = currentRef.bound.min.x;
-            nodeRef.minY[i] = currentRef.bound.min.y;
-            nodeRef.minZ[i] = currentRef.bound.min.z;
+            AABB bound = primitives[primIndex]->_transformedAABB();
 
-            nodeRef.maxX[i] = currentRef.bound.max.x;
-            nodeRef.maxY[i] = currentRef.bound.max.y;
-            nodeRef.maxZ[i] = currentRef.bound.max.z;   
+            node->minX[i] = bound.min.x;
+            node->minY[i] = bound.min.y;
+            node->minZ[i] = bound.min.z;
 
-            current = next;
+            node->maxX[i] = bound.max.x;
+            node->maxY[i] = bound.max.y;
+            node->maxZ[i] = bound.max.z;   
         }
 
-        nodeRef.originalSurfaceArea = AABB::surfaceArea(
-            {_mm_horizontalmin_ps(_mm_load_ps(nodeRef.minX.data())), _mm_horizontalmin_ps(_mm_load_ps(nodeRef.minY.data())), _mm_horizontalmin_ps(_mm_load_ps(nodeRef.minZ.data()))},
-            {_mm_horizontalmax_ps(_mm_load_ps(nodeRef.maxX.data())), _mm_horizontalmax_ps(_mm_load_ps(nodeRef.maxY.data())), _mm_horizontalmax_ps(_mm_load_ps(nodeRef.maxZ.data()))}
+        node->originalSurfaceArea = AABB::surfaceArea(
+            {_mm_horizontalmin_ps(_mm_load_ps(node->minX.data())), _mm_horizontalmin_ps(_mm_load_ps(node->minY.data())), _mm_horizontalmin_ps(_mm_load_ps(node->minZ.data()))},
+            {_mm_horizontalmax_ps(_mm_load_ps(node->maxX.data())), _mm_horizontalmax_ps(_mm_load_ps(node->maxY.data())), _mm_horizontalmax_ps(_mm_load_ps(node->maxZ.data()))}
         );
 
-        leafAllocator.at(current).nextLeaf = std::numeric_limits<uint32_t>::max();
-
-        return node;
+        return nodeIndex;
     }
 
     AABB centroidBounds;
@@ -110,73 +96,57 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
     assert(mid < midB);
     assert(midB < end);
 
-    auto cmpAxis1 = [&centroidCache, axis1](size_t a, size_t b) noexcept {
-        return centroidCache[a][axis1] < centroidCache[b][axis1];
+    // Decorate: gather (key, index) into a contiguous buffer so nth_element's
+    // comparisons hit sequential memory instead of chasing indices -> centroidCache.
+    std::vector<std::pair<float, size_t>> keyed(count);
+    for (size_t i = 0; i < count; ++i) {
+        const size_t idx = indices[start + i];
+        keyed[i] = { centroidCache[idx][axis1], idx };
+    }
+
+    auto cmp = [](const auto& a, const auto& b) noexcept {
+        return a.first < b.first;
     };
 
-    std::nth_element(
-        indices.begin() + start,
-        indices.begin() + mid,
-        indices.begin() + end,
-        cmpAxis1
-    );
+    // Split on axis1 first, over the whole buffer.
+    std::nth_element(keyed.begin(), keyed.begin() + count / 2, keyed.end(), cmp);
 
-    auto cmpAxis2 = [&centroidCache, axis2](size_t a, size_t b) noexcept {
-        return centroidCache[a][axis2] < centroidCache[b][axis2];
-    };
+    // Re-key both halves for axis2 — still a single sequential pass.
+    for (auto& kv : keyed) kv.first = centroidCache[kv.second][axis2];
 
-    std::nth_element(
-        indices.begin() + start,
-        indices.begin() + midA,
-        indices.begin() + mid,
-        cmpAxis2
-    );
+    // These two ranges are disjoint, so they're safe to run concurrently
+    // if count is large enough to make the thread overhead worth it.
+    std::nth_element(keyed.begin(),            keyed.begin() + count / 4,       keyed.begin() + count / 2, cmp);
+    std::nth_element(keyed.begin() + count / 2, keyed.begin() + (count * 3) / 4, keyed.end(),               cmp);
 
-    std::nth_element(
-        indices.begin() + mid,
-        indices.begin() + midB,
-        indices.begin() + end,
-        cmpAxis2
-    );
+    // Undecorate: write the resulting permutation back into indices.
+    for (size_t i = 0; i < count; ++i) indices[start + i] = keyed[i].second;
 
-    allocator.at(node).children[0] = buildBVH4(primitives, indices, start, midA, node, allocator, leafAllocator, centroidCache);
-    allocator.at(node).children[1] = buildBVH4(primitives, indices, midA, mid, node, allocator, leafAllocator, centroidCache);
-    allocator.at(node).children[2] = buildBVH4(primitives, indices, mid, midB, node, allocator, leafAllocator, centroidCache);
-    allocator.at(node).children[3] = buildBVH4(primitives, indices, midB, end, node, allocator, leafAllocator, centroidCache);
+    if(nodeIndex == 0) [[unlikely]]
+    {
+        std::thread t1([&]() {node->children[0] = buildBVH4(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);});
+        std::thread t2([&]() {node->children[1] = buildBVH4(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);});
+        std::thread t3([&]() {node->children[2] = buildBVH4(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);});
+        std::thread t4([&]() {node->children[3] = buildBVH4(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);});
 
-    BVH4Node& nodeRef = allocator.at(node);
+        if(t1.joinable()) t1.join();
+        if(t2.joinable()) t2.join();
+        if(t3.joinable()) t3.join();
+        if(t4.joinable()) t4.join();
+    }
+    else
+    {
+        node->children[0] = buildBVH4(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);
+        node->children[1] = buildBVH4(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);
+        node->children[2] = buildBVH4(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);
+        node->children[3] = buildBVH4(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);
+    }
 
 
-    // for (size_t i = 0; i < 4; ++i)
-    // {
-    //     const BVH4Node& child = allocator.at(nodeRef.children[i]);
-
-    //     for(int j = 0; j < 4; j++)
-    //     {
-    //         nodeRef.minX[i] = std::min(nodeRef.minX[i], child.minX[j]);
-    //         nodeRef.maxX[i] = std::max(nodeRef.maxX[i], child.maxX[j]);
-
-    //         nodeRef.minY[i] = std::min(nodeRef.minY[i], child.minY[j]);
-    //         nodeRef.maxY[i] = std::max(nodeRef.maxY[i], child.maxY[j]);
-
-    //         nodeRef.minZ[i] = std::min(nodeRef.minZ[i], child.minZ[j]);
-    //         nodeRef.maxZ[i] = std::max(nodeRef.maxZ[i], child.maxZ[j]);
-    //     }
-    // }
-
-    BVH4Node& child0 = allocator.at(nodeRef.children[0]);
-    BVH4Node& child1 = allocator.at(nodeRef.children[1]);
-    BVH4Node& child2 = allocator.at(nodeRef.children[2]);
-    BVH4Node& child3 = allocator.at(nodeRef.children[3]);
-
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(allocator._data() + nodeRef.children[0]);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(reinterpret_cast<std::byte*>(allocator._data() + nodeRef.children[0]) + 64);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(allocator._data() + nodeRef.children[1]);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(reinterpret_cast<std::byte*>(allocator._data() + nodeRef.children[1]) + 64);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(allocator._data() + nodeRef.children[2]);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(reinterpret_cast<std::byte*>(allocator._data() + nodeRef.children[2]) + 64);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(allocator._data() + nodeRef.children[3]);
-    Carbo::prefetch<Carbo::PrefetchHint::t1>(reinterpret_cast<std::byte*>(allocator._data() + nodeRef.children[3]) + 64);
+    BVH4Node& child0 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[0]);
+    BVH4Node& child1 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[1]);
+    BVH4Node& child2 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[2]);
+    BVH4Node& child3 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[3]);
 
     __m128 minX = _mm_set_ps(
         _mm_horizontalmin_ps(_mm_load_ps(child3.minX.data())),
@@ -220,21 +190,21 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
         _mm_horizontalmax_ps(_mm_load_ps(child0.maxZ.data()))
     );
 
-    _mm_store_ps(nodeRef.minX.data(), minX);
-    _mm_store_ps(nodeRef.maxX.data(), maxX);
+    _mm_store_ps(node->minX.data(), minX);
+    _mm_store_ps(node->maxX.data(), maxX);
     
-    _mm_store_ps(nodeRef.minY.data(), minY);
-    _mm_store_ps(nodeRef.maxY.data(), maxY);
+    _mm_store_ps(node->minY.data(), minY);
+    _mm_store_ps(node->maxY.data(), maxY);
 
-    _mm_store_ps(nodeRef.minZ.data(), minZ);
-    _mm_store_ps(nodeRef.maxZ.data(), maxZ);
+    _mm_store_ps(node->minZ.data(), minZ);
+    _mm_store_ps(node->maxZ.data(), maxZ);
 
-    nodeRef.originalSurfaceArea = AABB::surfaceArea(
+    node->originalSurfaceArea = AABB::surfaceArea(
         {_mm_horizontalmin_ps(minX), _mm_horizontalmin_ps(minY), _mm_horizontalmin_ps(minZ)},
         {_mm_horizontalmax_ps(maxX), _mm_horizontalmax_ps(maxY), _mm_horizontalmax_ps(maxZ)}
     );
 
-    return node;
+    return nodeIndex;
 }
 
 uint16_t testBVH4Node_SSE41_FMA(const BVH4Node& node, const std::array<Plane, 6>& planes)
@@ -579,7 +549,7 @@ struct InittestBVH4Node
 
 InittestBVH4Node init;
 
-void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECSAllocator<BVH4Node>& allocator, Carbo::ECSAllocator<BVH4LeafNode>& leafAllocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack)
+void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack)
 {
     alignas(std::vector<size_t>) std::byte stackMemory[sizeof(std::vector<size_t>)];
     if(!reusableStack) new (stackMemory) std::vector<size_t>();
@@ -593,9 +563,7 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECS
         const size_t nodeIndex = stack.back();
         stack.pop_back();
 
-        Carbo::prefetch<Carbo::PrefetchHint::t1>(allocator._data() + nodeIndex);
-        Carbo::prefetch<Carbo::PrefetchHint::t1>(reinterpret_cast<std::byte*>(allocator._data() + nodeIndex) + 64);
-        const BVH4Node& node = allocator.at(nodeIndex);
+        const BVH4Node& node = allocator.at<BVH4Node>(nodeIndex);
 
         //Perform visibility query
         const uint16_t result = testBVH4Node(node, planes);
@@ -609,29 +577,22 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECS
             const int i = std::countr_zero(liveMask);
             liveMask &= liveMask - 1; // clear lowest set bit
 
-            const BVH4Node& child = allocator.at(node.children[i]);
+            const BVH4Node& child = allocator.at<BVH4Node>(node.children[i]);
 
             if (intersectMask & (1u << i))
             {
-                if (child.firstLeaf != std::numeric_limits<uint32_t>::max())
+                if (child.leafMask)
                 {
-                    Carbo::prefetch<Carbo::PrefetchHint::t1>(allocator._data() + node.children[i]);
-                    Carbo::prefetch<Carbo::PrefetchHint::t1>(reinterpret_cast<std::byte*>(allocator._data() + node.children[i]) + 64);
                     // Straddling node: test its up-to-4 leaves individually.
                     const uint16_t resultLeaves = testBVH4Node(child, planes);
                     const uint32_t insideMaskLeaves    = (resultLeaves >> 4) & 0b1111;
                     const uint32_t intersectMaskLeaves = (resultLeaves >> 8) & 0b1111;
-                    const uint32_t visibleLeaves = insideMaskLeaves | intersectMaskLeaves;
+                    const uint32_t visibleLeaves = (insideMaskLeaves | intersectMaskLeaves) & child.leafMask;
 
-                    size_t leaf = child.firstLeaf;
-                    size_t j = 0;
-                    while(leaf != std::numeric_limits<uint32_t>::max())
+                    for(int j = 0; j < std::popcount(child.leafMask); j++)
                     {
                         if (visibleLeaves & (1u << j))
-                            visible.push_back(leafAllocator.at(leaf).primitiveIndex);
-
-                        leaf = leafAllocator.at(leaf).nextLeaf;
-                        j++;
+                            visible.push_back(child.children[j]);
                     }
                 }
                 else
@@ -641,16 +602,11 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECS
             }
             else // insideMask bit set: child is fully inside every plane, accept whole subtree
             {
-                if (child.firstLeaf != std::numeric_limits<uint32_t>::max())
+                if (child.leafMask)
                 {
-                    size_t leaf = child.firstLeaf;
-                    size_t j = 0;
-                    while(leaf != std::numeric_limits<uint32_t>::max())
+                    for(int j = 0; j < std::popcount(child.leafMask); j++)
                     {
-                        visible.push_back(leafAllocator.at(leaf).primitiveIndex);
-
-                        leaf = leafAllocator.at(leaf).nextLeaf;
-                        j++;
+                        visible.push_back(child.children[j]);
                     }
                 }
                 else
@@ -667,17 +623,12 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::ECS
                         const size_t current = stack.back();
                         stack.pop_back();
 
-                        const BVH4Node& innerNode = allocator.at(current);
-                        if (innerNode.firstLeaf != std::numeric_limits<uint32_t>::max())
+                        const BVH4Node& innerNode = allocator.at<BVH4Node>(current);
+                        if (innerNode.leafMask)
                         {
-                            size_t leaf = innerNode.firstLeaf;
-                            size_t j = 0;
-                            while(leaf != std::numeric_limits<uint32_t>::max())
+                            for(int j = 0; j < std::popcount(innerNode.leafMask); j++)
                             {
-                                visible.push_back(leafAllocator.at(leaf).primitiveIndex);
-
-                                leaf = leafAllocator.at(leaf).nextLeaf;
-                                j++;
+                                visible.push_back(innerNode.children[j]);
                             }
                         }
                         else
