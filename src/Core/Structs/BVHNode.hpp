@@ -61,6 +61,9 @@ namespace nihil
         std::array<uint32_t, 4> children;
         
         uint32_t parent;
+
+        // uint32_t nextLeafNodeOrFirstLeafNode;
+
         // uint32_t primIndex;
         float originalSurfaceArea;
 

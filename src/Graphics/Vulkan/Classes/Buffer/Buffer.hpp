@@ -630,7 +630,7 @@ namespace nihil::graphics
 
             for (int i = 0; i < directWriteOptimizer.commands.size(); i++)
             {
-                std::cout << "Staging -> DeviceLocal\n";
+                //std::cout << "Staging -> DeviceLocal\n";
 
                 //Copy staging to buffer
                 //updateGPUData<UpdateMode::Direct>({ updateOptimizer.commands[i].srcOffset, updateOptimizer.commands[i].dstOffset, updateOptimizer.commands[i].updateSize });

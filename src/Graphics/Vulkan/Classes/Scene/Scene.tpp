@@ -163,6 +163,6 @@ namespace nihil::graphics
 
         auto end = std::chrono::high_resolution_clock::now();
 
-        std::cout<<std::format("Memory copies took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+        Carbo::Logger::Log("Memory copies took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
     }
 }

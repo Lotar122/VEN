@@ -30,6 +30,7 @@ namespace nihil::graphics
 
         bool modifiedThisFrame = false;
         size_t BVHParentIndex = std::numeric_limits<size_t>::max();
+        size_t BVHChildIndex = std::numeric_limits<size_t>::max();
 
         size_t prevDataSlot = std::numeric_limits<size_t>::max();
         uint64_t lastModifiedFrame = std::numeric_limits<uint64_t>::max();

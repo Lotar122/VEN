@@ -100,7 +100,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    std::cout<<std::format("Setup took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+    Carbo::Logger::Log("Setup took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
 
     start = std::chrono::high_resolution_clock::now();
 
@@ -134,40 +134,49 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     // BVH4LeafNodeAllocator.reserve(objects.size());
 
-    BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, *BVH4NodeAllocator, centroidCache);
-    //if(BVHRoot == std::numeric_limits<size_t>::max()) BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVH2NodeAllocator);
-    // else
-    // {
-    //     for(Object* o : objects)
-    //     {
-    //         if(o->lastModifiedFrame >= engine->_currentFrame()) 
-    //         {
-    //             float refitHeuristic = refitBVH2(objects, o, BVHNodeAllocator);
-    //             if(refitHeuristic > rebuildThreshold) 
-    //             {
-    //                 rebuild = true;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     if(rebuild)
-    //     {
-    //         Carbo::Logger::Log("BVH rebuild");
-    //         BVHNodeAllocator.reset();
-    //         BVHRoot = buildBVH2(objects, BVHIndices, 0, objects.size(), 0, BVHNodeAllocator);
-    //     }
-    // }
+    // BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, *BVH4NodeAllocator, centroidCache);
+    if(BVHRoot == std::numeric_limits<size_t>::max()) BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, *BVH4NodeAllocator, centroidCache);
+    else
+    {
+        //Check the sink every refit gather and quite early on threshold
+        std::vector<size_t> gatherResult;
+
+        size_t refitGatherCount = 0;
+        double SAHSink = 0.0f;
+
+        for(Object* o : objects)
+        {
+            if(o->lastModifiedFrame >= engine->_currentFrame()) 
+            {
+                SAHSink += refitBVH4Gather(o, *BVH4NodeAllocator, gatherResult);
+                refitGatherCount++;
+            }
+        }
+
+        double refitHeuristic = SAHSink / refitGatherCount;
+        //std::cout<<refitHeuristic<<'\n';
+        if(refitHeuristic > rebuildThreshold) 
+        {
+            Carbo::Logger::Warn("BVH rebuild");
+            BVH4NodeAllocator->reset();
+            BVHRoot = buildBVH4(objects, BVHIndices, 0, objects.size(), 0, *BVH4NodeAllocator, centroidCache);
+        }
+        else
+        {
+            refitBH4Finalize(gatherResult, *BVH4NodeAllocator);
+        }
+    }
 
     cullBVH4(BVHRoot, camera->_planes(), *BVH4NodeAllocator, toRender);
     //cullBVH2(BVHRoot, camera->_planes(), BVH2NodeAllocator, toRender);
 
     float culledPercent = (1.0f - (static_cast<float>(toRender.size()) / static_cast<float>(objects.size()))) * 100.0f;
 
-    std::cout<<std::format("Culled: {}% percent of objects.\n", culledPercent);
+    Carbo::Logger::Log("Culled: {}% percent of objects.\n", culledPercent);
 
     end = std::chrono::high_resolution_clock::now();
 
-    std::cout<<std::format("Culling took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+    Carbo::Logger::Log("Culling took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
 
     start = std::chrono::high_resolution_clock::now();
 
@@ -189,7 +198,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
     end = std::chrono::high_resolution_clock::now();
 
-    std::cout<<std::format("Draw splitting took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+    Carbo::Logger::Log("Draw splitting took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
 
     if(instancedDraws.size() > 0)
     {
@@ -224,7 +233,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
 
         end = std::chrono::high_resolution_clock::now();
 
-        std::cout<<std::format("Instanced draw preparation took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
+        Carbo::Logger::Log("Instanced draw preparation took: {}\n", std::chrono::duration_cast<std::chrono::microseconds>(end - start));
 
         std::chrono::microseconds allBufferConstructions(0), allSlotConstructions(0);
 
@@ -356,7 +365,7 @@ void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pip
             commandBuffer.drawIndexed(static_cast<uint32_t>(firstObject->_model()->_indexBuffer()._typedSize()), count, 0, 0, 0);
         }
 
-        std::cout<<std::format("Buffer construction took: {}, on average. Of which: {}, was slots construction\n", allBufferConstructions / (float)drawCounts.size(), allSlotConstructions / (float)drawCounts.size());
+        Carbo::Logger::Log("Buffer construction took: {}, on average. Of which: {}, was slots construction\n", allBufferConstructions / (float)drawCounts.size(), allSlotConstructions / (float)drawCounts.size());
     }
 
     for(Object* o : normalDraws)

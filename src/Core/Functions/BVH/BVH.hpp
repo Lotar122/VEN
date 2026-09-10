@@ -25,6 +25,11 @@ namespace nihil
     size_t buildBVH4(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache);
     void cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack = nullptr);
 
+    float refitBH4(graphics::Object* object, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator);
+
+    float refitBVH4Gather(graphics::Object* object, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<size_t>& parentIndices);
+    void refitBH4Finalize(std::vector<size_t>& parentIndices, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator);
+
     //returns the "cost" or how bad the tree becomes after this
     float refitBVH2(const std::vector<graphics::Object*>& primitives, graphics::Object* object, Carbo::ECSAllocator<BVH2Node>& allocator);
 }

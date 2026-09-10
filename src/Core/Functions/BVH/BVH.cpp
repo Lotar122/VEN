@@ -1,9 +1,11 @@
 #include "BVH.hpp"
 #include "Classes/ECSAllocator/ECSAllocator.hpp"
+#include "Classes/Object/Object.hpp"
 #include "Structs/BVHNode.hpp"
 
 #include <cmath>
 #include <format>
+#include <glm/detail/qualifier.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <immintrin.h>
 #include <limits>
@@ -11,29 +13,18 @@
 #include <stack>
 #include <xmmintrin.h>
 #include <bit> // std::countr_zero
+#include <thread>
+#include <unordered_set>
 
 #include "Classes/CPUFeatures/CPUFeatures.hpp"
 #include "Functions/Prefetch/Prefetch.hpp"
 #include "Classes/AtomicBumpAllocator/AtomicBumpAllocator.hpp"
+#include "Functions/PseudoInstricts/PseudoInstricts.hpp"
 
 using namespace nihil;
 
-size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache)
+size_t buildBVH4_Scalar(std::vector<nihil::graphics::Object*> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache)
 {
-    auto _mm_horizontalmin_ps = [](__m128 v) -> float
-    {
-        v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 3, 0, 1)));
-        v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 0, 3, 2)));
-        return _mm_cvtss_f32(v);
-    };
-
-    auto _mm_horizontalmax_ps = [](__m128 v) -> float
-    {
-        v = _mm_max_ps(v, _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 3, 0, 1)));
-        v = _mm_max_ps(v, _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 0, 3, 2)));
-        return _mm_cvtss_f32(v);
-    };
-
     BVH4Node* node = allocator.allocate<BVH4Node>();
     size_t nodeIndex = node - reinterpret_cast<BVH4Node*>(allocator._data());
 
@@ -45,21 +36,28 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
 
     assert((int)end - (int)start > 0);
 
-    if (count <= 4) 
+    if (count <= 4)
     {
-        //Build the leafs
-
         node->leafMask = (1u << count) - 1;
 
-        for (size_t i = 0; i < count; i++)
-        {
-            size_t primIndex = indices[start + i];
-            primitives[primIndex]->BVHParentIndex = nodeIndex;
+        float boundsMinX = std::numeric_limits<float>::infinity();
+        float boundsMinY = std::numeric_limits<float>::infinity();
+        float boundsMinZ = std::numeric_limits<float>::infinity();
 
-            //in future make indices uint32_t so that you can do one simd load and store to do this loops work
+        float boundsMaxX = -std::numeric_limits<float>::infinity();
+        float boundsMaxY = -std::numeric_limits<float>::infinity();
+        float boundsMaxZ = -std::numeric_limits<float>::infinity();
+
+        for (size_t i = 0; i < count; ++i)
+        {
+            const size_t primIndex = indices[start + i];
+
+            primitives[primIndex]->BVHParentIndex = nodeIndex;
+            primitives[primIndex]->BVHChildIndex = i;
+
             node->children[i] = primIndex;
 
-            AABB bound = primitives[primIndex]->_transformedAABB();
+            const AABB bound = primitives[primIndex]->_transformedAABB();
 
             node->minX[i] = bound.min.x;
             node->minY[i] = bound.min.y;
@@ -67,12 +65,20 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
 
             node->maxX[i] = bound.max.x;
             node->maxY[i] = bound.max.y;
-            node->maxZ[i] = bound.max.z;   
+            node->maxZ[i] = bound.max.z;
+
+            boundsMinX = std::min(boundsMinX, bound.min.x);
+            boundsMinY = std::min(boundsMinY, bound.min.y);
+            boundsMinZ = std::min(boundsMinZ, bound.min.z);
+
+            boundsMaxX = std::max(boundsMaxX, bound.max.x);
+            boundsMaxY = std::max(boundsMaxY, bound.max.y);
+            boundsMaxZ = std::max(boundsMaxZ, bound.max.z);
         }
 
         node->originalSurfaceArea = AABB::surfaceArea(
-            {_mm_horizontalmin_ps(_mm_load_ps(node->minX.data())), _mm_horizontalmin_ps(_mm_load_ps(node->minY.data())), _mm_horizontalmin_ps(_mm_load_ps(node->minZ.data()))},
-            {_mm_horizontalmax_ps(_mm_load_ps(node->maxX.data())), _mm_horizontalmax_ps(_mm_load_ps(node->maxY.data())), _mm_horizontalmax_ps(_mm_load_ps(node->maxZ.data()))}
+            { boundsMinX, boundsMinY, boundsMinZ },
+            { boundsMaxX, boundsMaxY, boundsMaxZ }
         );
 
         return nodeIndex;
@@ -124,10 +130,10 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
 
     if(nodeIndex == 0) [[unlikely]]
     {
-        std::thread t1([&]() {node->children[0] = buildBVH4(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);});
-        std::thread t2([&]() {node->children[1] = buildBVH4(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);});
-        std::thread t3([&]() {node->children[2] = buildBVH4(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);});
-        std::thread t4([&]() {node->children[3] = buildBVH4(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);});
+        std::thread t1([&]() {node->children[0] = buildBVH4_Scalar(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);});
+        std::thread t2([&]() {node->children[1] = buildBVH4_Scalar(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);});
+        std::thread t3([&]() {node->children[2] = buildBVH4_Scalar(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);});
+        std::thread t4([&]() {node->children[3] = buildBVH4_Scalar(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);});
 
         if(t1.joinable()) t1.join();
         if(t2.joinable()) t2.join();
@@ -136,10 +142,204 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
     }
     else
     {
-        node->children[0] = buildBVH4(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);
-        node->children[1] = buildBVH4(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);
-        node->children[2] = buildBVH4(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);
-        node->children[3] = buildBVH4(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);
+        node->children[0] = buildBVH4_Scalar(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);
+        node->children[1] = buildBVH4_Scalar(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);
+        node->children[2] = buildBVH4_Scalar(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);
+        node->children[3] = buildBVH4_Scalar(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);
+    }
+
+
+    BVH4Node& child0 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[0]);
+    BVH4Node& child1 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[1]);
+    BVH4Node& child2 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[2]);
+    BVH4Node& child3 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[3]);
+
+    // -------------------------------------------------------------------------
+    // Each parent lane represents one child AABB.
+    //
+    // This is the scalar equivalent of:
+    //
+    // _mm_set_ps(
+    //     horizontalmin(child3.minX),
+    //     horizontalmin(child2.minX),
+    //     horizontalmin(child1.minX),
+    //     horizontalmin(child0.minX)
+    // )
+    // -------------------------------------------------------------------------
+
+    const BVH4Node* children[4] =
+    {
+        &child0,
+        &child1,
+        &child2,
+        &child3
+    };
+
+    float boundsMinX =  std::numeric_limits<float>::infinity();
+    float boundsMinY =  std::numeric_limits<float>::infinity();
+    float boundsMinZ =  std::numeric_limits<float>::infinity();
+
+    float boundsMaxX = -std::numeric_limits<float>::infinity();
+    float boundsMaxY = -std::numeric_limits<float>::infinity();
+    float boundsMaxZ = -std::numeric_limits<float>::infinity();
+
+    for (size_t i = 0; i < 4; ++i)
+    {
+        const BVH4Node& child = *children[i];
+
+        float minX = child.minX[0];
+        float minY = child.minY[0];
+        float minZ = child.minZ[0];
+
+        float maxX = child.maxX[0];
+        float maxY = child.maxY[0];
+        float maxZ = child.maxZ[0];
+
+        for (size_t j = 1; j < 4; ++j)
+        {
+            minX = std::min(minX, child.minX[j]);
+            minY = std::min(minY, child.minY[j]);
+            minZ = std::min(minZ, child.minZ[j]);
+
+            maxX = std::max(maxX, child.maxX[j]);
+            maxY = std::max(maxY, child.maxY[j]);
+            maxZ = std::max(maxZ, child.maxZ[j]);
+        }
+
+        node->minX[i] = minX;
+        node->minY[i] = minY;
+        node->minZ[i] = minZ;
+
+        node->maxX[i] = maxX;
+        node->maxY[i] = maxY;
+        node->maxZ[i] = maxZ;
+
+        boundsMinX = std::min(boundsMinX, minX);
+        boundsMinY = std::min(boundsMinY, minY);
+        boundsMinZ = std::min(boundsMinZ, minZ);
+
+        boundsMaxX = std::max(boundsMaxX, maxX);
+        boundsMaxY = std::max(boundsMaxY, maxY);
+        boundsMaxZ = std::max(boundsMaxZ, maxZ);
+    }
+
+    node->originalSurfaceArea = AABB::surfaceArea(
+        { boundsMinX, boundsMinY, boundsMinZ },
+        { boundsMaxX, boundsMaxY, boundsMaxZ }
+    );
+
+    return nodeIndex;
+}
+
+size_t buildBVH4_SSE2(std::vector<nihil::graphics::Object*> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache)
+{
+    BVH4Node* node = allocator.allocate<BVH4Node>();
+    size_t nodeIndex = node - reinterpret_cast<BVH4Node*>(allocator._data());
+
+    node->leafMask = 0;
+
+    node->parent = parent;
+
+    size_t count = end - start;
+
+    assert((int)end - (int)start > 0);
+
+    if (count <= 4) 
+    {
+        //Build the leafs
+
+        node->leafMask = (1u << count) - 1;
+
+        for (size_t i = 0; i < count; i++)
+        {
+            size_t primIndex = indices[start + i];
+            primitives[primIndex]->BVHParentIndex = nodeIndex;
+            primitives[primIndex]->BVHChildIndex = i;
+
+            //in future make indices uint32_t so that you can do one simd load and store to do this loops work
+            node->children[i] = primIndex;
+
+            AABB bound = primitives[primIndex]->_transformedAABB();
+
+            node->minX[i] = bound.min.x;
+            node->minY[i] = bound.min.y;
+            node->minZ[i] = bound.min.z;
+
+            node->maxX[i] = bound.max.x;
+            node->maxY[i] = bound.max.y;
+            node->maxZ[i] = bound.max.z;   
+        }
+
+        node->originalSurfaceArea = AABB::surfaceArea(
+            {Carbo::_mm_horizontalmin_ps(_mm_load_ps(node->minX.data())), Carbo::_mm_horizontalmin_ps(_mm_load_ps(node->minY.data())), Carbo::_mm_horizontalmin_ps(_mm_load_ps(node->minZ.data()))},
+            {Carbo::_mm_horizontalmax_ps(_mm_load_ps(node->maxX.data())), Carbo::_mm_horizontalmax_ps(_mm_load_ps(node->maxY.data())), Carbo::_mm_horizontalmax_ps(_mm_load_ps(node->maxZ.data()))}
+        );
+
+        return nodeIndex;
+    }
+
+    AABB centroidBounds;
+    for (int i = start; i < end; i++) 
+    {
+        centroidBounds.expand(centroidCache[indices[i]]);
+    }
+
+    size_t axis1 = centroidBounds.longestAxis<0>();
+    size_t axis2 = centroidBounds.longestAxis<1>();
+
+    const size_t mid  = start + count / 2;
+    const size_t midA = start + count / 4;
+    const size_t midB = start + (count * 3) / 4;
+
+    assert(start < midA);
+    assert(midA < mid);
+    assert(mid < midB);
+    assert(midB < end);
+
+    // Decorate: gather (key, index) into a contiguous buffer so nth_element's
+    // comparisons hit sequential memory instead of chasing indices -> centroidCache.
+    std::vector<std::pair<float, size_t>> keyed(count);
+    for (size_t i = 0; i < count; ++i) {
+        const size_t idx = indices[start + i];
+        keyed[i] = { centroidCache[idx][axis1], idx };
+    }
+
+    auto cmp = [](const auto& a, const auto& b) noexcept {
+        return a.first < b.first;
+    };
+
+    // Split on axis1 first, over the whole buffer.
+    std::nth_element(keyed.begin(), keyed.begin() + count / 2, keyed.end(), cmp);
+
+    // Re-key both halves for axis2 — still a single sequential pass.
+    for (auto& kv : keyed) kv.first = centroidCache[kv.second][axis2];
+
+    // These two ranges are disjoint, so they're safe to run concurrently
+    // if count is large enough to make the thread overhead worth it.
+    std::nth_element(keyed.begin(),            keyed.begin() + count / 4,       keyed.begin() + count / 2, cmp);
+    std::nth_element(keyed.begin() + count / 2, keyed.begin() + (count * 3) / 4, keyed.end(),               cmp);
+
+    // Undecorate: write the resulting permutation back into indices.
+    for (size_t i = 0; i < count; ++i) indices[start + i] = keyed[i].second;
+
+    if(nodeIndex == 0) [[unlikely]]
+    {
+        std::thread t1([&]() {node->children[0] = buildBVH4_SSE2(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);});
+        std::thread t2([&]() {node->children[1] = buildBVH4_SSE2(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);});
+        std::thread t3([&]() {node->children[2] = buildBVH4_SSE2(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);});
+        std::thread t4([&]() {node->children[3] = buildBVH4_SSE2(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);});
+
+        if(t1.joinable()) t1.join();
+        if(t2.joinable()) t2.join();
+        if(t3.joinable()) t3.join();
+        if(t4.joinable()) t4.join();
+    }
+    else
+    {
+        node->children[0] = buildBVH4_SSE2(primitives, indices, start, midA, nodeIndex, allocator, centroidCache);
+        node->children[1] = buildBVH4_SSE2(primitives, indices, midA, mid, nodeIndex, allocator, centroidCache);
+        node->children[2] = buildBVH4_SSE2(primitives, indices, mid, midB, nodeIndex, allocator, centroidCache);
+        node->children[3] = buildBVH4_SSE2(primitives, indices, midB, end, nodeIndex, allocator, centroidCache);
     }
 
 
@@ -149,45 +349,45 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
     BVH4Node& child3 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node->children[3]);
 
     __m128 minX = _mm_set_ps(
-        _mm_horizontalmin_ps(_mm_load_ps(child3.minX.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child2.minX.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child1.minX.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child0.minX.data()))
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minX.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minX.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minX.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minX.data()))
     );
 
     __m128 maxX = _mm_set_ps(
-        _mm_horizontalmax_ps(_mm_load_ps(child3.maxX.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child2.maxX.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child1.maxX.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child0.maxX.data()))
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxX.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxX.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxX.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxX.data()))
     );
 
     __m128 minY = _mm_set_ps(
-        _mm_horizontalmin_ps(_mm_load_ps(child3.minY.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child2.minY.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child1.minY.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child0.minY.data()))
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minY.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minY.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minY.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minY.data()))
     );
 
     __m128 maxY = _mm_set_ps(
-        _mm_horizontalmax_ps(_mm_load_ps(child3.maxY.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child2.maxY.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child1.maxY.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child0.maxY.data()))
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxY.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxY.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxY.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxY.data()))
     );
 
     __m128 minZ = _mm_set_ps(
-        _mm_horizontalmin_ps(_mm_load_ps(child3.minZ.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child2.minZ.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child1.minZ.data())),
-        _mm_horizontalmin_ps(_mm_load_ps(child0.minZ.data()))
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minZ.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minZ.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minZ.data())),
+        Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minZ.data()))
     );
 
     __m128 maxZ = _mm_set_ps(
-        _mm_horizontalmax_ps(_mm_load_ps(child3.maxZ.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child2.maxZ.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child1.maxZ.data())),
-        _mm_horizontalmax_ps(_mm_load_ps(child0.maxZ.data()))
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxZ.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxZ.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxZ.data())),
+        Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxZ.data()))
     );
 
     _mm_store_ps(node->minX.data(), minX);
@@ -200,8 +400,8 @@ size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*> &primitives, std::
     _mm_store_ps(node->maxZ.data(), maxZ);
 
     node->originalSurfaceArea = AABB::surfaceArea(
-        {_mm_horizontalmin_ps(minX), _mm_horizontalmin_ps(minY), _mm_horizontalmin_ps(minZ)},
-        {_mm_horizontalmax_ps(maxX), _mm_horizontalmax_ps(maxY), _mm_horizontalmax_ps(maxZ)}
+        {Carbo::_mm_horizontalmin_ps(minX), Carbo::_mm_horizontalmin_ps(minY), Carbo::_mm_horizontalmin_ps(minZ)},
+        {Carbo::_mm_horizontalmax_ps(maxX), Carbo::_mm_horizontalmax_ps(maxY), Carbo::_mm_horizontalmax_ps(maxZ)}
     );
 
     return nodeIndex;
@@ -518,12 +718,19 @@ uint16_t testBVH4Node_Scalar(const BVH4Node& node, const std::array<Plane, 6>& p
 }
 
 using testBVH4NodeType = uint16_t(*)(const BVH4Node& node, const std::array<Plane, 6>& planes);
+using buildBVH4Type = size_t(*)(std::vector<nihil::graphics::Object*> &primitives, std::vector<size_t> &indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache);
 
 testBVH4NodeType testBVH4Node = testBVH4Node_Scalar;
+buildBVH4Type buildBVH4Ptr = buildBVH4_Scalar;
 
-struct InittestBVH4Node
+size_t nihil::buildBVH4(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<glm::vec3>& centroidCache)
 {
-    InittestBVH4Node()
+    return buildBVH4Ptr(primitives, indices, start, end, parent, allocator, centroidCache);
+}
+
+struct InitMarchCompatBVH4
+{
+    InitMarchCompatBVH4()
     {
         Carbo::CPUFeatures features;
 
@@ -544,10 +751,16 @@ struct InittestBVH4Node
             Carbo::Logger::Log("Using testBVH4Node, version: SSE2");
             testBVH4Node = testBVH4Node_SSE2;
         }
+
+        if(features.supports(Carbo::CPUFeatures::feature::sse2))
+        {
+            Carbo::Logger::Log("Using buildBVH4, version: SSE2");
+            buildBVH4Ptr = buildBVH4_SSE2;
+        }
     }
 };
 
-InittestBVH4Node init;
+InitMarchCompatBVH4 init;
 
 void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<size_t>& visible, std::vector<size_t>* reusableStack)
 {
@@ -645,6 +858,273 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::Ato
     }
 
     if(!reusableStack) stack.~vector();
+}
+
+float nihil::refitBVH4Gather(graphics::Object* object, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator, std::vector<size_t>& parentIndices)
+{
+    const size_t BVHParentIndex = object->BVHParentIndex;
+    const size_t BVHChildIndex  = object->BVHChildIndex;
+
+    assert(
+        BVHChildIndex != std::numeric_limits<size_t>::max() &&
+        BVHParentIndex != std::numeric_limits<size_t>::max()
+    );
+
+    BVH4Node& node = allocator.at<BVH4Node>(BVHParentIndex);
+
+    const AABB& bound = object->_transformedAABB();
+
+    float originalSurfaceArea = node.originalSurfaceArea;
+
+    node.minX[BVHChildIndex] = bound.min.x;
+    node.minY[BVHChildIndex] = bound.min.y;
+    node.minZ[BVHChildIndex] = bound.min.z;
+
+    node.maxX[BVHChildIndex] = bound.max.x;
+    node.maxY[BVHChildIndex] = bound.max.y;
+    node.maxZ[BVHChildIndex] = bound.max.z;
+
+    //The leaf container has already been updated.
+    //Its parent is the first node that needs refitting.
+    if (BVHParentIndex != 0)
+        parentIndices.push_back(node.parent);
+
+    __m128 minX = _mm_load_ps(node.minX.data());
+    __m128 minY = _mm_load_ps(node.minY.data());
+    __m128 minZ = _mm_load_ps(node.minZ.data());
+
+    __m128 maxX = _mm_load_ps(node.maxX.data());
+    __m128 maxY = _mm_load_ps(node.maxY.data());
+    __m128 maxZ = _mm_load_ps(node.maxZ.data());
+
+    float surfaceArea = AABB::surfaceArea(
+        {Carbo::_mm_horizontalmin_ps(minX), Carbo::_mm_horizontalmin_ps(minY), Carbo::_mm_horizontalmin_ps(minZ)},
+        {Carbo::_mm_horizontalmax_ps(maxX), Carbo::_mm_horizontalmax_ps(maxY), Carbo::_mm_horizontalmax_ps(maxZ)}
+    );
+
+    //std::cout<<surfaceArea - originalSurfaceArea<<'\n';
+
+    return (surfaceArea - originalSurfaceArea) * 7.0f;
+}
+
+void nihil::refitBH4Finalize(std::vector<size_t>& parentIndices, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator)
+{
+    std::vector<size_t> toTraverse;
+    toTraverse.reserve(parentIndices.size());
+
+    size_t replaceIter = 0;
+    size_t cacheSize = 0;
+    std::array<size_t, 16> seenCache;
+
+    //Deduplicate the initially gathered parents.
+    for (size_t i : parentIndices)
+    {
+        auto cacheIt = std::find(
+            seenCache.data(),
+            seenCache.data() + cacheSize,
+            i
+        );
+
+        if (cacheIt != seenCache.data() + cacheSize)
+            continue;
+
+        auto it = std::find(toTraverse.begin(), toTraverse.end(), i);
+
+        if (it == toTraverse.end())
+            toTraverse.push_back(i);
+
+        seenCache[replaceIter] = i;
+        replaceIter = (replaceIter + 1) & 15;
+        cacheSize = std::min(cacheSize + 1, size_t(16));
+    }
+
+    while (!toTraverse.empty())
+    {
+        std::vector<size_t> nextTraverse;
+        nextTraverse.reserve(toTraverse.size());
+
+        replaceIter = 0;
+        cacheSize = 0;
+
+        for (size_t currentNodeIndex : toTraverse)
+        {
+            BVH4Node& node = allocator.at<BVH4Node>(currentNodeIndex);
+
+            BVH4Node& child0 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[0]);
+
+            BVH4Node& child1 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[1]);
+
+            BVH4Node& child2 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[2]);
+
+            BVH4Node& child3 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[3]);
+
+            __m128 minX = _mm_set_ps(
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minX.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minX.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minX.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minX.data()))
+            );
+
+            __m128 maxX = _mm_set_ps(
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxX.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxX.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxX.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxX.data()))
+            );
+
+            __m128 minY = _mm_set_ps(
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minY.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minY.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minY.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minY.data()))
+            );
+
+            __m128 maxY = _mm_set_ps(
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxY.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxY.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxY.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxY.data()))
+            );
+
+            __m128 minZ = _mm_set_ps(
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minZ.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minZ.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minZ.data())),
+                Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minZ.data()))
+            );
+
+            __m128 maxZ = _mm_set_ps(
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxZ.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxZ.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxZ.data())),
+                Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxZ.data()))
+            );
+
+            _mm_store_ps(node.minX.data(), minX);
+            _mm_store_ps(node.maxX.data(), maxX);
+
+            _mm_store_ps(node.minY.data(), minY);
+            _mm_store_ps(node.maxY.data(), maxY);
+
+            _mm_store_ps(node.minZ.data(), minZ);
+            _mm_store_ps(node.maxZ.data(), maxZ);
+
+            // The root has no parent.
+            if (currentNodeIndex == 0)
+                continue;
+
+            const size_t parentIndex = node.parent;
+
+            // Deduplicate parents for the next level.
+            auto cacheIt = std::find(
+                seenCache.data(),
+                seenCache.data() + cacheSize,
+                parentIndex
+            );
+
+            if (cacheIt != seenCache.data() + cacheSize)
+                continue;
+
+            auto it = std::find(
+                nextTraverse.begin(),
+                nextTraverse.end(),
+                parentIndex
+            );
+
+            if (it == nextTraverse.end())
+                nextTraverse.push_back(parentIndex);
+
+            seenCache[replaceIter] = parentIndex;
+            replaceIter = (replaceIter + 1) & 15;
+            cacheSize = std::min(cacheSize + 1, size_t(16));
+        }
+
+        toTraverse.swap(nextTraverse);
+    }
+}
+
+float nihil::refitBH4(graphics::Object* object, Carbo::AtomicBumpAllocator<alignof(BVH4Node)>& allocator)
+{
+    size_t BVHParentIndex = object->BVHParentIndex, BVHChildIndex = object->BVHChildIndex;
+    assert(BVHChildIndex != std::numeric_limits<size_t>::max() && BVHParentIndex != std::numeric_limits<size_t>::max());
+
+    BVH4Node& node = allocator.at<BVH4Node>(BVHParentIndex);
+    const AABB& bound = object->_transformedAABB();
+    
+    node.minX[BVHChildIndex] = bound.min.x;
+    node.minY[BVHChildIndex] = bound.min.y;
+    node.minZ[BVHChildIndex] = bound.min.z;
+
+    node.maxX[BVHChildIndex] = bound.max.x;
+    node.maxY[BVHChildIndex] = bound.max.y;
+    node.maxZ[BVHChildIndex] = bound.max.z;
+
+    size_t currentNodeIndex = node.parent;
+    while(true)
+    {
+        BVH4Node& node = allocator.at<BVH4Node>(currentNodeIndex);
+        BVH4Node& child0 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[0]);
+        BVH4Node& child1 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[1]);
+        BVH4Node& child2 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[2]);
+        BVH4Node& child3 = *(reinterpret_cast<BVH4Node*>(allocator._data()) + node.children[3]);
+
+        __m128 minX = _mm_set_ps(
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minX.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minX.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minX.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minX.data()))
+        );
+
+        __m128 maxX = _mm_set_ps(
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxX.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxX.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxX.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxX.data()))
+        );
+
+        __m128 minY = _mm_set_ps(
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minY.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minY.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minY.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minY.data()))
+        );
+
+        __m128 maxY = _mm_set_ps(
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxY.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxY.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxY.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxY.data()))
+        );
+
+        __m128 minZ = _mm_set_ps(
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child3.minZ.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child2.minZ.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child1.minZ.data())),
+            Carbo::_mm_horizontalmin_ps(_mm_load_ps(child0.minZ.data()))
+        );
+
+        __m128 maxZ = _mm_set_ps(
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child3.maxZ.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child2.maxZ.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child1.maxZ.data())),
+            Carbo::_mm_horizontalmax_ps(_mm_load_ps(child0.maxZ.data()))
+        );
+
+        _mm_store_ps(node.minX.data(), minX);
+        _mm_store_ps(node.maxX.data(), maxX);
+        
+        _mm_store_ps(node.minY.data(), minY);
+        _mm_store_ps(node.maxY.data(), maxY);
+
+        _mm_store_ps(node.minZ.data(), minZ);
+        _mm_store_ps(node.maxZ.data(), maxZ);
+
+        if (currentNodeIndex == 0 && node.parent == 0) break;
+
+        currentNodeIndex = node.parent;
+    }
+
+    return 1.0f;
 }
 
 size_t nihil::buildBVH2(std::vector<nihil::graphics::Object*>& primitives, std::vector<size_t>& indices, size_t start, size_t end, size_t parent, Carbo::ECSAllocator<BVH2Node>& allocator)
