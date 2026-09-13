@@ -784,6 +784,18 @@ void nihil::cullBVH4(size_t root, const std::array<Plane, 6>& planes, Carbo::Ato
         const uint32_t intersectMask = (result >> 8) & 0b1111;
         // any bit not set in either mask => that child is fully outside, skip it.
 
+        if(node.leafMask) [[unlikely]]
+        {
+            const uint32_t visibleMask = insideMask | intersectMask | node.leafMask;
+
+            for(int i = 0; i < std::popcount(node.leafMask); i++)
+            {
+                if (visibleMask & (1u << i)) visible.push_back(node.children[i]);
+            }
+
+            break;
+        }
+
         uint32_t liveMask = insideMask | intersectMask;
         while (liveMask)
         {

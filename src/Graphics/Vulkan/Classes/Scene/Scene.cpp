@@ -56,6 +56,11 @@ void Scene::addObjects(std::vector<Object>& newObjects)
     }
 }
 
+void Scene::lightingPass(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator)
+{
+    
+}
+
 void Scene::recordCommands(vk::CommandBuffer& commandBuffer, Camera* camera, Pipeline* debugPipeline, DescriptorAllocator* descriptorAllocator)
 {
     auto start = std::chrono::high_resolution_clock::now();
