@@ -26,6 +26,7 @@
 #define RESET "\033[0m"
 #endif
 
+///The function to enable ANSI support on Windows
 static inline void enableANSI()
 {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -35,8 +36,10 @@ static inline void enableANSI()
     SetConsoleMode(hOut, dwMode);
 }
 
+///The struct that initializes the compatibility for Windows
 struct InitCompat
 {
+    ///The compatibility function
     InitCompat()
     {
         enableANSI();
@@ -44,6 +47,7 @@ struct InitCompat
     }
 };
 
+///This is here to force linkage
 extern void forceLinkCompat();
 
 #endif
