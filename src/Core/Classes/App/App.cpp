@@ -49,7 +49,7 @@ inline void App::fixedOnResize()
     width = _width;
     height = _height;
 
-    onResize(this, userPointer);
+    //onResize(this, userPointer);
 
     for(auto l : onResizeListeners)
     {
