@@ -9,6 +9,7 @@
 
 namespace nihil
 {
+	///The enum spanning all keys, The enum is 1:1 copy of the GLFW key codes.
 	enum class Key {
 		A = GLFW_KEY_A, B = GLFW_KEY_B, C = GLFW_KEY_C, D = GLFW_KEY_D, E = GLFW_KEY_E,
 		F = GLFW_KEY_F, G = GLFW_KEY_G, H = GLFW_KEY_H, I = GLFW_KEY_I, J = GLFW_KEY_J,
@@ -49,10 +50,15 @@ namespace nihil
 		Equal = GLFW_KEY_EQUAL
 	};
 
+	///The class for using the keyboard
 	class Keyboard : public onHandleListener
 	{
+		///The pointer to the App
 		App* app = nullptr;
 	public:
+		///The constructor for Keyboard
+		//
+		///@param _app The pointer to App
 		Keyboard(App* _app)
 		{
 			assert(_app != nullptr);
@@ -62,13 +68,18 @@ namespace nihil
 			app->addEventListener(this, Listeners::onHandle);
 		}
 
+		///The map for keys
 		std::unordered_map<Key, bool> keys;
 
+		///The function to register a key as used
+		//
+		///@param key The key code
 		inline void useKey(Key key)
 		{
 			keys.insert(std::make_pair(key, false));
 		}
 
+		///The onHandle event handler
 		void onHandle() final override 
 		{
 			//Handle all the key changes
@@ -79,6 +90,10 @@ namespace nihil
 			}
 		}
 
+		///The function to get the keys state
+		//
+		///@param key the key code
+		///@return A boolean whether the key is pressed
 		inline bool getKey(Key key)
 		{
 			return keys[key];

@@ -10,24 +10,38 @@
 
 namespace nihil
 {
+    ///Represents an axis-aligner bounding box
     class AABB
     {
     public:
+        ///The smallest coordinate point for AABB
         glm::vec3 min;
+        ///The biggest coordinate point for AABB
         glm::vec3 max;
 
+        ///Default constructor
         AABB()
         {
             min = glm::vec3(std::numeric_limits<float>::max());
             max = glm::vec3(std::numeric_limits<float>::lowest());
         }
 
+        ///Constructs from glm::vec3
+        //
+        ///@param _min The smallest coordinate point for AABB
+        ///@param _max The biggest coordinate point for AABB
+        ///@return An AABB from points
         AABB(const glm::vec3& _min, const glm::vec3& _max)
         {
             min = _min;
             max = _max;
         }
 
+        ///Checks whether the AABB is inside the view frustum.
+        //
+        ///@param box The AABB to be tested
+        ///@param planes The view frustum defined by 6 planes
+        ///@return a VisibilityQueryResult for the AABB
         static VisibilityQueryResult isAABBVisible(const AABB& box, const std::array<Plane, 6>& planes)
         {
             glm::vec3 center = (box.min + box.max) * 0.5f;
@@ -56,7 +70,9 @@ namespace nihil
             return result;
         }
 
-        //Computes a bounding box for any mesh layout: (vx, vy, vz, tx, ty, nx, ny, nz)
+        ///Computes a bounding box for a mesh
+        //
+        ///@param vertices The mesh as a flat std::vector of floats layout: (vx, vy, vz, tx, ty, nx, ny, nz)
         void computeFromMesh(const std::vector<float>& vertices)
         {
             assert((vertices.size() % 8) == 0);
@@ -79,9 +95,13 @@ namespace nihil
                 max = glm::max(max, pos);
             }
 
-            Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
+            //Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
         }
 
+        ///Returns the AABB transformed by a matrix
+        //
+        ///@param M The matrix containing the transformations
+        ///@return The transfromed AABB
         AABB getTransformed(const glm::mat4& M) const
         {
             glm::vec3 corners[8] =
@@ -110,38 +130,63 @@ namespace nihil
             return { newMin, newMax };
         }
 
+        ///Expands the AABB
+        //
+        ///@param bounds Another AABB that the AABB needs to fit
         void expand(const AABB& bounds)
         {
             min = glm::min(bounds.min, min);
             max = glm::max(bounds.max, max);
         }
 
+        ///Expands the AABB
+        //
+        ///@param p A point which the AABB needs to fit
         void expand(const glm::vec3& p)
         {
             min = glm::min(min, p);
             max = glm::max(max, p);
         }
 
+        ///Computes the centroid of this AABB
+        //
+        ///@return The centroid point
         inline const glm::vec3 _centroid() const
         {
             return (min + max) * 0.5f;
         }
 
+        ///Computes the centroid of an AABB described by two points.
+        //
+        ///@param min The smallest coordinate point for AABB
+        ///@param max The biggest coordinate point for AABB
+        ///@return The centroid point
         inline static const glm::vec3 centroid(const glm::vec3& min, const glm::vec3& max)
         {
             return (min + max) * 0.5f;
         }
 
+        ///Computes the extent of this AABB
+        //
+        ///@return The extent of this AABB
         inline const glm::vec3 _extent() const
         {
             return max - min;
         }
 
+        ///Computes an extent of an AABB described by two points
+        //
+        ///@param min The smallest coordinate point for AABB
+        ///@param max The biggest coordinate point for AABB
+        ///@return The extent of an AABB
         inline static const glm::vec3 extent(const glm::vec3& min, const glm::vec3& max)
         {
             return max - min;
         }
 
+        ///Computes the nth longest axis
+        //
+        ///@tparam n which axis to compute
         template<size_t n = 0>
         size_t longestAxis() const
         {
@@ -167,12 +212,20 @@ namespace nihil
             }
         }
 
+        ///Computes the surface area of this AABB
+        //
+        ///@return The surface area of this AABB
         inline float _surfaceArea() const
         {
             const glm::vec3 e = _extent();
             return 2.0f * (e.x*e.y + e.x*e.z + e.y*e.z);
         }
 
+        ///Computes the surface area of an AABB described by two points
+        //
+        ///@param min The smallest coordinate point for AABB
+        ///@param max The biggest coordinate point for AABB
+        ///@return The surface area
         inline static float surfaceArea(const glm::vec3& min, const glm::vec3& max)
         {
             const glm::vec3 e = extent(min, max);

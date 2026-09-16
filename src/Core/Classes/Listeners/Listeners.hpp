@@ -10,8 +10,11 @@ namespace nihil
 {
     enum class Listeners
     {
+        ///The onResize event
         onResize,
+        ///The onHandle event
         onHandle,
+        ///THe onSwapchainRecreation event
         onSwapchainRecreation
     };
 }

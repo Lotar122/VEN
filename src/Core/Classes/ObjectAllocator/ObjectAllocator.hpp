@@ -7,6 +7,7 @@
 
 namespace nihil
 {
+    ///Just a bundle for the ECS style allocated part of graphics::Object
     class ObjectAllocator
     {
     public:
