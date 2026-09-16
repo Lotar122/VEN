@@ -95,6 +95,8 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(glm REQUIRED)
 
+find_package(GTest CONFIG REQUIRED)
+
 add_library(VEN_shaderc INTERFACE)
 
 # Try vcpkg first (only works if toolchain is active)
@@ -139,6 +141,24 @@ file(GLOB_RECURSE SOURCES
 set(COMPILE_TARGET "Executable" CACHE STRING "Choose build target: Executable or Lib")
 
 add_library(VEN ${SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/src/VEN.hpp")
+
+enable_testing()
+
+file(GLOB_RECURSE TEST_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
+)
+
+add_executable(VEN_tests ${TEST_SOURCES})
+
+target_link_libraries(VEN_tests PRIVATE
+    VEN
+    GTest::gtest_main
+)
+
+target_compile_features(VEN_tests PRIVATE cxx_std_20)
+
+include(GoogleTest)
+gtest_discover_tests(VEN_tests)
 
 target_compile_definitions(VEN PRIVATE GLM_FORCE_DEFAULT_ALIGNED_GENTYPES)
 

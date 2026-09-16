@@ -701,7 +701,7 @@ uint16_t testBVH4Node_Scalar(const BVH4Node& node, const std::array<Plane, 6>& p
             if (dist + radius < 0.0f)
                 outsideMask |= bit;
 
-            if (dist - radius >= 0.0f)
+            if (dist - radius < 0.0f)
                 insideMask &= uint16_t(~bit);
         }
 

@@ -95,7 +95,7 @@ namespace nihil
                 max = glm::max(max, pos);
             }
 
-            Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
+            //Carbo::Logger::Log("Min : (x:{}, y:{}, z:{}) Max : (x:{}, y:{}, z:{})", min.x, min.y, min.z, max.x, max.y, max.z);
         }
 
         ///Returns the AABB transformed by a matrix
