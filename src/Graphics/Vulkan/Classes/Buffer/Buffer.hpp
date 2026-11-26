@@ -17,11 +17,16 @@ namespace nihil::graphics
 {
 	class Model;
 
-	//The specialization for T = std::vector<U>
+	///The Buffer specialization for std::vector data types T = std::vector<U>
+    //
+    ///@tparam T The type of the data, here it must be std::vector<U>
+    ///@tparam usageT The usage of the buffer, passed as a compile time constant
+    ///@tparam propertiesT The memory properties, passed as a compile time constant
 	template<typename T, auto usageT, auto propertiesT = static_cast<vk::MemoryPropertyFlags::MaskType>(vk::MemoryPropertyFlagBits::eDeviceLocal)>
 	requires StdVector<T>
 	class Buffer : public Asset
 	{
+        ///The std::vector value type
         using U = typename T::value_type;
 
 		friend class Model;
@@ -97,16 +102,6 @@ namespace nihil::graphics
         UpdateMode preRecordingUpdateMode = updateMode;
 
         void* directDataRaw = nullptr;
-    public:
-        inline vk::Buffer _buffer() { return buffer; };
-        //return the size of the buffer in bytes
-        inline size_t _size() const { return size; };
-        //returns the size of the buffer in units of its type
-        inline size_t _typedSize() const { return data.size(); };
-
-        inline T& _data() { return data; };
-
-        inline const Engine* _engine() const { return engine; };
 
         template<UpdateMode updateModeT>
         static void copyBufferImpl(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
@@ -155,71 +150,6 @@ namespace nihil::graphics
                 submitInfo.pCommandBuffers = &engine->_mainCommandBuffer();
 
                 std::ignore = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
-            }
-        }
-
-        // Disable copy
-        Buffer(const Buffer&) = delete;
-        Buffer& operator=(const Buffer&) = delete;
-
-        // Enable move
-        Buffer(Buffer&&) noexcept = default;
-        Buffer& operator=(Buffer&&) noexcept = default;
-
-        template<UpdateMode updateModeT = UpdateMode::Immediate>
-        static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
-        {
-            copyBufferImpl<updateModeT>(src, dst, size, { 0, 0, size }, engine);
-        }
-
-        template<UpdateMode updateModeT = UpdateMode::Immediate>
-        static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
-        {
-            copyBufferImpl<updateModeT>(src, dst, size, copyRegion, engine);
-        }
-
-        vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlagBits shaderStage, uint32_t binding)
-        {
-            if constexpr (
-                usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
-                usageT == vk::BufferUsageFlagBits::eUniformBuffer
-                )
-            {
-                vk::DescriptorSetLayoutBinding bufferBinding{};
-                bufferBinding.binding = binding;
-                /*samplerBinding.descriptorType = vk::DescriptorType::;*/
-                if constexpr (usageT == vk::BufferUsageFlagBits::eStorageBuffer) bufferBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
-                else if constexpr (usageT == vk::BufferUsageFlagBits::eUniformBuffer) bufferBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
-                bufferBinding.descriptorCount = 1;
-                bufferBinding.stageFlags = shaderStage;
-                bufferBinding.pImmutableSamplers = nullptr;
-
-                return bufferBinding;
-            }
-            else
-            {
-                Carbo::Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
-            }
-        }
-
-        vk::DescriptorBufferInfo getDescriptorInfo()
-        {
-            if constexpr (
-                usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
-                usageT == vk::BufferUsageFlagBits::eUniformBuffer
-                )
-            {
-                vk::DescriptorBufferInfo bufferInfo{
-                buffer,
-                0,
-                size
-                };
-
-                return bufferInfo;
-            }
-            else
-            {
-                Carbo::Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
             }
         }
 
@@ -291,7 +221,115 @@ namespace nihil::graphics
                 Carbo::Logger::Exception("Failed to find suitable memory type to create buffer");
             }
         }
+    public:
+        ///The getter for the vk::Buffer
+        inline vk::Buffer _buffer() { return buffer; };
+        ///Returns the size of the buffer in bytes
+        inline size_t _size() const { return size; };
+        ///Returns the size of the buffer in units of its type
+        inline size_t _typedSize() const { return data.size(); };
 
+        ///The getter for the underlying data, here std::vector<U>
+        inline T& _data() { return data; };
+
+        ///The getter for the engine that owns this buffer
+        inline const Engine* _engine() const { return engine; };
+
+        // Disable copy
+        Buffer(const Buffer&) = delete;
+        Buffer& operator=(const Buffer&) = delete;
+
+        // Enable move
+        Buffer(Buffer&&) noexcept = default;
+        Buffer& operator=(Buffer&&) noexcept = default;
+
+        ///The function to copy one buffer to another
+        //
+        ///@tparam updateModeT Whether the updates are to be accumulated or flushed immediately
+        //
+        ///@param src The source vk::Buffer
+        ///@param dst The destination vk::Buffer
+        ///@param size The size of both buffers, must be equal
+        ///@param engine The pointer to the Engine owning the buffers
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
+        static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, Engine* engine)
+        {
+            copyBufferImpl<updateModeT>(src, dst, size, { 0, 0, size }, engine);
+        }
+
+        ///The function to a region of one buffer into a region of another buffer
+        //
+        ///@tparam updateModeT Whether the updates are to be accumulated or flushed immediately
+        //
+        ///@param src The source vk::Buffer
+        ///@param dst The destination vk::Buffer
+        ///@param copyRegion The vk::BufferCopy describing the copies effective region
+        ///@param size The destination buffers size
+        ///@param engine The pointer to the Engine owning the buffers
+        template<UpdateMode updateModeT = UpdateMode::Immediate>
+        static inline void copyBuffer(vk::Buffer src, vk::Buffer dst, size_t size, vk::BufferCopy copyRegion, Engine* engine)
+        {
+            copyBufferImpl<updateModeT>(src, dst, size, copyRegion, engine);
+        }
+
+        ///Gives you the vk::DescriptorSetLayoutBinding for this buffer
+        //
+        ///@param shaderStage The flags for the stages the buffer can be bound to
+        ///@param binding The binding index in the set that this binding is for
+        ///@return The vk::DescriptorSetLayoutBinding object for this buffer
+        vk::DescriptorSetLayoutBinding  getDescriptorSetLayoutBinding(vk::ShaderStageFlags shaderStage, uint32_t binding)
+        {
+            if constexpr (
+                usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
+                usageT == vk::BufferUsageFlagBits::eUniformBuffer
+                )
+            {
+                vk::DescriptorSetLayoutBinding bufferBinding{};
+                bufferBinding.binding = binding;
+                /*samplerBinding.descriptorType = vk::DescriptorType::;*/
+                if constexpr (usageT == vk::BufferUsageFlagBits::eStorageBuffer) bufferBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+                else if constexpr (usageT == vk::BufferUsageFlagBits::eUniformBuffer) bufferBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
+                bufferBinding.descriptorCount = 1;
+                bufferBinding.stageFlags = shaderStage;
+                bufferBinding.pImmutableSamplers = nullptr;
+
+                return bufferBinding;
+            }
+            else
+            {
+                Carbo::Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
+            }
+        }
+
+        ///Gives you the vk::DescriptorBufferInfo for this buffer
+        //
+        ///@return The vk::DescriptorBufferInfo for this buffer
+        vk::DescriptorBufferInfo getDescriptorInfo()
+        {
+            if constexpr (
+                usageT == vk::BufferUsageFlagBits::eStorageBuffer ||
+                usageT == vk::BufferUsageFlagBits::eUniformBuffer
+                )
+            {
+                vk::DescriptorBufferInfo bufferInfo{
+                buffer,
+                0,
+                size
+                };
+
+                return bufferInfo;
+            }
+            else
+            {
+                Carbo::Logger::Exception("Cannot bind buffer of type: {} via a descriptor set.", usageT);
+            }
+        }
+
+        ///The constructor that copies the vector
+        //
+        ///@param _data The constant reference to the data to be copied
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(const T& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             break_assert(_data.size() != 0);
@@ -301,6 +339,11 @@ namespace nihil::graphics
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
+        ///The constructor that moves the data
+        //
+        ///@param _data The data to be moved
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(T&& _data, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             break_assert(_data.size() != 0);
@@ -310,6 +353,12 @@ namespace nihil::graphics
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
+        ///The constructor that copies the data from a vector through a pointer
+        //
+        ///@param _data The pointer to the data that needs to be copied
+        ///@param _size The size of the data to be copied
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(const U* _data, size_t _size, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             break_assert(_size != 0);
@@ -324,7 +373,12 @@ namespace nihil::graphics
             BufferConstructorImpl(_engine, _assetUsage);
         }
 
-        //Consuming constructor, the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        ///Consuming constructor (copying new data), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        //
+        ///@param source The source buffer that'll be consumed
+        ///@param newData The const reference to the newData that'll be copied
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(Buffer& source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
@@ -338,6 +392,12 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newData.size());
         }
 
+        ///Consuming constructor (moving new data), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        //
+        ///@param source The source buffer that'll be consumed
+        ///@param newData The newData that'll be moved
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(Buffer& source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
@@ -351,7 +411,13 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newData.size());
         }
 
-        Buffer(Buffer& source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        ///Consuming constructor (copying new data, through pointer), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        //
+        ///@param source The source buffer that'll be consumed
+        ///@param newData The pointer to the newData that'll be copied
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
+        Buffer(Buffer& source, U* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source.data);
 
@@ -364,6 +430,12 @@ namespace nihil::graphics
             BufferConsumeImpl(&source, newDataSize);
         }
 
+        ///Consuming constructor (copying new data), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        //
+        ///@param source The source buffer that'll be consumed
+        ///@param newData The const reference to the newData that'll be copied
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(Buffer* source, const T& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
@@ -378,6 +450,12 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newData.size());
         }
 
+        ///Consuming constructor (moving new data), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        //
+        ///@param source The source buffer that'll be consumed
+        ///@param newData The newData that'll be moved
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
         Buffer(Buffer* source, T&& newData, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
@@ -391,7 +469,14 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newData.size());
         }
 
-        Buffer(Buffer* source, T* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
+        ///Consuming constructor (copying new data, pointer to data), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        ///Consuming constructor (copying new data, through pointer), the old (smaller) buffer is copied into the new one so that we get the "growing" effect. After this constuctor the buffer will be on GPU. THE OLD BUFFER IS UNUSABLE.
+        //
+        ///@param source The source buffer that'll be consumed
+        ///@param newData The pointer to the newData that'll be copied
+        ///@param _engine The Engine owning the buffer
+        ///@param _assetUsage The asset usage, don't use this unless it's a StorageBuffer or UniformBuffer
+        Buffer(Buffer* source, U* newData, size_t newDataSize, Engine* _engine, AssetUsage _assetUsage = AssetUsage::Undefined) : Asset(_assetUsage, _engine)
         {
             data = std::move(source->data);
 
@@ -404,6 +489,7 @@ namespace nihil::graphics
             BufferConsumeImpl(source, newDataSize);
         }
 
+        ///This function allocates the buffer on GPU, can be called when already on GPU it just ignores it.
         void allocateOnGPU()
         {
             if (allocatedOnGPU()) return;
@@ -441,6 +527,9 @@ namespace nihil::graphics
             setBufferCreated(true);
         }
         
+        ///The function for moving the actuall data onto the GPU
+        //
+        ///@tparam updateModeT Whether the updates are to be accumulated or flushed immediately 
         template<UpdateMode updateModeT = UpdateMode::Immediate>
         void moveToGPU()
         {
@@ -473,6 +562,7 @@ namespace nihil::graphics
             setOnGPU(true);
         }
 
+        ///Frees the memory from GPU
         inline void freeFromGPU()
         {
             if (!allocatedOnGPU()) return;
@@ -591,6 +681,7 @@ namespace nihil::graphics
             }
         }
     public:
+        ///Used with the direct write optimization on mainly on UMA architectures. This initiates the direct write mode.
         inline void beginDirectWrite()
         {
             preRecordingUpdateMode = updateMode;
@@ -609,6 +700,7 @@ namespace nihil::graphics
             }
         }
 
+        ///Flushes all of the direct writes to the GPU if not on UMA. This ends the direct write mode.
         void executeDirectWrites()
         {
             updateMode = preRecordingUpdateMode;
@@ -674,11 +766,15 @@ namespace nihil::graphics
             std::ignore = engine->_transferQueue().submit(1, &submitInfo, engine->_transferFence());
         }
 
+        ///Sets the global update mode.
+        //
+        ///@param _updateMode The update mode to be set
         inline void setUpdateMode(UpdateMode _updateMode)
         {
             updateMode = _updateMode;
         }
 
+        ///Initiates the recording update mode.
         inline void beginUpdateRecording()
         {
             preRecordingUpdateMode = updateMode;
@@ -688,6 +784,7 @@ namespace nihil::graphics
             updateOptimizer.commands.reserve(128);
         }
 
+        ///Flushes the recorded updates onto the GPU.
         void executeRecordedUpdates()
         {
             bool wasOnGPU = onGPU();
@@ -742,6 +839,9 @@ namespace nihil::graphics
             if (!wasOnGPU) freeFromGPU();
         }
 
+        ///Used to update the entire data from a vector, copies
+        //
+        ///@param _data The data to be copied
         void update(const T& _data)
         {
             break_assert(_data.size() == data.size());
@@ -758,6 +858,9 @@ namespace nihil::graphics
             }
         }
 
+        ///Used to update the entire data from a vector, moves
+        //
+        ///@param _data The data to be moved
         void update(const T&& _data)
         {
             break_assert(_data.size() == data.size());
@@ -774,6 +877,10 @@ namespace nihil::graphics
             }
         }
 
+        ///Used to update the entire data from a vector, copies through pointer to data
+        //
+        ///@param _data The data to be copied
+        ///@param _size The size of the data
         void update(const U* _data, size_t _size)
         {
             break_assert(data.size() == _size);
@@ -790,6 +897,10 @@ namespace nihil::graphics
             }
         }
 
+        ///Used to update part of the data from a vector, copies through pointer to data
+        //
+        ///@param _data The data to be copied
+        ///@param updateRegion The region to be updated
         void update(const U* _data, vk::BufferCopy updateRegion)
         {
             break_assert(_data != nullptr);
@@ -814,6 +925,7 @@ namespace nihil::graphics
             }
         }
 
+        ///The helper destructor
         void destroy()
         {
             break_assert(!destroyed());

@@ -1,8 +1,10 @@
+/**
+ * @file Resources.hpp
+ * @brief Convenience header that includes every RAII Resource specialization in this folder.
+ *
+ * @note All of the Resources are immutable objects, except for the SwapchainKHR because Vulkan requires you to recreate the swapchain manually.
+ */
 #pragma once
-
-/*
-    ! All of the Resources are immutable objects, except for the SwapchainKHR because Vulkan requires you to recreate the swapchain manually
-*/
 
 #include "Instance.hpp"
 #include "Device.hpp"

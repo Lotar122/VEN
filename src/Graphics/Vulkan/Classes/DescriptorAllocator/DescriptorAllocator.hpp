@@ -23,6 +23,7 @@ At swapchain recreation the pools are recreated (in the sense that the per frame
 
 namespace nihil::graphics
 {
+	///An allocator for descriptors. !!!THIS IS UNFINISHED!!!
 	class DescriptorAllocator : public onSwapchainRecreationListener
 	{
 	private:
